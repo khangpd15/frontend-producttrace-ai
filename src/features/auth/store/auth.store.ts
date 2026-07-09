@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi, LoginRequest, UserProfile } from '../api/auth.api';
-import { tokenStorage } from '../../../api/axios';
+import { tokenStorage } from '../../../api/tokenStorage';
 
 // ─── Store State / Actions ────────────────────────────────────────────────────
 
@@ -51,8 +51,8 @@ export const useAuthStore = create<AuthState>()(
           const { access_token, refresh_token } = data.data;
 
           // Persist tokens
-          tokenStorage.setAccess(access_token);
-          tokenStorage.setRefresh(refresh_token);
+          tokenStorage.setAccessToken(access_token);
+          tokenStorage.setRefreshToken(refresh_token);
 
           set({
             accessToken: access_token,
@@ -98,14 +98,14 @@ export const useAuthStore = create<AuthState>()(
 
       // ── setTokens ─────────────────────────────────────────────────────────
       setTokens: (accessToken, refreshToken) => {
-        tokenStorage.setAccess(accessToken);
-        tokenStorage.setRefresh(refreshToken);
+        tokenStorage.setAccessToken(accessToken);
+        tokenStorage.setRefreshToken(refreshToken);
         set({ accessToken, refreshToken, isAuthenticated: true });
       },
 
       // ── clear ─────────────────────────────────────────────────────────────
       clear: () => {
-        tokenStorage.clear();
+        tokenStorage.clearTokens();
         set({
           accessToken: null,
           refreshToken: null,

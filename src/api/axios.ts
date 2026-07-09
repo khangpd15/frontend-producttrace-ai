@@ -4,6 +4,7 @@ import axios, {
   InternalAxiosRequestConfig,
   AxiosResponse,
 } from 'axios';
+import { tokenStorage } from './tokenStorage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,22 +23,6 @@ export interface ApiError {
   data: null;
 }
 
-// ─── Token helpers (thin wrappers around localStorage) ────────────────────────
-
-const TOKEN_KEY = 'pt_access_token';
-const REFRESH_KEY = 'pt_refresh_token';
-
-export const tokenStorage = {
-  getAccess: () => localStorage.getItem(TOKEN_KEY),
-  setAccess: (t: string) => localStorage.setItem(TOKEN_KEY, t),
-  getRefresh: () => localStorage.getItem(REFRESH_KEY),
-  setRefresh: (t: string) => localStorage.setItem(REFRESH_KEY, t),
-  clear: () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-  },
-};
-
 // ─── Axios instance ───────────────────────────────────────────────────────────
 
 const baseURL = import.meta.env.VITE_API_URL ?? '/api';
@@ -53,7 +38,7 @@ export const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = tokenStorage.getAccess();
+    const token = tokenStorage.getAccessToken();
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -91,11 +76,11 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const refreshToken = tokenStorage.getRefresh();
+    const refreshToken = tokenStorage.getRefreshToken();
 
     // No refresh token → force logout
     if (!refreshToken) {
-      tokenStorage.clear();
+      tokenStorage.clearTokens();
       // Redirect to login without importing router (avoids circular deps)
       window.location.href = '/login';
       return Promise.reject(error);
@@ -129,8 +114,11 @@ apiClient.interceptors.response.use(
       );
 
       const { access_token, refresh_token } = data.data;
-      tokenStorage.setAccess(access_token);
-      tokenStorage.setRefresh(refresh_token);
+      tokenStorage.setAccessToken(access_token);
+      tokenStorage.setRefreshToken(refresh_token);
+
+      // Update axios default header
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
 
       // Notify all queued requests
       onRefreshed(access_token);
@@ -142,7 +130,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (refreshError) {
       // Refresh failed — logout
-      tokenStorage.clear();
+      tokenStorage.clearTokens();
       window.location.href = '/login';
       return Promise.reject(refreshError);
     } finally {
