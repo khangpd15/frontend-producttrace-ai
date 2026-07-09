@@ -108,13 +108,23 @@ function EditProductRoute() {
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export default function AppRouter() {
-  const { isAuthenticated, user, fetchProfile, isLoading } = useAuthStore();
+  const { isAuthenticated, user, fetchProfile, isLoading, _hasHydrated } = useAuthStore();
 
   useEffect(() => {
     if (isAuthenticated && !user && !isLoading) {
       fetchProfile().catch(() => {});
     }
   }, [isAuthenticated, user, fetchProfile, isLoading]);
+
+  // Wait for Zustand hydration to finish on initial mount
+  if (!_hasHydrated) {
+    return <PageLoader />;
+  }
+
+  // If authenticated but profile has not loaded yet, block routing to prevent race conditions
+  if (isAuthenticated && !user) {
+    return <PageLoader />;
+  }
 
   return (
     <BrowserRouter>

@@ -20,6 +20,8 @@ interface AuthState {
   isLoading: boolean;
   /** True once we have confirmed the session (token + profile) */
   isAuthenticated: boolean;
+  /** Hydration state for Zustand persist */
+  _hasHydrated: boolean;
 
   // ── Actions ──────────────────────────────────────────────────────────────
   login: (credentials: LoginRequest) => Promise<void>;
@@ -29,6 +31,7 @@ interface AuthState {
   setTokens: (accessToken: string, refreshToken: string) => void;
   /** Reset state (used on hard-logout / token expiry) */
   clear: () => void;
+  setHasHydrated: (state: boolean) => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -42,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
       role: null,
       isLoading: false,
       isAuthenticated: false,
+      _hasHydrated: false,
 
       // ── login ─────────────────────────────────────────────────────────────
       login: async (credentials) => {
@@ -50,18 +54,21 @@ export const useAuthStore = create<AuthState>()(
           const { data } = await authApi.login(credentials);
           const { access_token, refresh_token } = data.data;
 
-          // Persist tokens
+          // Persist tokens in localStorage immediately
           tokenStorage.setAccessToken(access_token);
           tokenStorage.setRefreshToken(refresh_token);
 
+          // Fetch profile using the newly set token before updating isAuthenticated state
+          // to prevent React Router race conditions / premature redirects
+          const profileRes = await authApi.getProfile();
+          
           set({
             accessToken: access_token,
             refreshToken: refresh_token,
+            user: profileRes.data.data,
+            role: profileRes.data.data.role as UserRole,
             isAuthenticated: true,
           });
-
-          // Fetch profile immediately so `user` / `role` are populated
-          await get().fetchProfile();
         } finally {
           set({ isLoading: false });
         }
@@ -83,6 +90,7 @@ export const useAuthStore = create<AuthState>()(
 
       // ── fetchProfile ──────────────────────────────────────────────────────
       fetchProfile: async () => {
+        set({ isLoading: true });
         try {
           const { data } = await authApi.getProfile();
           set({
@@ -93,6 +101,8 @@ export const useAuthStore = create<AuthState>()(
         } catch {
           // Profile fetch failure means session is invalid
           get().clear();
+        } finally {
+          set({ isLoading: false });
         }
       },
 
@@ -115,6 +125,10 @@ export const useAuthStore = create<AuthState>()(
           isLoading: false,
         });
       },
+
+      setHasHydrated: (state) => {
+        set({ _hasHydrated: state });
+      },
     }),
     {
       name: 'pt-auth-store',
@@ -124,6 +138,9 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );
