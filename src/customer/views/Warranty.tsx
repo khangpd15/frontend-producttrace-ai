@@ -111,3 +111,5 @@ export function Warranty({ onBack }: { onBack: () => void }) {
     </div>
   );
 }
+
+export default Warranty;

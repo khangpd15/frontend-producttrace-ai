@@ -143,3 +143,5 @@ export function Home({ onScan, onNavigate }: { onScan: () => void; onNavigate: (
     </div>
   );
 }
+
+export default Home;

@@ -105,3 +105,5 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
     </div>
   );
 }
+
+export default ProductDetail;

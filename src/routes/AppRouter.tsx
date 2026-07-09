@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import ProtectedRoute from './guards/ProtectedRoute';
 import GuestRoute from './guards/GuestRoute';
+import { useAuthStore } from '../features/auth/store/auth.store';
 
 // ─── Layouts ──────────────────────────────────────────────────────────────────
 import AdminLayout from '../layouts/AdminLayout';
@@ -107,6 +108,14 @@ function EditProductRoute() {
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export default function AppRouter() {
+  const { isAuthenticated, user, fetchProfile, isLoading } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated && !user && !isLoading) {
+      fetchProfile().catch(() => {});
+    }
+  }, [isAuthenticated, user, fetchProfile, isLoading]);
+
   return (
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>

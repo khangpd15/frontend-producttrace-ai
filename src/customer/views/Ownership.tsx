@@ -151,3 +151,5 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
     </div>
   );
 }
+
+export default Ownership;

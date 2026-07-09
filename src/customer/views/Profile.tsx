@@ -120,3 +120,5 @@ export function Profile({ onBack }: { onBack: () => void }) {
     </div>
   );
 }
+
+export default Profile;

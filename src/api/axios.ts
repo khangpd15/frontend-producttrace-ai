@@ -46,6 +46,7 @@ export const apiClient: AxiosInstance = axios.create({
   baseURL,
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
 // ─── Request Interceptor: attach Authorization header ─────────────────────────
@@ -121,7 +122,10 @@ apiClient.interceptors.response.use(
       const { data } = await axios.post<ApiResponse<{ access_token: string; refresh_token: string }>>(
         `${baseURL}/auth/refresh`,
         { refresh_token: refreshToken },
-        { headers: { 'Content-Type': 'application/json' } },
+        { 
+          headers: { 'Content-Type': 'application/json' },
+          withCredentials: true,
+        },
       );
 
       const { access_token, refresh_token } = data.data;
