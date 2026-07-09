@@ -30,7 +30,10 @@ const baseURL = import.meta.env.VITE_API_URL ?? '/api';
 export const apiClient: AxiosInstance = axios.create({
   baseURL,
   timeout: 15_000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
+  },
   withCredentials: true,
 });
 
@@ -108,7 +111,10 @@ apiClient.interceptors.response.use(
         `${baseURL}/auth/refresh`,
         { refresh_token: refreshToken },
         { 
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          },
           withCredentials: true,
         },
       );
