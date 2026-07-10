@@ -168,11 +168,40 @@ export default function AppRouter() {
 
           {/* Protected: Customer */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/customer/scan"    element={<CustomerHome onScan={() => {}} onNavigate={() => {}} />} />
-            <Route path="/customer/product" element={<CustomerProductDetail onBack={() => {}} onRequestWarranty={() => {}} onRegisterOwnership={() => {}} />} />
-            <Route path="/customer/ownership" element={<CustomerOwnership onBack={() => {}} onRegister={() => {}} />} />
-            <Route path="/customer/warranty"  element={<CustomerWarranty onBack={() => {}} />} />
-            <Route path="/customer/profile"   element={<CustomerProfile onBack={() => {}} />} />
+            <Route path="/customer/scan" element={
+              <CustomerHome 
+                onScan={() => {
+                  const code = prompt('Quét mã QR sản phẩm (nhập Serial hoặc Mã sản phẩm):');
+                  if (code && code.trim()) {
+                    window.location.href = `/customer/product?code=${encodeURIComponent(code.trim())}`;
+                  }
+                }} 
+                onNavigate={(tabId, id) => {
+                  if (tabId === 'product-detail' && id) {
+                    window.location.href = `/customer/product?id=${id}`;
+                  }
+                }} 
+              />
+            } />
+            <Route path="/customer/product" element={
+              <CustomerProductDetail 
+                onBack={() => window.history.back()} 
+                onRequestWarranty={() => window.location.href = '/customer/warranty'} 
+                onRegisterOwnership={() => window.location.href = '/customer/ownership'} 
+              />
+            } />
+            <Route path="/customer/ownership" element={
+              <CustomerOwnership 
+                onBack={() => window.history.back()} 
+                onRegister={() => window.location.href = '/customer/ownership'} 
+              />
+            } />
+            <Route path="/customer/warranty" element={
+              <CustomerWarranty onBack={() => window.history.back()} />
+            } />
+            <Route path="/customer/profile" element={
+              <CustomerProfile onBack={() => window.history.back()} />
+            } />
           </Route>
 
           {/* 404 */}
