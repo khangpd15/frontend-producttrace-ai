@@ -36,6 +36,7 @@ const CustomerProductDetail = lazy(() => import('../customer/views/ProductDetail
 const CustomerOwnership     = lazy(() => import('../customer/views/Ownership'));
 const CustomerWarranty      = lazy(() => import('../customer/views/Warranty'));
 const CustomerProfile       = lazy(() => import('../customer/views/Profile'));
+const VerifyPage            = lazy(() => import('../features/verify/pages/VerifyPage'));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,9 @@ export default function AppRouter() {
         <Routes>
           {/* Root */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* Public QR Verification */}
+          <Route path="/verify" element={<VerifyPage />} />
 
           {/* Guest-only */}
           <Route element={<GuestRoute />}>
