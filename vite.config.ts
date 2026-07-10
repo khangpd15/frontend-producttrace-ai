@@ -8,14 +8,14 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@':         path.resolve(__dirname, './src'),
-        '@shared':   path.resolve(__dirname, './src/shared'),
-        '@admin':    path.resolve(__dirname, './src/admin'),
+        '@': path.resolve(__dirname, './src'),
+        '@shared': path.resolve(__dirname, './src/shared'),
+        '@admin': path.resolve(__dirname, './src/admin'),
         '@customer': path.resolve(__dirname, './src/customer'),
         '@features': path.resolve(__dirname, './src/features'),
-        '@routes':   path.resolve(__dirname, './src/routes'),
-        '@layouts':  path.resolve(__dirname, './src/layouts'),
-        '@api':      path.resolve(__dirname, './src/api'),
+        '@routes': path.resolve(__dirname, './src/routes'),
+        '@layouts': path.resolve(__dirname, './src/layouts'),
+        '@api': path.resolve(__dirname, './src/api'),
       },
     },
     server: {
@@ -23,6 +23,20 @@ export default defineConfig(() => {
       host: '0.0.0.0',
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, _res) => {
+              // Delete Origin header to bypass Kong CORS completely,
+              // or set it to an allowed origin
+              proxyReq.setHeader('Origin', 'http://localhost:3000');
+            });
+          },
+        },
+      },
     },
     build: {
       // Increase chunk size warning threshold (some pages are legitimately large)

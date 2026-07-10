@@ -1,6 +1,10 @@
-import { QrCode, Search, MapPin, Bell, User, Package, ShieldCheck, Clock, Tag, Smartphone, Tv, Zap, Flame, Wind } from 'lucide-react';
+import { QrCode, Search, MapPin, Bell, Package, ShieldCheck, Clock, Tag, Smartphone, Tv, Zap, Flame, Wind } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../features/auth/store/auth.store';
+import { productApi } from '../../features/products/api/product.api';
+import { AdminProduct } from '../../shared/types/domain';
 
 type Status = 'ACTIVE' | 'DRAFT' | 'DISCONTINUED';
 
@@ -14,13 +18,55 @@ interface Product {
   isHot?: boolean;
 }
 
-export function Home({ onScan, onNavigate }: { onScan: () => void; onNavigate: (tabId: string, id?: string) => void }) {
-  const [products] = useState<Product[]>([
-    { id: '1', name: 'Máy lọc nước RO Kangaroo', category: 'Thiết bị gia dụng', price: '3.500.000đ', status: 'ACTIVE', imageUrl: '', isHot: true },
-    { id: '2', name: 'Tấm pin năng lượng mặt trời JA Solar', category: 'Năng lượng', price: '2.800.000đ', status: 'ACTIVE', imageUrl: '', isHot: false },
-    { id: '3', name: 'Sơn chống thấm ngoại thất Spec', category: 'Vật liệu xây dựng', price: '320.000đ', status: 'DRAFT', imageUrl: '', isHot: true },
-    { id: '4', name: 'Thực phẩm chức năng Omega-3', category: 'Dược phẩm', price: '280.000đ', status: 'DISCONTINUED', imageUrl: '' },
-  ]);
+export function Home({ onScan, onNavigate }: { onScan?: () => void; onNavigate?: (tabId: string, id?: string) => void }) {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [searchVal, setSearchVal] = useState('');
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
+  useEffect(() => {
+    async function fetchProducts() {
+      setIsLoadingProducts(true);
+      try {
+        const { data } = await productApi.getAll({ page: 1, limit: 10, status: 'ACTIVE' });
+        const items = data.data.items || [];
+        const mapped: Product[] = items.map((p, index) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category || 'Thiết bị',
+          price: 'Chi tiết',
+          status: p.status as Status,
+          imageUrl: p.thumbnail_url || '',
+          isHot: index % 2 === 0, // Simulate hot tag based on index
+        }));
+        setProducts(mapped);
+      } catch (err) {
+        console.error('Failed to fetch customer products', err);
+      } finally {
+        setIsLoadingProducts(false);
+      }
+    }
+    fetchProducts();
+  }, []);
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (searchVal.trim()) {
+      navigate(`/customer/product?code=${encodeURIComponent(searchVal.trim())}`);
+    }
+  };
+
+  const handleScanMock = () => {
+    if (onScan) {
+      onScan();
+    } else {
+      const code = prompt('Quét mã QR sản phẩm (nhập Serial hoặc Mã sản phẩm):');
+      if (code && code.trim()) {
+        navigate(`/customer/product?code=${encodeURIComponent(code.trim())}`);
+      }
+    }
+  };
 
   const categories = [
     { name: 'Gia dụng', icon: <Wind size={24} /> },
@@ -36,7 +82,13 @@ export function Home({ onScan, onNavigate }: { onScan: () => void; onNavigate: (
         <span className="font-bold text-xl text-blue-600">ProductTrace</span>
         <div className="flex items-center gap-2">
             <button className="p-2 text-slate-600"><Bell size={20} /></button>
-            <div className="w-8 h-8 rounded-full bg-slate-200" />
+            <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center">
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs font-bold text-slate-600">{user?.full_name?.charAt(0)}</span>
+              )}
+            </div>
         </div>
       </header>
 
@@ -44,7 +96,7 @@ export function Home({ onScan, onNavigate }: { onScan: () => void; onNavigate: (
         {/* Welcome Section */}
         <section>
           <h1 className="text-xl font-bold text-slate-900">Xin chào,</h1>
-          <p className="text-lg font-semibold text-slate-700">Nguyễn Văn An</p>
+          <p className="text-lg font-semibold text-slate-700">{user?.full_name || 'Khách hàng'}</p>
           <p className="text-sm text-slate-500 mt-1">Tất cả sản phẩm của bạn đều được bảo vệ và truy xuất</p>
         </section>
 
@@ -60,18 +112,24 @@ export function Home({ onScan, onNavigate }: { onScan: () => void; onNavigate: (
         </section>
 
         {/* Search Section */}
-        <section className="relative">
+        <form onSubmit={handleSearchSubmit} className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <input type="text" placeholder="Serial number, tên sản phẩm..." className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
-        </section>
+          <input 
+            type="text" 
+            placeholder="Serial number, tên sản phẩm..." 
+            value={searchVal}
+            onChange={(e) => setSearchVal(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm" 
+          />
+        </form>
 
         {/* Main Actions Section */}
         <section className="grid grid-cols-2 gap-4">
-          <button onClick={onScan} className="bg-blue-600 rounded-2xl p-4 flex flex-col items-center gap-2 text-white shadow-lg">
+          <button onClick={handleScanMock} className="bg-blue-600 rounded-2xl p-4 flex flex-col items-center gap-2 text-white shadow-lg cursor-pointer">
             <QrCode size={32} />
             <span className="font-semibold">Quét QR</span>
           </button>
-          <button className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center gap-2 text-slate-900 shadow-sm">
+          <button onClick={() => handleSearchSubmit()} className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center gap-2 text-slate-900 shadow-sm cursor-pointer">
             <Search size={32} className="text-blue-600" />
             <span className="font-semibold">Tra cứu</span>
           </button>
@@ -101,33 +159,45 @@ export function Home({ onScan, onNavigate }: { onScan: () => void; onNavigate: (
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Flame className="text-orange-500" size={24} /> Sản phẩm nổi bật
           </h2>
-          <div className="grid grid-cols-2 gap-4">
-            {products.map(p => (
-              <motion.div
-                key={p.id}
-                whileHover={{ y: -5 }}
-                onClick={() => onNavigate('product-detail', p.id)}
-                className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col cursor-pointer relative overflow-hidden"
-              >
-                {p.isHot && (
-                  <div className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10">HOT</div>
-                )}
-                <div className="w-full aspect-square bg-slate-100 rounded-xl mb-3 flex items-center justify-center text-slate-400">
-                  <Tag size={40} />
-                </div>
-                <p className="text-[10px] text-slate-500 mb-1 font-medium">{p.category}</p>
-                <h3 className="text-sm font-bold text-slate-900 line-clamp-2 mb-2 leading-snug">{p.name}</h3>
-                <p className="text-md font-extrabold text-blue-600 mt-auto">{p.price}</p>
-              </motion.div>
-            ))}
-          </div>
+          {isLoadingProducts ? (
+            <div className="flex justify-center items-center py-10">
+              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : products.length === 0 ? (
+            <p className="text-xs text-slate-500 text-center py-10">Không có sản phẩm nào</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {products.map(p => (
+                <motion.div
+                  key={p.id}
+                  whileHover={{ y: -5 }}
+                  onClick={() => navigate(`/customer/product?id=${p.id}`)}
+                  className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col cursor-pointer relative overflow-hidden"
+                >
+                  {p.isHot && (
+                    <div className="absolute top-2 left-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full z-10">HOT</div>
+                  )}
+                  <div className="w-full aspect-square bg-slate-100 rounded-xl mb-3 flex items-center justify-center text-slate-400 overflow-hidden">
+                    {p.imageUrl ? (
+                      <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Tag size={40} />
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mb-1 font-medium">{p.category}</p>
+                  <h3 className="text-sm font-bold text-slate-900 line-clamp-2 mb-2 leading-snug">{p.name}</h3>
+                  <p className="text-md font-extrabold text-blue-600 mt-auto">{p.price}</p>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Nearby Stores Section */}
         <section>
           <div className="flex justify-between items-center mb-4">
               <h2 className="font-bold text-slate-800">Gần bạn</h2>
-              <button className="text-sm text-blue-600 font-semibold">Xem bản đồ</button>
+              <button className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer">Xem bản đồ</button>
           </div>
           <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
             <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center">

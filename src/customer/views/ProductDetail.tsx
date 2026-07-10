@@ -1,48 +1,232 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TopAppBar } from '../components/layout/TopAppBar';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Package, MapPin, User, List, ShieldCheck } from 'lucide-react';
+import { Package, MapPin, User, List, ShieldCheck, AlertCircle } from 'lucide-react';
 import { ProductDetailData } from '../types';
+import { traceApi } from '../../features/trace/api/trace.api';
+import { productApi } from '../../features/products/api/product.api';
 
 export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }: { onBack: () => void; onRequestWarranty: () => void; onRegisterOwnership: () => void }) {
-  const product: ProductDetailData = {
-    item: { id: '1', itemCode: 'QR-123456789', serialNumber: 'SN-987654321', status: 'IN_STOCK' },
-    product: { id: '1', code: 'P001', name: 'Máy lọc nước RO Kangaroo VT3', description: 'Máy lọc nước RO Kangaroo VT3 với công nghệ lọc ngược thẩm thấu hiện đại.', categoryId: 'cat1', status: 'ACTIVE', quantity: 10, createdAt: '2024-01-01', updatedAt: '2024-01-01', updatedBy: 'Admin' },
-    category: { name: 'Thiết bị gia dụng', code: 'GADGET' },
-    variant: { sku: 'SKU-001', name: 'Standard', price: 3500000, currency: 'VND' },
-    batch: { batchCode: 'B-2024', manufactureDate: '2024-01-01', expiryDate: '2026-01-01', manufacturerName: 'Kangaroo VN', originCountry: 'Vietnam', status: 'ACTIVE' },
-    location: { name: 'Kho Miền Nam', address: '123 Nguyễn Văn Linh, Q7', type: 'WAREHOUSE' },
-    // ownership: { ownerName: 'Nguyễn Văn An', ownershipType: 'PRIMARY', purchaseDate: '2024-05-15', status: 'ACTIVE' },
-    ownership: undefined,
-    warranty: { warrantyId: 'W-987654', productId: '1', activationDate: '2024-05-15', expiryDate: '2026-05-15', warrantyStatus: 'ACTIVE', warrantyPeriodMonths: 24 },
-    events: [
-      { type: 'PRODUCED', title: 'Sản xuất', description: 'Sản phẩm được đóng gói', createdAt: '2024-01-01', actor: { name: 'Công nhân A', role: 'Staff' }, location: { name: 'Nhà máy 1', address: 'KCN Tân Bình' }, attachments: [] },
-      { type: 'SALE', title: 'Bán hàng', description: 'Đã bán', createdAt: '2024-05-15', actor: { name: 'Cửa hàng A', role: 'Dealer' }, location: { name: 'Cửa hàng A', address: '123 Nguyễn Huệ' }, attachments: [] },
-    ],
-    lifecycle: ['PRODUCED', 'PACKED', 'WAREHOUSE_IN', 'SOLD'],
-    documents: [],
-    statistics: { scanCount: 15, transferCount: 2, warrantyCount: 0, eventCount: 2 },
+  const navigate = useNavigate();
+  const [productData, setProductData] = useState<ProductDetailData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const queryParams = new URLSearchParams(window.location.search);
+  const codeParam = queryParams.get('code');
+  const idParam = queryParams.get('id');
+
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        if (codeParam) {
+          // Fetch from Trace Search API
+          const { data } = await traceApi.search({ code: codeParam });
+          const traceRes = data.data;
+
+          if (!traceRes || !traceRes.productItem) {
+            setError('Không tìm thấy sản phẩm với mã đã nhập.');
+            setProductData(null);
+            return;
+          }
+
+          const item = traceRes.productItem;
+          // Map to ProductDetailData
+          const mapped: ProductDetailData = {
+            item: {
+              id: item.itemId,
+              itemCode: item.itemCode,
+              serialNumber: item.serialNumber,
+              status: item.status,
+            },
+            product: {
+              id: '',
+              code: '',
+              name: item.productName,
+              description: 'Thông tin được cập nhật qua Trace System.',
+              categoryId: '',
+              status: 'ACTIVE',
+              quantity: 0,
+              createdAt: '',
+              updatedAt: '',
+              updatedBy: '',
+            },
+            category: { name: 'Sản phẩm truy xuất', code: 'TRACED' },
+            variant: { sku: 'N/A', name: 'Standard', price: 0, currency: 'VND' },
+            batch: {
+              batchCode: 'N/A',
+              manufactureDate: 'N/A',
+              expiryDate: 'N/A',
+              manufacturerName: 'N/A',
+              originCountry: 'N/A',
+              status: 'ACTIVE',
+            },
+            location: { name: 'Hệ thống phân phối', address: 'Đang cập nhật', type: 'STORE' },
+            ownership: undefined,
+            warranty: undefined,
+            events: traceRes.timeline.map((e) => ({
+              type: e.eventType,
+              title: e.title,
+              description: e.description,
+              createdAt: e.timestamp ? new Date(e.timestamp).toLocaleDateString('vi-VN') : '',
+              actor: { name: 'Hệ thống', role: 'System' },
+              location: { name: e.location || 'N/A', address: '' },
+              attachments: [],
+            })),
+            lifecycle: [],
+            documents: [],
+            statistics: {
+              scanCount: traceRes.matchedEventsCount || 0,
+              transferCount: 0,
+              warrantyCount: 0,
+              eventCount: traceRes.timeline.length,
+            },
+          };
+          setProductData(mapped);
+        } else if (idParam) {
+          // Fetch from Product Detail API
+          const { data } = await productApi.getById(idParam);
+          const p = data.data;
+
+          if (!p) {
+            setError('Không tìm thấy thông tin chi tiết sản phẩm.');
+            setProductData(null);
+            return;
+          }
+
+          const firstItem = p.items && p.items[0];
+          const firstVariant = p.variants && p.variants[0];
+          const firstBatch = p.batches && p.batches[0];
+
+          const mapped: ProductDetailData = {
+            item: {
+              id: firstItem ? firstItem.id : p.id,
+              itemCode: firstItem ? firstItem.itemCode : 'N/A',
+              serialNumber: firstItem ? firstItem.serialNumber : 'N/A',
+              status: firstItem ? firstItem.status : 'N/A',
+            },
+            product: {
+              id: p.id,
+              code: p.slug,
+              name: p.name,
+              description: p.description,
+              categoryId: p.categoryId,
+              status: p.status,
+              quantity: p.totalVariants,
+              createdAt: p.createdAt,
+              updatedAt: p.updatedAt,
+              updatedBy: 'Admin',
+            },
+            category: { name: p.category, code: '' },
+            variant: {
+              sku: firstVariant ? firstVariant.sku : 'N/A',
+              name: firstVariant ? firstVariant.name : 'Standard',
+              price: firstVariant ? firstVariant.price : 0,
+              currency: firstVariant ? firstVariant.currency : 'VND',
+            },
+            batch: {
+              batchCode: firstBatch ? firstBatch.batchCode : 'N/A',
+              manufactureDate: firstBatch ? new Date(firstBatch.manufactureDate).toLocaleDateString('vi-VN') : 'N/A',
+              expiryDate: firstBatch ? new Date(firstBatch.expiryDate).toLocaleDateString('vi-VN') : 'N/A',
+              manufacturerName: firstBatch ? firstBatch.supplierName : 'N/A',
+              originCountry: firstBatch ? firstBatch.originCountry : 'N/A',
+              status: firstBatch ? firstBatch.status : 'ACTIVE',
+            },
+            location: {
+              name: firstItem && firstItem.locationName ? firstItem.locationName : 'Hệ thống kho',
+              address: 'Đang cập nhật',
+              type: 'WAREHOUSE',
+            },
+            ownership: undefined,
+            warranty: undefined,
+            events: p.traceEvents ? p.traceEvents.map((e) => ({
+              type: e.type.toUpperCase(),
+              title: e.event,
+              description: e.detail,
+              createdAt: e.timestamp ? new Date(e.timestamp).toLocaleDateString('vi-VN') : '',
+              actor: { name: e.actor, role: '' },
+              location: { name: e.location, address: '' },
+              attachments: [],
+            })) : [],
+            lifecycle: [],
+            documents: [],
+            statistics: {
+              scanCount: 0,
+              transferCount: 0,
+              warrantyCount: p.totalWarranties,
+              eventCount: p.traceEvents ? p.traceEvents.length : 0,
+            },
+          };
+          setProductData(mapped);
+        } else {
+          setError('Thiếu thông số truy xuất hoặc mã sản phẩm.');
+        }
+      } catch (err: any) {
+        console.error('Failed to load product detail', err);
+        setError(err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tải dữ liệu.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadData();
+  }, [codeParam, idParam]);
+
+  const handleBackClick = () => {
+    onBack();
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 pb-24">
+        <TopAppBar title="Chi tiết sản phẩm" showBack={true} onBackClick={handleBackClick} />
+        <div className="pt-24 px-4 flex justify-center items-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !productData) {
+    return (
+      <div className="min-h-screen bg-slate-50 pb-24">
+        <TopAppBar title="Chi tiết sản phẩm" showBack={true} onBackClick={handleBackClick} />
+        <div className="pt-24 px-4 max-w-md mx-auto text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto">
+            <AlertCircle size={24} />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">Lỗi tải dữ liệu</h3>
+          <p className="text-sm text-slate-500">{error || 'Không tìm thấy sản phẩm.'}</p>
+          <Button onClick={handleBackClick} className="w-full">Quay lại</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      <TopAppBar title="Chi tiết sản phẩm" showBack={true} onBackClick={onBack} />
+      <TopAppBar title="Chi tiết sản phẩm" showBack={true} onBackClick={handleBackClick} />
       
       <div className="pt-20 p-4 space-y-6">
         {/* Header */}
         <Card className="p-4 space-y-4">
             <div className='flex items-center gap-4'>
-                <div className='w-20 h-20 bg-slate-200 rounded-lg'></div>
+                <div className='w-20 h-20 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400'>
+                  <Package size={32} />
+                </div>
                 <div className='flex-1'>
-                    <h1 className='text-lg font-bold'>{product.product.name}</h1>
-                    <p className='text-sm text-slate-500'>{product.category.name}</p>
-                    <p className='text-xs text-slate-400'>{product.variant.name}</p>
+                    <h1 className='text-lg font-bold'>{productData.product.name}</h1>
+                    <p className='text-sm text-slate-500'>{productData.category.name}</p>
+                    <p className='text-xs text-slate-400'>{productData.variant.name}</p>
                 </div>
             </div>
             <div className='flex justify-between items-center'>
-                <Badge variant="success">{product.item.status}</Badge>
+                <Badge variant="success">{productData.item.status}</Badge>
                 <Badge variant="secondary">Authentic</Badge>
             </div>
         </Card>
@@ -51,9 +235,9 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         <Card className="p-4 space-y-2">
             <h2 className='font-bold'>Thông số kỹ thuật</h2>
             <div className='text-sm grid grid-cols-2 gap-2'>
-                <p><span className='text-slate-500'>SKU:</span> {product.variant.sku}</p>
+                <p><span className='text-slate-500'>SKU:</span> {productData.variant.sku}</p>
                 <p><span className='text-slate-500'>Barcode:</span> N/A</p>
-                <p className='col-span-2'><span className='text-slate-500'>Mô tả:</span> {product.product.description}</p>
+                <p className='col-span-2'><span className='text-slate-500'>Mô tả:</span> {productData.product.description}</p>
             </div>
         </Card>
 
@@ -61,46 +245,51 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         <Card className="p-4 space-y-2">
             <h2 className='font-bold'>Thông tin sản xuất</h2>
             <div className='text-sm grid grid-cols-2 gap-2'>
-                <p><span className='text-slate-500'>NSX:</span> {product.batch.manufacturerName}</p>
-                <p><span className='text-slate-500'>Lô:</span> {product.batch.batchCode}</p>
-                <p><span className='text-slate-500'>Xuất xứ:</span> {product.batch.originCountry}</p>
-                <p><span className='text-slate-500'>Ngày SX:</span> {product.batch.manufactureDate}</p>
-                <p><span className='text-slate-500'>HSD:</span> {product.batch.expiryDate}</p>
+                <p><span className='text-slate-500'>NSX:</span> {productData.batch.manufacturerName}</p>
+                <p><span className='text-slate-500'>Lô:</span> {productData.batch.batchCode}</p>
+                <p><span className='text-slate-500'>Xuất xứ:</span> {productData.batch.originCountry}</p>
+                <p><span className='text-slate-500'>Ngày SX:</span> {productData.batch.manufactureDate}</p>
+                <p><span className='text-slate-500'>HSD:</span> {productData.batch.expiryDate}</p>
             </div>
         </Card>
 
         {/* Ownership & Warranty */}
         <Card className="p-4 space-y-2">
             <h2 className='font-bold'>Sở hữu & Bảo hành</h2>
-            <p className='text-sm'><span className='text-slate-500'>Chủ sở hữu:</span> {product.ownership?.ownerName || 'N/A'}</p>
-            <p className='text-sm'><span className='text-slate-500'>Bảo hành:</span> {product.warranty?.warrantyStatus || 'N/A'}</p>
-            {!product.ownership?.ownerName && <Button onClick={onRegisterOwnership} className='w-full'>Đăng ký sở hữu</Button>}
-            <Button onClick={onRequestWarranty} className='w-full'>Yêu cầu bảo hành</Button>
+            <p className='text-sm'><span className='text-slate-500'>Chủ sở hữu:</span> {productData.ownership?.ownerName || 'N/A'}</p>
+            <p className='text-sm'><span className='text-slate-500'>Bảo hành:</span> {productData.warranty?.warrantyStatus || 'N/A'}</p>
+            {!productData.ownership?.ownerName && <Button onClick={onRegisterOwnership} className='w-full cursor-pointer'>Đăng ký sở hữu</Button>}
+            <Button onClick={onRequestWarranty} className='w-full cursor-pointer'>Yêu cầu bảo hành</Button>
         </Card>
 
         {/* Location */}
         <Card className="p-4 space-y-2">
             <h2 className='font-bold'>Vị trí hiện tại</h2>
-            <p className='text-sm'>{product.location.name}</p>
-            <p className='text-xs text-slate-500'>{product.location.address}</p>
+            <p className='text-sm'>{productData.location.name}</p>
+            <p className='text-xs text-slate-500'>{productData.location.address}</p>
         </Card>
 
         {/* Events */}
         <Card className="p-4 space-y-4">
             <h2 className='font-bold flex items-center gap-2'><List size={20} /> Lịch sử truy vết</h2>
-            {product.events.map((e, i) => (
-                <div key={i} className='border-l-2 border-blue-200 pl-4 py-2'>
-                    <p className='font-bold text-sm'>{e.title}</p>
-                    <p className='text-xs text-slate-500'>{e.description}</p>
-                    <p className='text-xs text-slate-400 mt-1'>{e.createdAt} - {e.actor.name} ({e.actor.role})</p>
-                    <p className='text-xs text-blue-500 mt-1 flex items-center gap-1'>
-                        <MapPin size={12}/> {e.location.name}
-                    </p>
-                </div>
-            ))}
+            {productData.events.length === 0 ? (
+              <p className="text-xs text-slate-500">Chưa có thông tin sự kiện truy vết nào.</p>
+            ) : (
+              productData.events.map((e, i) => (
+                  <div key={i} className='border-l-2 border-blue-200 pl-4 py-2 relative'>
+                      <div className="absolute -left-[5px] top-3.5 w-2 h-2 bg-blue-500 rounded-full" />
+                      <p className='font-bold text-sm'>{e.title}</p>
+                      <p className='text-xs text-slate-500'>{e.description}</p>
+                      <p className='text-xs text-slate-400 mt-1'>{e.createdAt} {e.actor.name ? `- ${e.actor.name}` : ''} {e.actor.role ? `(${e.actor.role})` : ''}</p>
+                      {e.location.name && (
+                        <p className='text-xs text-blue-500 mt-1 flex items-center gap-1'>
+                            <MapPin size={12}/> {e.location.name}
+                        </p>
+                      )}
+                  </div>
+              ))
+            )}
         </Card>
-
-        {/* Actions */}
       </div>
     </div>
   );
