@@ -41,8 +41,26 @@ export const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // Exclude public auth endpoints from getting the Authorization header
+    const isPublicAuthRoute = config.url && (
+      config.url.includes('/auth/login') ||
+      config.url.includes('/auth/register') ||
+      config.url.includes('/auth/verify-otp') ||
+      config.url.includes('/auth/resend-otp') ||
+      config.url.includes('/auth/forgot-password') ||
+      config.url.includes('/auth/reset-password') ||
+      config.url.includes('/auth/refresh')
+    );
+
     const token = tokenStorage.getAccessToken();
-    if (token && config.headers) {
+    // Validate that the token is not a falsy string representation or empty
+    const isValidToken = token && 
+      token !== 'null' && 
+      token !== 'undefined' && 
+      token !== '""' && 
+      token.trim() !== '';
+
+    if (isValidToken && !isPublicAuthRoute && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
     return config;

@@ -47,10 +47,12 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       _hasHydrated: false,
 
-      // ── login ─────────────────────────────────────────────────────────────
       login: async (credentials) => {
         set({ isLoading: true });
         try {
+          // Clear any stale tokens from previous sessions before attempting a new login
+          tokenStorage.clearTokens();
+          
           const { data } = await authApi.login(credentials);
           const { access_token, refresh_token } = data.data;
 
