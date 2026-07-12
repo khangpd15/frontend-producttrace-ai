@@ -210,3 +210,5 @@ export function RegisterOwnership({ onBack }: { onBack: () => void }) {
     </div>
   );
 }
+
+export default RegisterOwnership;

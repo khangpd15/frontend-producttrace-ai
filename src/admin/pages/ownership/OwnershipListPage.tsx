@@ -43,6 +43,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
   // Transfer Form state
   const [transferData, setTransferData] = useState({
+    newOwnerName: '',
     newOwnerEmail: '',
   });
 
@@ -129,6 +130,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     setDrawerMode('TRANSFER');
     setSelectedOwnership(ownership);
     setTransferData({
+      newOwnerName: '',
       newOwnerEmail: '',
     });
     setFormError(null);
@@ -168,8 +170,11 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
       try {
         await transferMutation.mutateAsync({
-          product_id: selectedOwnership.product_id,
-          new_owner_email: transferData.newOwnerEmail.trim(),
+          id: selectedOwnership.ownership_id,
+          payload: {
+            new_owner_name: transferData.newOwnerName.trim() || transferData.newOwnerEmail.trim(),
+            new_owner_email: transferData.newOwnerEmail.trim(),
+          },
         });
         alert('Chuyển quyền sở hữu thành công!');
         setIsDrawerOpen(false);

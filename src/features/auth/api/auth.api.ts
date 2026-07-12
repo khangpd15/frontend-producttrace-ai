@@ -61,6 +61,7 @@ export interface UserProfile {
   full_name: string;
   role: 'ADMIN' | 'STAFF' | 'DEALER' | 'CUSTOMER';
   avatar_url?: string;
+  avatar?: string;
   status: 'ACTIVE' | 'PENDING' | 'BANNED' | 'SUSPENDED';
 }
 

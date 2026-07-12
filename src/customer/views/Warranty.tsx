@@ -89,6 +89,13 @@ export function Warranty({ onBack }: { onBack: () => void }) {
 
   const activeOwnerships = ownershipsRes?.data || [];
 
+  // TODO(warranty-history): The backend currently only supports creating warranty claims
+  // (POST /api/warranty-claims). There is no GET endpoint to list a customer's claim history.
+  // When the backend implements GET /api/warranty-claims (e.g., filtered by user_id),
+  // replace the ownership-based list below with a dedicated useWarrantyClaimList() hook.
+  // Backend module: go-core-service/internal/modules/warranty_claim
+
+
   if (submitted) {
     return (
       <div className="min-h-screen bg-slate-50 pt-20 pb-4">

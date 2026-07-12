@@ -14,6 +14,8 @@ export function Profile({ onBack }: { onBack: () => void }) {
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [avatar, setAvatar] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState('');
   const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' });
   const [showPasswordForm, setShowPasswordForm] = useState(false);
 
@@ -26,8 +28,32 @@ export function Profile({ onBack }: { onBack: () => void }) {
     if (currentUser) {
       setFullName(currentUser.full_name || '');
       setPhone(currentUser.phone || '');
+      setAvatar(currentUser.avatar || '');
+      setAvatarPreview(currentUser.avatar || '');
     }
   }, [currentUser]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setErrorMsg('Kích thước ảnh không được vượt quá 2MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setErrorMsg('Vui lòng chỉ chọn tệp hình ảnh');
+        return;
+      }
+      setErrorMsg(null);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setAvatar(base64String);
+        setAvatarPreview(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async () => {
     setErrorMsg(null);
@@ -47,6 +73,7 @@ export function Profile({ onBack }: { onBack: () => void }) {
           await authApi.updateProfile(currentUser.id, {
             full_name: fullName.trim(),
             phone: phone.trim(),
+            avatar: avatar || undefined,
           });
           await fetchProfile();
           setSuccessMsg('Cập nhật thông tin thành công!');
@@ -97,12 +124,29 @@ export function Profile({ onBack }: { onBack: () => void }) {
       <TopAppBar title="Cá nhân" showBack={false} />
       <div className="p-4 space-y-4">
         <Card className="p-4 space-y-4">
-          <div className="flex items-center gap-4 border-b pb-4">
-            <div className="p-3 bg-blue-100 rounded-full text-blue-600">
-              <User size={32} />
+          <div className="flex flex-col items-center gap-3 border-b pb-6">
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-md bg-blue-50 flex items-center justify-center">
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={40} className="text-blue-500" />
+                )}
+              </div>
+              {isEditing && (
+                <label className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-xs font-semibold">Thay đổi</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
-            <div className="flex-1">
-              <h2 className="font-bold text-lg">{currentUser?.full_name || 'Khách hàng'}</h2>
+            <div className="text-center">
+              <h2 className="font-bold text-lg text-slate-800">{currentUser?.full_name || 'Khách hàng'}</h2>
               <p className="text-sm text-slate-500">{currentUser?.email || 'N/A'}</p>
             </div>
           </div>
@@ -195,6 +239,8 @@ export function Profile({ onBack }: { onBack: () => void }) {
                     setSuccessMsg(null);
                     setFullName(currentUser?.full_name || '');
                     setPhone(currentUser?.phone || '');
+                    setAvatar(currentUser?.avatar || '');
+                    setAvatarPreview(currentUser?.avatar || '');
                     setPasswords({ old: '', new: '', confirm: '' });
                   }} 
                   variant="secondary" 

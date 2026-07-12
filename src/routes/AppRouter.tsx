@@ -15,29 +15,30 @@ import VerifyOtpPage from '../features/auth/pages/VerifyOtpPage';
 import ForgotPasswordPage from '../features/auth/pages/ForgotPasswordPage';
 
 // ─── Admin pages (lazy) ───────────────────────────────────────────────────────
-const Dashboard           = lazy(() => import('../admin/pages/dashboard/Dashboard'));
-const UserListPage         = lazy(() => import('../admin/pages/users/UserListPage'));
-const ProductListPage      = lazy(() => import('../admin/pages/products/ProductList'));
-const ProductDetailPage    = lazy(() => import('../admin/pages/products/ProductDetailPage'));
-const CreateProduct        = lazy(() => import('../admin/pages/products/CreateProduct'));
-const EditProductPage      = lazy(() => import('../admin/pages/products/EditProductPage'));
-const CategoryListPage     = lazy(() => import('../admin/pages/categories/CategoryListPage'));
-const BatchListPage        = lazy(() => import('../admin/pages/batches/BatchListPage'));
-const OwnershipListPage    = lazy(() => import('../admin/pages/ownership/OwnershipListPage'));
-const WarrantyListPage     = lazy(() => import('../admin/pages/warranty/WarrantyListPage'));
-const StoreListPage        = lazy(() => import('../admin/pages/store/StoreListPage'));
-const ReportsPage          = lazy(() => import('../admin/pages/reports/ReportsPage'));
-const AuditListPage        = lazy(() => import('../admin/pages/audit/AuditListPage'));
-const SettingsPage         = lazy(() => import('../admin/pages/settings/SettingsPage'));
+const Dashboard = lazy(() => import('../admin/pages/dashboard/Dashboard'));
+const UserListPage = lazy(() => import('../admin/pages/users/UserListPage'));
+const ProductListPage = lazy(() => import('../admin/pages/products/ProductList'));
+const ProductDetailPage = lazy(() => import('../admin/pages/products/ProductDetailPage'));
+const CreateProduct = lazy(() => import('../admin/pages/products/CreateProduct'));
+const EditProductPage = lazy(() => import('../admin/pages/products/EditProductPage'));
+const CategoryListPage = lazy(() => import('../admin/pages/categories/CategoryListPage'));
+const BatchListPage = lazy(() => import('../admin/pages/batches/BatchListPage'));
+const OwnershipListPage = lazy(() => import('../admin/pages/ownership/OwnershipListPage'));
+const WarrantyListPage = lazy(() => import('../admin/pages/warranty/WarrantyListPage'));
+const StoreListPage = lazy(() => import('../admin/pages/store/StoreListPage'));
+const ReportsPage = lazy(() => import('../admin/pages/reports/ReportsPage'));
+const AuditListPage = lazy(() => import('../admin/pages/audit/AuditListPage'));
+const SettingsPage = lazy(() => import('../admin/pages/settings/SettingsPage'));
 const NotificationListPage = lazy(() => import('../admin/pages/notifications/NotificationListPage'));
 
 // ─── Customer pages (lazy) ────────────────────────────────────────────────────
-const CustomerHome          = lazy(() => import('../customer/views/Home'));
+const CustomerHome = lazy(() => import('../customer/views/Home'));
 const CustomerProductDetail = lazy(() => import('../customer/views/ProductDetail'));
-const CustomerOwnership     = lazy(() => import('../customer/views/Ownership'));
-const CustomerWarranty      = lazy(() => import('../customer/views/Warranty'));
-const CustomerProfile       = lazy(() => import('../customer/views/Profile'));
-const VerifyPage            = lazy(() => import('../features/verify/pages/VerifyPage'));
+const CustomerOwnership = lazy(() => import('../customer/views/Ownership'));
+const CustomerRegisterOwnership = lazy(() => import('../customer/views/RegisterOwnership'));
+const CustomerWarranty = lazy(() => import('../customer/views/Warranty'));
+const CustomerProfile = lazy(() => import('../customer/views/Profile'));
+const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -79,20 +80,20 @@ function withNav<P extends { onNavigate: (tabId: string, id?: string) => void }>
 import React from 'react';
 
 // Wrapped versions — backward-compatible with existing props
-const DashboardPage         = withNav(Dashboard as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const ProductsPage          = withNav(ProductListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const ProductDetailWrapped  = withNav(ProductDetailPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void; productId?: string }>);
-const CreateProductPage     = withNav(CreateProduct as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const EditProductWrapped    = withNav(EditProductPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void; productId?: string }>);
-const CategoriesPage        = withNav(CategoryListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const BatchesPage           = withNav(BatchListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const OwnershipPage         = withNav(OwnershipListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const WarrantyPage          = withNav(WarrantyListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const StorePage             = withNav(StoreListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const ReportsWrapped        = withNav(ReportsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const AuditPage             = withNav(AuditListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const SettingsWrapped       = withNav(SettingsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const NotificationsPage     = withNav(NotificationListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const DashboardPage = withNav(Dashboard as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const ProductsPage = withNav(ProductListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const ProductDetailWrapped = withNav(ProductDetailPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void; productId?: string }>);
+const CreateProductPage = withNav(CreateProduct as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const EditProductWrapped = withNav(EditProductPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void; productId?: string }>);
+const CategoriesPage = withNav(CategoryListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const BatchesPage = withNav(BatchListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const OwnershipPage = withNav(OwnershipListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const WarrantyPage = withNav(WarrantyListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const StorePage = withNav(StoreListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const ReportsWrapped = withNav(ReportsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const AuditPage = withNav(AuditListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const SettingsWrapped = withNav(SettingsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const NotificationsPage = withNav(NotificationListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 
 // ─── ProductDetail reads id from URL query string ────────────────────────────
 function ProductDetailRoute() {
@@ -114,7 +115,7 @@ export default function AppRouter() {
 
   useEffect(() => {
     if (isAuthenticated && !user && !isLoading) {
-      fetchProfile().catch(() => {});
+      fetchProfile().catch(() => { });
     }
   }, [isAuthenticated, user, fetchProfile, isLoading]);
 
@@ -140,28 +141,28 @@ export default function AppRouter() {
 
           {/* Guest-only */}
           <Route element={<GuestRoute />}>
-            <Route path="/login"           element={<LoginPage />} />
-            <Route path="/register"        element={<RegisterPage />} />
-            <Route path="/verify-otp"      element={<VerifyOtpPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/verify-otp" element={<VerifyOtpPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           </Route>
 
           {/* Protected: Admin / Staff / Dealer */}
           <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'STAFF', 'DEALER']} />}>
             <Route element={<AdminLayout />}>
-              <Route path="/dashboard"     element={<DashboardPage />} />
-              <Route path="/categories"    element={<CategoriesPage />} />
-              <Route path="/products"      element={<ProductsPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/products" element={<ProductsPage />} />
               <Route path="/create-product" element={<CreateProductPage />} />
               <Route path="/product-detail" element={<ProductDetailRoute />} />
-              <Route path="/edit-product"  element={<EditProductRoute />} />
-              <Route path="/batches"       element={<BatchesPage />} />
-              <Route path="/ownership"     element={<OwnershipPage />} />
-              <Route path="/warranty"      element={<WarrantyPage />} />
-              <Route path="/store"         element={<StorePage />} />
-              <Route path="/reports"       element={<ReportsWrapped />} />
-              <Route path="/audit"         element={<AuditPage />} />
-              <Route path="/settings"      element={<SettingsWrapped />} />
+              <Route path="/edit-product" element={<EditProductRoute />} />
+              <Route path="/batches" element={<BatchesPage />} />
+              <Route path="/ownership" element={<OwnershipPage />} />
+              <Route path="/warranty" element={<WarrantyPage />} />
+              <Route path="/store" element={<StorePage />} />
+              <Route path="/reports" element={<ReportsWrapped />} />
+              <Route path="/audit" element={<AuditPage />} />
+              <Route path="/settings" element={<SettingsWrapped />} />
               <Route path="/notifications" element={<NotificationsPage />} />
 
               {/* Admin-only */}
@@ -175,32 +176,35 @@ export default function AppRouter() {
           <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
             <Route element={<CustomerLayout />}>
               <Route path="/customer/scan" element={
-                <CustomerHome 
+                <CustomerHome
                   onScan={() => {
                     const code = prompt('Quét mã QR sản phẩm (nhập Serial hoặc Mã sản phẩm):');
                     if (code && code.trim()) {
                       window.location.href = `/customer/product?code=${encodeURIComponent(code.trim())}`;
                     }
-                  }} 
+                  }}
                   onNavigate={(tabId, id) => {
                     if (tabId === 'product-detail' && id) {
                       window.location.href = `/customer/product?id=${id}`;
                     }
-                  }} 
+                  }}
                 />
               } />
               <Route path="/customer/product" element={
-                <CustomerProductDetail 
-                  onBack={() => window.history.back()} 
-                  onRequestWarranty={() => window.location.href = '/customer/warranty'} 
-                  onRegisterOwnership={() => window.location.href = '/customer/ownership'} 
+                <CustomerProductDetail
+                  onBack={() => window.history.back()}
+                  onRequestWarranty={() => window.location.href = '/customer/warranty'}
+                  onRegisterOwnership={() => window.location.href = '/customer/ownership/register'}
                 />
               } />
               <Route path="/customer/ownership" element={
-                <CustomerOwnership 
-                  onBack={() => window.history.back()} 
-                  onRegister={() => window.location.href = '/customer/ownership'} 
+                <CustomerOwnership
+                  onBack={() => window.history.back()}
+                  onRegister={() => window.location.href = '/customer/ownership/register'}
                 />
+              } />
+              <Route path="/customer/ownership/register" element={
+                <CustomerRegisterOwnership onBack={() => window.history.back()} />
               } />
               <Route path="/customer/warranty" element={
                 <CustomerWarranty onBack={() => window.history.back()} />
