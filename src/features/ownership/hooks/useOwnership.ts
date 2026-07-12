@@ -73,7 +73,8 @@ export function useAdminRegisterOwnership() {
 export function useTransferOwnership() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: TransferOwnershipReq) => ownershipApi.transfer(payload),
+    mutationFn: ({ id, payload }: { id: string; payload: TransferOwnershipReq }) =>
+      ownershipApi.transfer(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ownershipKeys.all });
     },

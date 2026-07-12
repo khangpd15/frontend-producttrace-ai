@@ -6,6 +6,7 @@ import { useAuthStore } from '../features/auth/store/auth.store';
 
 // ─── Layouts ──────────────────────────────────────────────────────────────────
 import AdminLayout from '../layouts/AdminLayout';
+import CustomerLayout from '../layouts/CustomerLayout';
 
 // ─── Auth pages (eagerly loaded) ─────────────────────────────────────────────
 import LoginPage from '../features/auth/pages/LoginPage';
@@ -171,41 +172,43 @@ export default function AppRouter() {
           </Route>
 
           {/* Protected: Customer */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/customer/scan" element={
-              <CustomerHome 
-                onScan={() => {
-                  const code = prompt('Quét mã QR sản phẩm (nhập Serial hoặc Mã sản phẩm):');
-                  if (code && code.trim()) {
-                    window.location.href = `/customer/product?code=${encodeURIComponent(code.trim())}`;
-                  }
-                }} 
-                onNavigate={(tabId, id) => {
-                  if (tabId === 'product-detail' && id) {
-                    window.location.href = `/customer/product?id=${id}`;
-                  }
-                }} 
-              />
-            } />
-            <Route path="/customer/product" element={
-              <CustomerProductDetail 
-                onBack={() => window.history.back()} 
-                onRequestWarranty={() => window.location.href = '/customer/warranty'} 
-                onRegisterOwnership={() => window.location.href = '/customer/ownership'} 
-              />
-            } />
-            <Route path="/customer/ownership" element={
-              <CustomerOwnership 
-                onBack={() => window.history.back()} 
-                onRegister={() => window.location.href = '/customer/ownership'} 
-              />
-            } />
-            <Route path="/customer/warranty" element={
-              <CustomerWarranty onBack={() => window.history.back()} />
-            } />
-            <Route path="/customer/profile" element={
-              <CustomerProfile onBack={() => window.history.back()} />
-            } />
+          <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
+            <Route element={<CustomerLayout />}>
+              <Route path="/customer/scan" element={
+                <CustomerHome 
+                  onScan={() => {
+                    const code = prompt('Quét mã QR sản phẩm (nhập Serial hoặc Mã sản phẩm):');
+                    if (code && code.trim()) {
+                      window.location.href = `/customer/product?code=${encodeURIComponent(code.trim())}`;
+                    }
+                  }} 
+                  onNavigate={(tabId, id) => {
+                    if (tabId === 'product-detail' && id) {
+                      window.location.href = `/customer/product?id=${id}`;
+                    }
+                  }} 
+                />
+              } />
+              <Route path="/customer/product" element={
+                <CustomerProductDetail 
+                  onBack={() => window.history.back()} 
+                  onRequestWarranty={() => window.location.href = '/customer/warranty'} 
+                  onRegisterOwnership={() => window.location.href = '/customer/ownership'} 
+                />
+              } />
+              <Route path="/customer/ownership" element={
+                <CustomerOwnership 
+                  onBack={() => window.history.back()} 
+                  onRegister={() => window.location.href = '/customer/ownership'} 
+                />
+              } />
+              <Route path="/customer/warranty" element={
+                <CustomerWarranty onBack={() => window.history.back()} />
+              } />
+              <Route path="/customer/profile" element={
+                <CustomerProfile onBack={() => window.history.back()} />
+              } />
+            </Route>
           </Route>
 
           {/* 404 */}

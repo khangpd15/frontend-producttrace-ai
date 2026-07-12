@@ -93,4 +93,10 @@ export const authApi = {
 
   getProfile: () =>
     apiClient.get<ApiResponse<UserProfile>>('/users/profile'),
+
+  updateProfile: (id: string, payload: { full_name?: string; phone?: string; avatar?: string }) =>
+    apiClient.put<ApiResponse<UserProfile>>(`/users/profile/${id}`, payload),
+
+  changePassword: (payload: any) =>
+    apiClient.put<ApiResponse<null>>('/users/change-password', payload),
 };

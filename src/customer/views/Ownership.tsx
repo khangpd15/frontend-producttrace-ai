@@ -15,15 +15,18 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
   const [searchQuery, setSearchQuery] = useState('');
 
   // Transfer Form State
+  const [newOwnerName, setNewOwnerName] = useState('');
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [newOwnerPhone, setNewOwnerPhone] = useState('');
+  const [newOwnerAddress, setNewOwnerAddress] = useState('');
   const [transferError, setTransferError] = useState<string | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
 
   // Fetch all customer ownerships
   const { data: ownershipsRes, isLoading: isListLoading, refetch: refetchList } = useOwnershipList();
 
-  // Fetch ownership detail if selected
-  const { data: detailData, isLoading: isDetailLoading } = useOwnershipDetail(selectedId || '');
+  // Fetch ownership detail if selected (using selectedProductId because it represents product_item_id)
+  const { data: detailData, isLoading: isDetailLoading } = useOwnershipDetail(selectedProductId || '');
 
   // Transfer mutation
   const transferMutation = useTransferOwnership();
@@ -35,9 +38,13 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
   };
 
   const handleTransferSubmit = async () => {
-    if (!selectedProductId) return;
+    if (!selectedId) return;
+    if (!newOwnerName.trim()) {
+      setTransferError('Vui lòng nhập tên người nhận mới');
+      return;
+    }
     if (!newOwnerEmail.trim()) {
-      setTransferError('Vui lòng nhập email người nhận');
+      setTransferError('Vui lòng nhập email người nhận mới');
       return;
     }
 
@@ -46,11 +53,19 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
 
     try {
       await transferMutation.mutateAsync({
-        product_id: selectedProductId,
-        new_owner_email: newOwnerEmail.trim(),
+        id: selectedId,
+        payload: {
+          new_owner_name: newOwnerName.trim(),
+          new_owner_email: newOwnerEmail.trim(),
+          new_owner_phone: newOwnerPhone.trim() || undefined,
+          new_owner_address: newOwnerAddress.trim() || undefined,
+        },
       });
       alert('Chuyển quyền sở hữu thành công!');
+      setNewOwnerName('');
       setNewOwnerEmail('');
+      setNewOwnerPhone('');
+      setNewOwnerAddress('');
       setView('list');
       refetchList();
     } catch (err: any) {
@@ -87,12 +102,42 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
 
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium">Email người nhận mới</label>
+                <label className="text-sm font-medium">Tên người nhận mới *</label>
+                <input
+                  type="text"
+                  placeholder="Nhập họ và tên người nhận"
+                  value={newOwnerName}
+                  onChange={(e) => setNewOwnerName(e.target.value)}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Email người nhận mới *</label>
                 <input
                   type="email"
                   placeholder="Nhập email người nhận"
                   value={newOwnerEmail}
                   onChange={(e) => setNewOwnerEmail(e.target.value)}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Số điện thoại (tùy chọn)</label>
+                <input
+                  type="tel"
+                  placeholder="Nhập số điện thoại"
+                  value={newOwnerPhone}
+                  onChange={(e) => setNewOwnerPhone(e.target.value)}
+                  className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Địa chỉ (tùy chọn)</label>
+                <input
+                  type="text"
+                  placeholder="Nhập địa chỉ"
+                  value={newOwnerAddress}
+                  onChange={(e) => setNewOwnerAddress(e.target.value)}
                   className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>

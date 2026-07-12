@@ -30,8 +30,10 @@ export interface AdminRegisterReq {
 }
 
 export interface TransferOwnershipReq {
-  product_id: string;
+  new_owner_name: string;
   new_owner_email: string;
+  new_owner_phone?: string;
+  new_owner_address?: string;
 }
 
 export interface OwnershipSummaryRes {
@@ -111,8 +113,8 @@ export const ownershipApi = {
     apiClient.post<ApiResponse<OwnershipDetailRes>>('/ownership/admin/register', payload),
 
   // Transfer Ownership (Customer/Admin)
-  transfer: (payload: TransferOwnershipReq) =>
-    apiClient.post<ApiResponse<OwnershipDetailRes>>('/ownership/transfer', payload),
+  transfer: (id: string, payload: TransferOwnershipReq) =>
+    apiClient.put<ApiResponse<OwnershipDetailRes>>(`/ownership/${id}/transfer`, payload),
 
   // Search & List Ownerships
   search: (params?: SearchOwnershipsParams) =>
@@ -120,7 +122,7 @@ export const ownershipApi = {
 
   // Get Ownership Detail
   getById: (id: string) =>
-    apiClient.get<ApiResponse<OwnershipDetailRes>>(`/ownership/${id}`),
+    apiClient.get<ApiResponse<OwnershipDetailRes>>(`/ownership/detail/${id}`),
 
   // Revoke/Delete Ownership (Admin/Staff)
   delete: (id: string) =>
