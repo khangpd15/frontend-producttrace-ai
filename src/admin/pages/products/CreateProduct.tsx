@@ -6,10 +6,11 @@ import {
   ChevronLeft, Save, Trash2, Edit2, AlertCircle, Plus, X, ImageIcon, Tag, ChevronDown, Search
 } from 'lucide-react';
 import { useCreateProduct } from '../../../features/products/hooks/useProducts';
+import { useCategoryList } from '../../../features/categories/hooks/useCategory';
 import Button from '../../components/ui/Button';
 
-// Mock reference data
-const CATEGORIES = [
+// Mock reference data (fallback if needed)
+const MOCK_CATEGORIES = [
   { id: 'cat-001', name: 'Sữa bột', parent_id: null },
   { id: 'cat-002', name: 'Thực phẩm chức năng', parent_id: null },
   { id: 'cat-003', name: 'Mỹ phẩm', parent_id: null },
@@ -81,10 +82,13 @@ const Field: React.FC<{ label: string; required?: boolean; hint?: string; error?
 const inputCls = "w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-shadow placeholder:text-slate-400";
 
 const CategorySelect: React.FC<{ value: string; onChange: (id: string) => void }> = ({ value, onChange }) => {
+  const { data: categoryListResp } = useCategoryList({ limit: 1000 });
+  const categories = categoryListResp?.data || [];
+
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const selected = CATEGORIES.find(c => c.id === value);
-  const filtered = CATEGORIES.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
+  const selected = categories.find(c => c.id === value);
+  const filtered = categories.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div className="relative">

@@ -1,106 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Search, Plus, RotateCw, Eye, Edit3, X, AlertCircle, 
-  MapPin, Phone, Mail, Clock, ShieldCheck, HelpCircle, Inbox, Tag, AlertTriangle, ExternalLink, Trash2
+  Search, Plus, Eye, Edit3, X, AlertCircle, 
+  MapPin, Phone, Mail, Clock, HelpCircle, Inbox, ExternalLink, Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-
-import { AdminStoreListPageLocationPoint as LocationPoint } from '@shared/types/domain';
+import { useAuthStore } from '../../../features/auth/store/auth.store';
+import { 
+  useLocationList, 
+  useCreateLocation, 
+  useUpdateLocation, 
+  useDeleteLocation 
+} from '../../../features/locations/hooks/useLocation';
+import { LocationResponse as LocationPoint } from '../../../features/locations/api/location.api';
 
 export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
-  const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
+  const { user } = useAuthStore();
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'WAREHOUSE' | 'STORE' | 'DEALER' | 'WARRANTY_CENTER'>('ALL');
-
-  const [locations, setLocations] = useState<LocationPoint[]>([
-    {
-      id: 'l-1',
-      code: 'WH-HN-01',
-      name: 'Kho tổng miền Bắc - Gia Lâm',
-      type: 'WAREHOUSE',
-      phone: '024.3876.9901',
-      email: 'warehouse.gialam@producttrace.vn',
-      address: 'Số 15 Cổ Bi, Gia Lâm',
-      city: 'Hà Nội',
-      country: 'Việt Nam',
-      latitude: 21.0285,
-      longitude: 105.9405,
-      isActive: true,
-      openingHours: '08:00 - 18:00',
-      createdAt: '2026-01-02',
-      updatedAt: '2026-06-20 09:00'
-    },
-    {
-      id: 'l-2',
-      code: 'ST-CG-02',
-      name: 'Showroom Điện Máy Cầu Giấy',
-      type: 'STORE',
-      phone: '024.7731.8890',
-      email: 'showroom.caugiay@producttrace.vn',
-      address: '210 Xuân Thủy, Cầu Giấy',
-      city: 'Hà Nội',
-      country: 'Việt Nam',
-      latitude: 21.0362,
-      longitude: 105.7836,
-      isActive: true,
-      openingHours: '08:00 - 22:00',
-      createdAt: '2026-01-10',
-      updatedAt: '2026-06-25 08:30'
-    },
-    {
-      id: 'l-3',
-      code: 'DL-HCM-05',
-      name: 'Đại lý phân phối Solar Sài Gòn',
-      type: 'DEALER',
-      phone: '028.9902.1234',
-      email: 'dealer.solarsaigon@gmail.com',
-      address: '45 Nguyễn Thị Minh Khai, Quận 1',
-      city: 'TP. Hồ Chí Minh',
-      country: 'Việt Nam',
-      latitude: 10.7812,
-      longitude: 106.7011,
-      isActive: true,
-      openingHours: '08:30 - 20:30',
-      createdAt: '2026-02-15',
-      updatedAt: '2026-06-22 11:00'
-    },
-    {
-      id: 'l-4',
-      code: 'WC-DN-01',
-      name: 'Trung tâm bảo hành miền Trung',
-      type: 'WARRANTY_CENTER',
-      phone: '0236.3888.125',
-      email: 'warranty.danang@producttrace.vn',
-      address: '112 Hàm Nghi, Thanh Khê',
-      city: 'Đà Nẵng',
-      country: 'Việt Nam',
-      latitude: 16.0612,
-      longitude: 108.2125,
-      isActive: true,
-      openingHours: '08:00 - 17:30',
-      createdAt: '2026-03-01',
-      updatedAt: '2026-06-24 16:00'
-    },
-    {
-      id: 'l-5',
-      code: 'WH-BD-02',
-      name: 'Kho Bình Dương - KCN Sóng Thần',
-      type: 'WAREHOUSE',
-      phone: '0274.3732.112',
-      email: 'warehouse.songthan@producttrace.vn',
-      address: 'Đường số 3, KCN Sóng Thần 1',
-      city: 'Bình Dương',
-      country: 'Việt Nam',
-      latitude: 10.8904,
-      longitude: 106.7452,
-      isActive: false,
-      openingHours: '08:00 - 18:00',
-      createdAt: '2026-01-15',
-      updatedAt: '2026-05-30 17:00'
-    }
-  ]);
-
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
   const [filterCity, setFilterCity] = useState<string>('ALL');
@@ -126,14 +42,27 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     openingHours: '08:00 - 22:00'
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load locations from API
+  const { data: locationsRes, isLoading, isError, refetch } = useLocationList({
+    limit: 100, // Fetch up to 100 items to support clientside filtering and search
+  });
+
+  const locations = useMemo(() => locationsRes?.data || [], [locationsRes]);
+
+  // Mutations
+  const createMutation = useCreateLocation();
+  const updateMutation = useUpdateLocation();
+  const deleteMutation = useDeleteLocation();
 
   // Stats
   const stats = useMemo(() => {
-    const total = locations.length + 32;
-    const warehouse = locations.filter(l => l.type === 'WAREHOUSE').length + 8;
-    const store = locations.filter(l => l.type === 'STORE').length + 15;
-    const dealer = locations.filter(l => l.type === 'DEALER').length + 6;
-    const warranty = locations.filter(l => l.type === 'WARRANTY_CENTER').length + 3;
+    const total = locations.length;
+    const warehouse = locations.filter(l => l.type === 'WAREHOUSE').length;
+    const store = locations.filter(l => l.type === 'STORE').length;
+    const dealer = locations.filter(l => l.type === 'DEALER').length;
+    const warranty = locations.filter(l => l.type === 'WARRANTY_CENTER').length;
     return { total, warehouse, store, dealer, warranty };
   }, [locations]);
 
@@ -155,7 +84,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
   }, [locations, searchTerm, filterType, filterCity, activeKpiFilter]);
 
   const cities = useMemo(() => {
-    return Array.from(new Set(locations.map(l => l.city)));
+    return Array.from(new Set(locations.map(l => l.city))).filter(Boolean);
   }, [locations]);
 
   const handleOpenCreate = () => {
@@ -186,15 +115,15 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
       code: loc.code,
       name: loc.name,
       type: loc.type,
-      phone: loc.phone,
-      email: loc.email,
-      address: loc.address,
-      city: loc.city,
-      country: loc.country,
+      phone: loc.phone || '',
+      email: loc.email || '',
+      address: loc.address || '',
+      city: loc.city || 'Hà Nội',
+      country: loc.country || 'Việt Nam',
       latitude: loc.latitude,
       longitude: loc.longitude,
       isActive: loc.isActive,
-      openingHours: loc.openingHours
+      openingHours: loc.openingHoursJson?.hours || '08:00 - 22:00'
     });
     setFormError(null);
     setIsDrawerOpen(true);
@@ -206,57 +135,79 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     setIsDrawerOpen(true);
   };
 
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleDelete = async (id: string, name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Bạn có chắc chắn muốn xóa địa điểm ${name}?`)) {
+      try {
+        await deleteMutation.mutateAsync(id);
+        alert('Xóa địa điểm thành công!');
+        refetch();
+      } catch (err: any) {
+        alert(err.response?.data?.error || 'Có lỗi xảy ra khi xóa địa điểm.');
+      }
+    }
+  };
+
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.code.trim()) {
       setFormError('Mã và Tên địa điểm là bắt buộc');
       return;
     }
 
-    if (drawerMode === 'CREATE') {
-      const isDuplicate = locations.some(l => l.code.toUpperCase() === formData.code.toUpperCase());
-      if (isDuplicate) {
-        setFormError('Mã địa điểm đã tồn tại');
-        return;
-      }
+    setFormError(null);
+    setIsSubmitting(true);
 
-      const newLoc: LocationPoint = {
-        id: 'l-' + Date.now(),
-        code: formData.code.toUpperCase(),
-        name: formData.name.trim(),
-        type: formData.type,
-        phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        address: formData.address.trim(),
-        city: formData.city,
-        country: formData.country,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        isActive: formData.isActive,
-        openingHours: formData.openingHours,
-        createdAt: new Date().toISOString().substring(0, 10),
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      };
-      setLocations([newLoc, ...locations]);
-    } else if (drawerMode === 'EDIT' && selectedLocation) {
-      setLocations(locations.map(l => l.id === selectedLocation.id ? {
-        ...l,
-        code: formData.code.toUpperCase(),
-        name: formData.name.trim(),
-        type: formData.type,
-        phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        address: formData.address.trim(),
-        city: formData.city,
-        country: formData.country,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        isActive: formData.isActive,
-        openingHours: formData.openingHours,
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      } : l));
+    try {
+      if (drawerMode === 'CREATE') {
+        const isDuplicate = locations.some(l => l.code.toUpperCase() === formData.code.toUpperCase());
+        if (isDuplicate) {
+          setFormError('Mã địa điểm đã tồn tại');
+          setIsSubmitting(false);
+          return;
+        }
+
+        await createMutation.mutateAsync({
+          ownerUserId: user?.id || '',
+          code: formData.code.toUpperCase(),
+          name: formData.name.trim(),
+          type: formData.type,
+          phone: formData.phone.trim(),
+          email: formData.email.trim(),
+          address: formData.address.trim(),
+          ward: 'N/A',
+          district: 'N/A',
+          city: formData.city.trim(),
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          openingHoursJson: { hours: formData.openingHours }
+        });
+      } else if (drawerMode === 'EDIT' && selectedLocation) {
+        await updateMutation.mutateAsync({
+          id: selectedLocation.id,
+          payload: {
+            name: formData.name.trim(),
+            type: formData.type,
+            phone: formData.phone.trim(),
+            email: formData.email.trim(),
+            address: formData.address.trim(),
+            ward: selectedLocation.ward || 'N/A',
+            district: selectedLocation.district || 'N/A',
+            city: formData.city.trim(),
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+            isActive: formData.isActive,
+            openingHoursJson: { hours: formData.openingHours }
+          }
+        });
+      }
+      setIsDrawerOpen(false);
+      refetch();
+    } catch (err: any) {
+      setFormError(err.response?.data?.error || 'Có lỗi xảy ra khi cập nhật địa điểm.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsDrawerOpen(false);
   };
 
   const renderTypeLabel = (type: 'WAREHOUSE' | 'STORE' | 'DEALER' | 'WARRANTY_CENTER') => {
@@ -287,28 +238,6 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      
-      {/* Demo Controls */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Demo Controls</span>
-          <span className="text-xs text-blue-600 font-medium">Bấm để kiểm tra hiển thị:</span>
-        </div>
-        <div className="flex gap-2">
-          {['NORMAL', 'LOADING', 'EMPTY', 'ERROR'].map(st => (
-            <button
-              key={st}
-              onClick={() => setDemoState(st as any)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                demoState === st ? 'bg-blue-600 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
-              }`}
-            >
-              {st === 'NORMAL' ? 'Bình thường' : st === 'LOADING' ? 'Đang tải' : st === 'EMPTY' ? 'Trống' : 'Lỗi'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -330,16 +259,16 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
         </Button>
       </div>
 
-      {demoState === 'ERROR' ? (
+      {isError ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
           <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
             <AlertCircle size={24} />
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu địa điểm</h3>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">Đã xảy ra lỗi kết nối khi tải danh sách kho/cửa hàng.</p>
-          <Button onClick={() => setDemoState('NORMAL')} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
+          <Button onClick={() => refetch()} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
         </Card>
-      ) : demoState === 'LOADING' ? (
+      ) : isLoading ? (
         renderSkeleton()
       ) : (
         <>
@@ -436,7 +365,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
           {/* Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            {demoState === 'EMPTY' || filteredLocations.length === 0 ? (
+            {filteredLocations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Chưa có địa điểm nào</h3>
@@ -472,7 +401,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                           <div className="text-[10px] text-slate-400 font-semibold">{loc.city}</div>
                         </td>
                         <td className="p-3.5 truncate">
-                          <div className="text-xs text-slate-700 flex items-center gap-1"><Phone size={10} className="text-slate-400" /> {loc.phone}</div>
+                          <div className="text-xs text-slate-700 flex items-center gap-1"><Phone size={10} className="text-slate-400 animate-pulse" /> {loc.phone}</div>
                           <div className="text-[10px] text-slate-400 flex items-center gap-1 truncate"><Mail size={10} className="text-slate-400 flex-shrink-0" /> <span className="truncate">{loc.email}</span></div>
                         </td>
                         <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>
@@ -509,12 +438,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                               <Eye size={15} />
                             </button>
                             <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm(`Bạn có chắc chắn muốn xóa địa điểm ${loc.name}?`)) {
-                                  setLocations(locations.filter(item => item.id !== loc.id));
-                                }
-                              }}
+                              onClick={(e) => handleDelete(loc.id, loc.name, e)}
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Xóa địa điểm"
                             >
@@ -563,7 +487,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                       type="text" 
                       value={formData.code}
                       onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                      disabled={drawerMode === 'VIEW'}
+                      disabled={drawerMode === 'VIEW' || drawerMode === 'EDIT'}
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono"
                       placeholder="WH-HN-01"
                     />
@@ -718,8 +642,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 {drawerMode === 'VIEW' ? 'Đóng' : 'Hủy'}
               </Button>
               {drawerMode !== 'VIEW' && (
-                <Button onClick={handleSubmitForm} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer">
-                  {drawerMode === 'CREATE' ? 'Thêm địa điểm' : 'Lưu thay đổi'}
+                <Button onClick={handleSubmitForm} disabled={isSubmitting} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer">
+                  {isSubmitting ? 'Đang lưu...' : (drawerMode === 'CREATE' ? 'Thêm địa điểm' : 'Lưu thay đổi')}
                 </Button>
               )}
             </div>
