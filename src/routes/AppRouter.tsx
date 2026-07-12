@@ -25,7 +25,6 @@ const BatchListPage        = lazy(() => import('../admin/pages/batches/BatchList
 const OwnershipListPage    = lazy(() => import('../admin/pages/ownership/OwnershipListPage'));
 const WarrantyListPage     = lazy(() => import('../admin/pages/warranty/WarrantyListPage'));
 const StoreListPage        = lazy(() => import('../admin/pages/store/StoreListPage'));
-const ReportsPage          = lazy(() => import('../admin/pages/reports/ReportsPage'));
 const AuditListPage        = lazy(() => import('../admin/pages/audit/AuditListPage'));
 const SettingsPage         = lazy(() => import('../admin/pages/settings/SettingsPage'));
 const NotificationListPage = lazy(() => import('../admin/pages/notifications/NotificationListPage'));
@@ -55,7 +54,7 @@ function useNavAdapter() {
     products: '/products', 'create-product': '/create-product',
     'product-detail': '/product-detail', 'edit-product': '/edit-product',
     batches: '/batches', ownership: '/ownership', warranty: '/warranty',
-    store: '/store', reports: '/reports', audit: '/audit',
+    store: '/store', audit: '/audit',
     settings: '/settings', notifications: '/notifications',
   };
   return (tabId: string, id?: string) => {
@@ -87,7 +86,6 @@ const BatchesPage           = withNav(BatchListPage as React.ComponentType<{ onN
 const OwnershipPage         = withNav(OwnershipListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const WarrantyPage          = withNav(WarrantyListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const StorePage             = withNav(StoreListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
-const ReportsWrapped        = withNav(ReportsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const AuditPage             = withNav(AuditListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const SettingsWrapped       = withNav(SettingsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const NotificationsPage     = withNav(NotificationListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
@@ -154,7 +152,6 @@ export default function AppRouter() {
               <Route path="/ownership"     element={<OwnershipPage />} />
               <Route path="/warranty"      element={<WarrantyPage />} />
               <Route path="/store"         element={<StorePage />} />
-              <Route path="/reports"       element={<ReportsWrapped />} />
               <Route path="/audit"         element={<AuditPage />} />
               <Route path="/settings"      element={<SettingsWrapped />} />
               <Route path="/notifications" element={<NotificationsPage />} />

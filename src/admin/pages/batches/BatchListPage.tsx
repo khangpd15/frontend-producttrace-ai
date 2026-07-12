@@ -1278,7 +1278,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
 
             {/* Drawer Footer */}
             <div className="p-6 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50 shrink-0">
-              {drawerMode === 'VIEW' && selectedBatch && (role === 'ADMIN' || role === 'MANUFACTURER') && (
+              {drawerMode === 'VIEW' && selectedBatch && (role === 'ADMIN') && (
                 <Button
                   onClick={async () => {
                     try {
