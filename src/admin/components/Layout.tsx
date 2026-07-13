@@ -16,7 +16,6 @@ const MENU_CONFIG = {
     { icon: Layers, label: 'Ownership', href: '/ownership' },
     { icon: ShieldCheck, label: 'Warranty', href: '/warranty' },
     { icon: MapPin, label: 'Store', href: '/store' },
-    { icon: ClipboardList, label: 'Reports', href: '/reports' },
     { icon: Bell, label: 'Notifications', href: '/notifications' },
     { icon: Activity, label: 'Audit Logs', href: '/audit' },
   ],

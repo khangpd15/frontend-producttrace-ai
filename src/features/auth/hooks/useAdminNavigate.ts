@@ -25,7 +25,6 @@ const TAB_TO_PATH: Record<string, string> = {
   ownership:      '/ownership',
   warranty:       '/warranty',
   store:          '/store',
-  reports:        '/reports',
   audit:          '/audit',
   settings:       '/settings',
   notifications:  '/notifications',

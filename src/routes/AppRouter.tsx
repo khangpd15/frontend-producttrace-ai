@@ -58,7 +58,7 @@ function useNavAdapter() {
     products: '/products', 'create-product': '/create-product',
     'product-detail': '/product-detail', 'edit-product': '/edit-product',
     batches: '/batches', ownership: '/ownership', warranty: '/warranty',
-    store: '/store', reports: '/reports', audit: '/audit',
+    store: '/store', audit: '/audit',
     settings: '/settings', notifications: '/notifications',
   };
   return (tabId: string, id?: string) => {
