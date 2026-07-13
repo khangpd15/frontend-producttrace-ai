@@ -3,10 +3,13 @@ import {
   ChevronLeft, Package, Layers, Tag, Calendar, Edit3,
   CheckCircle, XCircle, X, Clock, AlertTriangle, QrCode,
   MapPin, ShieldCheck, Box, BarChart3, Globe, Hash,
-  TrendingUp, Users, Truck, ExternalLink, Download,
-  ChevronDown, ChevronUp, Activity, Archive, LayoutList, Code, FileJson, Trash2
+  Users, Truck, ExternalLink, Download,
+  ChevronDown, ChevronUp, Activity, Archive, LayoutList, AlertCircle
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
+import { useProductDetail } from '../../../features/products/hooks/useProducts';
+import { parseApiError } from '../../../api/axios';
 
 import {
   AdminProductDetailProductStatus as ProductStatus,
@@ -18,54 +21,7 @@ import {
   AdminProductDetailBatch as Batch,
   AdminProductDetailProductItem as ProductItem,
   AdminProductDetailTraceEvent as TraceEvent,
-  AdminProductDetailProduct as Product
 } from '@shared/types/domain';
-
-const MOCK_PRODUCTS: Record<string, Product> = {
-  '1': {
-    id: '1',
-    name: 'Máy lọc nước RO Kangaroo VT3',
-    slug: 'may-loc-nuoc-ro-kangaroo-vt3',
-    category: 'Thiết bị gia dụng',
-    categoryId: 'CAT-HOME-001',
-    description: 'Máy lọc nước RO Kangaroo VT3 với công nghệ lọc ngược thẩm thấu hiện đại 9 lõi lọc. Loại bỏ 99.9% vi khuẩn, kim loại nặng và tạp chất.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1621217742914-72a39211fb85?w=200&h=200&fit=crop',
-    status: 'ACTIVE',
-    createdAt: '2026-06-24',
-    updatedAt: '2026-06-25',
-    tags: ['Gia dụng', 'Lọc nước', 'Kangaroo', 'RO Technology'],
-    totalVariants: 3,
-    totalBatches: 12,
-    totalOwners: 847,
-    totalWarranties: 632,
-    variants: [
-      { 
-        id: 'v1', sku: 'KG-VT3-TRANG', name: 'Màu Trắng - 9 lõi', barcode: '8938514050123', 
-        price: 3500000, currency: 'VND', images_json: '[]', status: 'ACTIVE', 
-        attributes: [
-          { label: 'Màu sắc', value_text: 'Trắng' },
-          { label: 'Trọng lượng (kg)', value_number: 8.5 }
-        ] 
-      },
-    ],
-    batches: [
-      { id: 'b1', batchCode: 'BATCH-2026-KG01', variantName: 'Màu Trắng - 9 lõi', quantity: 250, manufactureDate: '2026-01-15', expiryDate: '2031-01-15', originCountry: 'Việt Nam', supplierName: 'Kangaroo Group', status: 'ACTIVE', importedAt: '2026-02-01' },
-    ],
-    items: [
-      { 
-        id: 'i1', variantName: 'Màu Trắng - 9 lõi', batchCode: 'BATCH-2026-KG01', itemCode: 'ITEM-KG-0001', serialNumber: 'SN-KG-889021', status: 'REGISTERED', producedAt: '2026-01-15', locationName: 'Khách hàng Nguyễn Văn A',
-        traceEvents: [
-          { id: 'te1', event: 'Sản xuất', detail: 'Sản xuất tại nhà máy', actor: 'Kangaroo', location: 'HN', timestamp: '2026-01-15 07:00', type: 'manufacture' },
-          { id: 'te2', event: 'Đã bán', detail: 'Đã bán cho khách hàng', actor: 'Đại lý A', location: 'TP.HCM', timestamp: '2026-06-20 10:00', type: 'activate' }
-        ]
-      },
-      { id: 'i2', variantName: 'Màu Trắng - 9 lõi', batchCode: 'BATCH-2026-KG01', itemCode: 'ITEM-KG-0002', serialNumber: 'SN-KG-889022', status: 'IN_STOCK', producedAt: '2026-01-15', locationName: 'Kho tổng Cầu Giấy' },
-    ],
-    traceEvents: [
-      { id: 'e1', event: 'Sản xuất hoàn tất', detail: 'Lô hàng BATCH-2026-KG01 xuất xưởng với 250 đơn vị', actor: 'Kangaroo Factory HN', location: 'Khu công nghiệp Thạch Thất, Hà Nội', timestamp: '2026-01-15 07:00', type: 'manufacture' },
-    ]
-  }
-};
 
 const PRODUCT_STATUS_CONFIG: Record<ProductStatus, { label: string; bg: string; dot: string; icon: React.ReactNode }> = {
   ACTIVE:       { label: 'Đang kinh doanh',    bg: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500', icon: <CheckCircle size={14} /> },
@@ -103,13 +59,51 @@ const TRACE_TYPE_CONFIG: Record<TraceEvent['type'], { color: string; bg: string;
 };
 
 export default function ProductDetailPage({ productId, onNavigate }: { productId?: string; onNavigate: (tabId: string, id?: string) => void }) {
-  const product = MOCK_PRODUCTS[productId || '1'] || MOCK_PRODUCTS['1'];
+  if (!productId) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-red-500 font-semibold">Thiếu mã sản phẩm.</p>
+        <button onClick={() => onNavigate('products')} className="mt-4 text-blue-600 hover:underline">Quay lại danh sách</button>
+      </div>
+    );
+  }
+
+  const { data: product, isLoading, error, refetch } = useProductDetail(productId);
+  
   const [activeTab, setActiveTab] = useState<'overview' | 'variants' | 'batches' | 'items' | 'traceability'>('overview');
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<ProductItem | null>(null);
   const [isItemTraceOpen, setIsItemTraceOpen] = useState(false);
 
-  const statusCfg = PRODUCT_STATUS_CONFIG[product.status];
+  if (isLoading) {
+    return (
+      <div className="bg-white p-8 space-y-8 min-h-screen animate-pulse">
+        <div className="h-6 bg-slate-200 rounded w-1/4"></div>
+        <div className="h-24 bg-slate-200 rounded-xl"></div>
+        <div className="h-48 bg-slate-200 rounded-xl"></div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
+        <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
+          <AlertCircle size={24} />
+        </div>
+        <h3 className="text-lg font-bold text-slate-900">Không thể tải thông tin sản phẩm</h3>
+        <p className="mt-2 text-sm text-slate-500 max-w-sm">
+          {parseApiError(error)}
+        </p>
+        <div className="flex gap-3 mt-6">
+          <Button onClick={() => onNavigate('products')} variant="secondary" className="rounded-xl px-4 text-xs font-semibold cursor-pointer">Quay lại</Button>
+          <Button onClick={() => refetch()} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
+        </div>
+      </Card>
+    );
+  }
+
+  const statusCfg = PRODUCT_STATUS_CONFIG[product.status] || { label: product.status, bg: 'bg-slate-50 text-slate-700 border-slate-200', dot: 'bg-slate-400', icon: <Package size={14} /> };
   const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
   return (
@@ -134,19 +128,13 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
               </span>
             </div>
             <p className="text-sm text-slate-500 mt-0.5">
-              ID: <span className="font-mono font-semibold">PRD-{product.id.padStart(6, '0')}</span>
+              ID: <span className="font-mono font-semibold">PRD-{product.id.substring(0, 8)}</span>
               <span className="mx-2 text-slate-300">·</span>
-              Cập nhật lần cuối: <span className="font-medium">{product.updatedAt}</span>
+              Cập nhật lần cuối: <span className="font-medium">{new Date(product.updatedAt).toLocaleString('vi-VN')}</span>
             </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold cursor-pointer"
-          >
-            <Download size={15} /> Xuất QR
-          </Button>
           <Button
             onClick={() => onNavigate('edit-product', product.id)}
             className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
@@ -159,10 +147,10 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
       {/* KPI Stats Row */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Biến thể sản phẩm', value: product.totalVariants, icon: <Layers size={18} />, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Lô hàng đang lưu', value: product.totalBatches, icon: <Package size={18} />, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Khách hàng sở hữu', value: product.totalOwners.toLocaleString(), icon: <Users size={18} />, color: 'text-purple-600', bg: 'bg-purple-50' },
-          { label: 'Bảo hành điện tử', value: product.totalWarranties.toLocaleString(), icon: <ShieldCheck size={18} />, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: 'Biến thể sản phẩm', value: product.totalVariants || product.variants?.length || 0, icon: <Layers size={18} />, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Lô hàng đang lưu', value: product.totalBatches || product.batches?.length || 0, icon: <Package size={18} />, color: 'text-green-600', bg: 'bg-green-50' },
+          { label: 'Khách hàng sở hữu', value: (product.totalOwners || 0).toLocaleString(), icon: <Users size={18} />, color: 'text-purple-600', bg: 'bg-purple-50' },
+          { label: 'Bảo hành điện tử', value: (product.totalWarranties || 0).toLocaleString(), icon: <ShieldCheck size={18} />, color: 'text-indigo-600', bg: 'bg-indigo-50' },
         ].map((kpi, i) => (
           <div key={i} className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex items-center gap-4">
             <div className={`${kpi.bg} ${kpi.color} p-3 rounded-xl flex-shrink-0`}>
@@ -216,31 +204,19 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
               </div>
 
               {/* Tags */}
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tags sản phẩm</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {product.tags.map(tag => (
-                    <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-semibold rounded-full">
-                      <Tag size={10} />
-                      {tag}
-                    </span>
-                  ))}
+              {product.tags && product.tags.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tags sản phẩm</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {product.tags.map(tag => (
+                      <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-semibold rounded-full">
+                        <Tag size={10} />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-
-              {/* QR Info */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                  <QrCode size={14} />
-                  Thông tin truy xuất QR
-                </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Quét mã QR trên bao bì sản phẩm để tra cứu thông tin truy xuất nguồn gốc, lịch sử vòng đời và bảo hành điện tử.
-                </p>
-                <button className="text-[11px] text-blue-600 font-semibold flex items-center gap-1 hover:underline cursor-pointer bg-transparent border-none">
-                  <ExternalLink size={11} /> Xem trang truy xuất QR
-                </button>
-              </div>
+              )}
             </div>
 
             {/* Right: Product Details */}
@@ -253,11 +229,11 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
                 <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
                   {[
                     { label: 'Tên sản phẩm', value: product.name },
-                    { label: 'Slug', value: product.slug },
-                    { label: 'Danh mục', value: product.category },
-                    { label: 'Mã danh mục', value: product.categoryId },
-                    { label: 'Ngày tạo', value: product.createdAt },
-                    { label: 'Cập nhật lần cuối', value: product.updatedAt },
+                    { label: 'Slug / Mã định danh', value: product.slug },
+                    { label: 'Danh mục', value: product.category || 'N/A' },
+                    { label: 'Mã danh mục', value: product.categoryId || 'N/A' },
+                    { label: 'Ngày tạo', value: new Date(product.createdAt).toLocaleString('vi-VN') },
+                    { label: 'Cập nhật lần cuối', value: new Date(product.updatedAt).toLocaleString('vi-VN') },
                   ].map(item => (
                     <div key={item.label} className="flex flex-col gap-0.5">
                       <dt className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{item.label}</dt>
@@ -270,7 +246,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
               {/* Description */}
               <div>
                 <h3 className="text-sm font-bold text-slate-900 mb-3 pb-2 border-b border-slate-100">Mô tả sản phẩm</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{product.description}</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{product.description || 'Không có mô tả.'}</p>
               </div>
             </div>
           </div>
@@ -281,11 +257,11 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                Hiển thị <span className="font-bold text-slate-800">{product.variants.length}</span> biến thể của sản phẩm này.
+                Hiển thị <span className="font-bold text-slate-800">{(product.variants || []).length}</span> biến thể của sản phẩm này.
               </p>
             </div>
 
-            {product.variants.length === 0 ? (
+            {(!product.variants || product.variants.length === 0) ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Layers size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Chưa có biến thể nào</h3>
@@ -320,20 +296,21 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-slate-100">
-                      <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-2">Thuộc tính (Attributes)</p>
-                      <div className="flex flex-wrap gap-3">
-                        {variant.attributes.map((attr, idx) => (
-                          <div key={idx} className="flex gap-2 text-xs bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                            <span className="font-medium text-slate-500">{attr.label}:</span>
-                            <span className="font-bold text-slate-800">
-                              {attr.value_text || attr.value_number || (attr.value_boolean ? 'Có' : 'Không')}
-                            </span>
-                          </div>
-                        ))}
-                        {variant.attributes.length === 0 && <span className="text-xs text-slate-400 italic">Không có thuộc tính.</span>}
+                    {variant.attributes && variant.attributes.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-slate-100">
+                        <p className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] mb-2">Thuộc tính (Attributes)</p>
+                        <div className="flex flex-wrap gap-3">
+                          {variant.attributes.map((attr, idx) => (
+                            <div key={idx} className="flex gap-2 text-xs bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                              <span className="font-medium text-slate-500">{attr.label}:</span>
+                              <span className="font-bold text-slate-800">
+                                {attr.value_text || attr.value_number || (attr.value_boolean ? 'Có' : 'Không')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -346,11 +323,11 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                Hiển thị <span className="font-bold text-slate-800">{product.batches.length}</span> lô hàng liên quan đến sản phẩm này.
+                Hiển thị <span className="font-bold text-slate-800">{(product.batches || []).length}</span> lô hàng liên quan đến sản phẩm này.
               </p>
             </div>
 
-            {product.batches.length === 0 ? (
+            {(!product.batches || product.batches.length === 0) ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Archive size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Chưa có lô hàng nào</h3>
@@ -359,7 +336,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
             ) : (
               <div className="space-y-3">
                 {product.batches.map((batch) => {
-                  const batchCfg = BATCH_STATUS_CONFIG[batch.status];
+                  const batchCfg = BATCH_STATUS_CONFIG[batch.status] || { label: batch.status, bg: 'bg-slate-100 text-slate-650', dot: 'bg-slate-400' };
                   const isExpanded = expandedBatch === batch.id;
                   return (
                     <div key={batch.id} className="border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-all">
@@ -389,11 +366,11 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
                           </div>
                           <div>
                             <p className="text-[10px] text-slate-400 uppercase font-bold">NSX</p>
-                            <p className="text-sm font-semibold text-slate-700">{batch.manufactureDate}</p>
+                            <p className="text-sm font-semibold text-slate-700">{new Date(batch.manufactureDate).toLocaleDateString('vi-VN')}</p>
                           </div>
                           <div>
                             <p className="text-[10px] text-slate-400 uppercase font-bold">HSD</p>
-                            <p className="text-sm font-semibold text-slate-700">{batch.expiryDate}</p>
+                            <p className="text-sm font-semibold text-slate-700">{new Date(batch.expiryDate).toLocaleDateString('vi-VN')}</p>
                           </div>
                           {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                         </div>
@@ -404,7 +381,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
                           {[
                             { label: 'Xuất xứ', value: batch.originCountry, icon: <Globe size={13} className="text-slate-400" /> },
                             { label: 'Nhà cung cấp', value: batch.supplierName, icon: <Truck size={13} className="text-slate-400" /> },
-                            { label: 'Ngày nhập kho', value: batch.importedAt, icon: <Calendar size={13} className="text-slate-400" /> },
+                            { label: 'Ngày nhập kho', value: new Date(batch.importedAt).toLocaleDateString('vi-VN'), icon: <Calendar size={13} className="text-slate-400" /> },
                           ].map(item => (
                             <div key={item.label}>
                               <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider flex items-center gap-1 mb-1">
@@ -428,14 +405,11 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
           <div className="p-6 space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                Hiển thị <span className="font-bold text-slate-800">{product.items.length}</span> đơn vị sản phẩm cụ thể.
+                Hiển thị <span className="font-bold text-slate-800">{(product.items || []).length}</span> đơn vị sản phẩm cụ thể.
               </p>
-              <div className="relative w-64">
-                <input type="text" placeholder="Tìm theo Serial/Item Code..." className="w-full pl-3 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs" />
-              </div>
             </div>
 
-            {product.items.length === 0 ? (
+            {(!product.items || product.items.length === 0) ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <LayoutList size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Chưa có sản phẩm nào</h3>
@@ -455,7 +429,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
                       <th className="px-4 py-3 text-center">Thao tác</th>
                     </tr>
                   </thead>
-                      <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100">
                     {product.items.map(item => {
                       const st = ITEM_STATUS_CONFIG[item.status] || { label: item.status, bg: 'bg-slate-100 text-slate-600 border-slate-200' };
                       return (
@@ -493,17 +467,21 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
         {isItemTraceOpen && selectedItem && (
           <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
-              <div className="p-6 border-b flex justify-between items-center">
-                <h3 className="font-bold">Truy xuất Item: {selectedItem.itemCode}</h3>
-                <button onClick={() => setIsItemTraceOpen(false)}><X size={20} /></button>
+              <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                <h3 className="font-bold text-slate-900">Truy xuất Item: {selectedItem.itemCode}</h3>
+                <button onClick={() => setIsItemTraceOpen(false)} className="text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer"><X size={20} /></button>
               </div>
-              <div className="p-6">
+              <div className="p-6 max-h-[400px] overflow-y-auto">
                  {selectedItem.traceEvents && selectedItem.traceEvents.length > 0 ? (
                     <div className="space-y-4">
                       {selectedItem.traceEvents.map(ev => (
-                        <div key={ev.id} className="flex gap-3">
-                          <div className="text-xs font-bold text-slate-500 w-24">{ev.timestamp}</div>
-                          <div className="flex-1 text-sm font-semibold text-slate-800">{ev.event} - {ev.detail} ({ev.location})</div>
+                        <div key={ev.id} className="flex gap-3 border-l-2 border-blue-500 pl-4 py-1 relative">
+                          <div className="absolute -left-[6px] top-2 w-2.5 h-2.5 bg-blue-500 rounded-full"></div>
+                          <div className="flex-1">
+                            <div className="text-xs font-bold text-slate-500">{new Date(ev.timestamp).toLocaleString('vi-VN')}</div>
+                            <div className="text-sm font-semibold text-slate-800 mt-0.5">{ev.event} - {ev.detail}</div>
+                            <div className="text-xs text-slate-550 mt-0.5">Thực hiện bởi: {ev.actor} tại {ev.location}</div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -518,7 +496,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
         {/* ===== TAB: TRUY XUẤT NGUỒN GỐC ===== */}
         {activeTab === 'traceability' && (
           <div className="p-6">
-            {product.traceEvents.length === 0 ? (
+            {(!product.traceEvents || product.traceEvents.length === 0) ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Activity size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Chưa có sự kiện truy xuất</h3>
@@ -531,7 +509,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
 
                 <div className="space-y-0">
                   {product.traceEvents.map((ev, idx) => {
-                    const cfg = TRACE_TYPE_CONFIG[ev.type];
+                    const cfg = TRACE_TYPE_CONFIG[ev.type] || { color: 'text-slate-600', bg: 'bg-slate-100', icon: <Package size={14} /> };
                     const isLast = idx === product.traceEvents.length - 1;
                     return (
                       <div key={ev.id} className={`relative flex gap-5 ${!isLast ? 'pb-6' : ''}`}>
@@ -547,16 +525,14 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
                               <h4 className="text-sm font-bold text-slate-900">{ev.event}</h4>
                               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{ev.detail}</p>
                             </div>
-                            <span className="text-[10px] text-slate-400 font-semibold whitespace-nowrap flex-shrink-0">{ev.timestamp}</span>
+                            <span className="text-[10px] text-slate-400 font-semibold whitespace-nowrap flex-shrink-0">{new Date(ev.timestamp).toLocaleDateString('vi-VN')}</span>
                           </div>
                           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-5 text-[11px]">
                             <div className="flex items-center gap-1 text-slate-500">
-                              <Users size={11} className="text-slate-400" />
-                              <span className="font-semibold text-slate-700">{ev.actor}</span>
+                              <span className="font-semibold text-slate-705">Thực hiện bởi: {ev.actor}</span>
                             </div>
                             <div className="flex items-center gap-1 text-slate-500">
-                              <MapPin size={11} className="text-slate-400" />
-                              <span className="font-semibold text-slate-700">{ev.location}</span>
+                              <span className="font-semibold text-slate-705">Tại: {ev.location}</span>
                             </div>
                           </div>
                         </div>

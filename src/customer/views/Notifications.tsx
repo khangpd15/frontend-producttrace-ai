@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import { TopAppBar } from '../components/layout/TopAppBar';
 import { Card } from '../components/ui/Card';
-import { ShieldCheck, Package } from 'lucide-react';
+import { ShieldCheck, Package, Bell } from 'lucide-react';
 
+// TODO(notifications-backend): No backend notification API exists yet.
+// The backend does not expose any GET /notifications or GET /user/notifications endpoint.
+// When the backend implements a notification service, replace the static `notifications` array
+// below with a real API call (e.g., GET /notifications?user_id=...) and a loading/error state.
+// Backend team reference: create a notification module in go-core-service.
+
+// ── Static mock data — remove when backend is ready ──────────────────────────
 const notifications = [
   { id: '1', title: 'Cập nhật bảo hành', message: 'Yêu cầu bảo hành cho Máy lọc nước RO Kangaroo VT3 đã được tiếp nhận.', icon: <ShieldCheck className="text-blue-500" /> },
   { id: '2', title: 'Sản phẩm mới', message: 'Bạn đã đăng ký quyền sở hữu thành công cho Tấm pin JA Solar.', icon: <Package className="text-green-500" /> },

@@ -61,6 +61,7 @@ export interface UserProfile {
   full_name: string;
   role: 'ADMIN' | 'STAFF' | 'DEALER' | 'CUSTOMER';
   avatar_url?: string;
+  avatar?: string;
   status: 'ACTIVE' | 'PENDING' | 'BANNED' | 'SUSPENDED';
 }
 
@@ -93,4 +94,10 @@ export const authApi = {
 
   getProfile: () =>
     apiClient.get<ApiResponse<UserProfile>>('/users/profile'),
+
+  updateProfile: (id: string, payload: { full_name?: string; phone?: string; avatar?: string }) =>
+    apiClient.put<ApiResponse<UserProfile>>(`/users/profile/${id}`, payload),
+
+  changePassword: (payload: any) =>
+    apiClient.put<ApiResponse<null>>('/users/change-password', payload),
 };

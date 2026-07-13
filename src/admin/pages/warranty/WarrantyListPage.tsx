@@ -12,84 +12,98 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
   const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'RESOLVED'>('ALL');
 
-  const [warranties, setWarranties] = useState<Warranty[]>([
-    {
-      id: 'w-1',
-      itemCode: 'ITEM-RO-KNG00125',
-      itemName: 'Máy lọc nước RO Kangaroo VT3',
-      serialNumber: 'SN-KG-889021',
-      ownerName: 'Nguyễn Văn A',
-      ownerEmail: 'nguyenvana@gmail.com',
-      warrantyCode: 'WAR-KG-889021',
-      policyName: 'Bảo hành chính hãng Kangaroo 24 tháng',
-      policyDescription: 'Bảo hành toàn bộ phần điện, vòi, màng lọc RO lỗi sản xuất',
-      durationMonths: 24,
-      status: 'ACTIVE',
-      startDate: '2026-02-15',
-      endDate: '2028-02-15',
-      invoiceNumber: 'INV-2026-00918',
-      note: 'Sản phẩm hoạt động bình thường',
-      createdAt: '2026-02-15',
-      updatedAt: '2026-02-15 14:30'
-    },
-    {
-      id: 'w-2',
-      itemCode: 'ITEM-SP-JA450-0988',
-      itemName: 'Tấm pin mặt trời JA Solar 450W',
-      serialNumber: 'SN-JA-321104',
-      ownerName: 'Trần Thị B',
-      ownerEmail: 'tranthib@hotmail.com',
-      warrantyCode: 'WAR-JA-321104',
-      policyName: 'Bảo hành hiệu suất 12 năm',
-      policyDescription: 'Bảo hành hiệu suất tấm pin không giảm quá 20% trong 12 năm',
-      durationMonths: 144,
-      status: 'ACTIVE',
-      startDate: '2026-03-10',
-      endDate: '2038-03-10',
-      invoiceNumber: 'INV-2026-01254',
-      note: 'Dự án hộ gia đình hòa lưới',
-      createdAt: '2026-03-10',
-      updatedAt: '2026-03-10 09:15'
-    },
-    {
-      id: 'w-3',
-      itemCode: 'ITEM-SN-SPEC-77312',
-      itemName: 'Sơn chống thấm Spec Damp-proof 5L',
-      serialNumber: 'SN-SP-400981',
-      ownerName: 'Lê Hoàng C',
-      ownerEmail: 'lehoangc@yahoo.com',
-      warrantyCode: 'WAR-SP-400981',
-      policyName: 'Bảo hành màu sơn 60 tháng',
-      policyDescription: 'Bảo hành chống bong tróc, bay màu sơn trong điều kiện thời tiết thường',
-      durationMonths: 60,
-      status: 'CLAIMED',
-      startDate: '2025-06-15',
-      endDate: '2030-06-15',
-      invoiceNumber: 'INV-2025-10492',
-      note: 'Khách báo màu sơn mặt nam bị loang lổ sau mưa bão',
-      createdAt: '2025-06-15',
-      updatedAt: '2026-06-25 09:00'
-    },
-    {
-      id: 'w-4',
-      itemCode: 'ITEM-OM-PRE-882190',
-      itemName: 'Omega-3 Premium Nordic',
-      serialNumber: 'SN-OM-771120',
-      ownerName: 'Phạm Minh D',
-      ownerEmail: 'phamminhd@gmail.com',
-      warrantyCode: 'WAR-OM-771120',
-      policyName: 'Bảo hành chính hãng đổi trả 1 tháng',
-      policyDescription: 'Bảo hành đổi trả nếu có lỗi đóng gói hoặc hỏng hóc trong vận chuyển',
-      durationMonths: 1,
-      status: 'EXPIRED',
-      startDate: '2026-01-05',
-      endDate: '2026-02-05',
-      invoiceNumber: 'INV-2026-00041',
-      note: 'Hết hạn bảo hành đổi trả',
-      createdAt: '2026-01-05',
-      updatedAt: '2026-02-05 00:00'
+  const [warranties, setWarranties] = useState<Warranty[]>(() => {
+    const saved = localStorage.getItem('admin_warranties');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore
+      }
     }
-  ]);
+    return [
+      {
+        id: 'w-1',
+        itemCode: 'ITEM-RO-KNG00125',
+        itemName: 'Máy lọc nước RO Kangaroo VT3',
+        serialNumber: 'SN-KG-889021',
+        ownerName: 'Nguyễn Văn A',
+        ownerEmail: 'nguyenvana@gmail.com',
+        warrantyCode: 'WAR-KG-889021',
+        policyName: 'Bảo hành chính hãng Kangaroo 24 tháng',
+        policyDescription: 'Bảo hành toàn bộ phần điện, vòi, màng lọc RO lỗi sản xuất',
+        durationMonths: 24,
+        status: 'ACTIVE',
+        startDate: '2026-02-15',
+        endDate: '2028-02-15',
+        invoiceNumber: 'INV-2026-00918',
+        note: 'Sản phẩm hoạt động bình thường',
+        createdAt: '2026-02-15',
+        updatedAt: '2026-02-15 14:30'
+      },
+      {
+        id: 'w-2',
+        itemCode: 'ITEM-SP-JA450-0988',
+        itemName: 'Tấm pin mặt trời JA Solar 450W',
+        serialNumber: 'SN-JA-321104',
+        ownerName: 'Trần Thị B',
+        ownerEmail: 'tranthib@hotmail.com',
+        warrantyCode: 'WAR-JA-321104',
+        policyName: 'Bảo hành hiệu suất 12 năm',
+        policyDescription: 'Bảo hành hiệu suất tấm pin không giảm quá 20% trong 12 năm',
+        durationMonths: 144,
+        status: 'ACTIVE',
+        startDate: '2026-03-10',
+        endDate: '2038-03-10',
+        invoiceNumber: 'INV-2026-01254',
+        note: 'Dự án hộ gia đình hòa lưới',
+        createdAt: '2026-03-10',
+        updatedAt: '2026-03-10 09:15'
+      },
+      {
+        id: 'w-3',
+        itemCode: 'ITEM-SN-SPEC-77312',
+        itemName: 'Sơn chống thấm Spec Damp-proof 5L',
+        serialNumber: 'SN-SP-400981',
+        ownerName: 'Lê Hoàng C',
+        ownerEmail: 'lehoangc@yahoo.com',
+        warrantyCode: 'WAR-SP-400981',
+        policyName: 'Bảo hành màu sơn 60 tháng',
+        policyDescription: 'Bảo hành chống bong tróc, bay màu sơn trong điều kiện thời tiết thường',
+        durationMonths: 60,
+        status: 'CLAIMED',
+        startDate: '2025-06-15',
+        endDate: '2030-06-15',
+        invoiceNumber: 'INV-2025-10492',
+        note: 'Khách báo màu sơn mặt nam bị loang lổ sau mưa bão',
+        createdAt: '2025-06-15',
+        updatedAt: '2026-06-25 09:00'
+      },
+      {
+        id: 'w-4',
+        itemCode: 'ITEM-OM-PRE-882190',
+        itemName: 'Omega-3 Premium Nordic',
+        serialNumber: 'SN-OM-771120',
+        ownerName: 'Phạm Minh D',
+        ownerEmail: 'phamminhd@gmail.com',
+        warrantyCode: 'WAR-OM-771120',
+        policyName: 'Bảo hành chính hãng đổi trả 1 tháng',
+        policyDescription: 'Bảo hành đổi trả nếu có lỗi đóng gói hoặc hỏng hóc trong vận chuyển',
+        durationMonths: 1,
+        status: 'EXPIRED',
+        startDate: '2026-01-05',
+        endDate: '2026-02-05',
+        invoiceNumber: 'INV-2026-00041',
+        note: 'Hết hạn bảo hành đổi trả',
+        createdAt: '2026-01-05',
+        updatedAt: '2026-02-05 00:00'
+      }
+    ];
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('admin_warranties', JSON.stringify(warranties));
+  }, [warranties]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
