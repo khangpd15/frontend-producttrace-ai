@@ -34,7 +34,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           const traceRes = data.data;
 
           if (!traceRes || !traceRes.productItem) {
-            setError('Không tìm thấy sản phẩm với mã đã nhập.');
+            setError('Không tìm thấy sản phẩm phù hợp.');
             setProductData(null);
             return;
           }
@@ -172,7 +172,11 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         }
       } catch (err: any) {
         console.error('Failed to load product detail', err);
-        setError(parseApiError(err));
+        if (err?.response?.status === 404) {
+          setError('Không tìm thấy sản phẩm phù hợp.');
+        } else {
+          setError(parseApiError(err));
+        }
       } finally {
         setIsLoading(false);
       }
@@ -214,15 +218,16 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
   }
 
   if (error || !productData) {
+    const isNotFound = error === 'Không tìm thấy sản phẩm phù hợp.' || !error;
     return (
       <div className="min-h-screen bg-slate-50 pb-24">
         <TopAppBar title="Chi tiết sản phẩm" showBack={true} onBackClick={handleBackClick} />
         <div className="pt-24 px-4 max-w-md mx-auto text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${isNotFound ? 'bg-amber-50 text-amber-500' : 'bg-red-50 text-red-500'}`}>
             <AlertCircle size={24} />
           </div>
-          <h3 className="text-lg font-bold text-slate-900">Lỗi tải dữ liệu</h3>
-          <p className="text-sm text-slate-500">{error || 'Không tìm thấy sản phẩm.'}</p>
+          <h3 className="text-lg font-bold text-slate-900">{isNotFound ? 'Thông báo' : 'Lỗi tải dữ liệu'}</h3>
+          <p className="text-sm text-slate-500">{error || 'Không tìm thấy sản phẩm phù hợp.'}</p>
           <Button onClick={handleBackClick} className="w-full">Quay lại</Button>
         </div>
       </div>
