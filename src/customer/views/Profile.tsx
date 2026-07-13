@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { User, Phone, LogOut } from 'lucide-react';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { authApi } from '../../features/auth/api/auth.api';
+import { parseApiError } from '../../api/axios';
 
 export function Profile({ onBack }: { onBack: () => void }) {
   const navigate = useNavigate();
@@ -103,8 +104,7 @@ export function Profile({ onBack }: { onBack: () => void }) {
         setPasswords({ old: '', new: '', confirm: '' });
       }
     } catch (err: any) {
-      const message = err.response?.data?.error || err.response?.data?.message || err.message || 'Thao tác thất bại.';
-      setErrorMsg(message);
+      setErrorMsg(parseApiError(err));
     } finally {
       setIsLoading(false);
     }

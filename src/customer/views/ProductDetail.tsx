@@ -9,6 +9,7 @@ import { ProductDetailData } from '../types';
 import { traceApi } from '../../features/trace/api/trace.api';
 import { productApi } from '../../features/products/api/product.api';
 import { ownershipApi, OwnershipSummaryRes } from '../../features/ownership/api/ownership.api';
+import { parseApiError } from '../../api/axios';
 
 export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }: { onBack: () => void; onRequestWarranty: () => void; onRegisterOwnership: () => void }) {
   const navigate = useNavigate();
@@ -171,7 +172,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         }
       } catch (err: any) {
         console.error('Failed to load product detail', err);
-        setError(err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tải dữ liệu.');
+        setError(parseApiError(err));
       } finally {
         setIsLoading(false);
       }

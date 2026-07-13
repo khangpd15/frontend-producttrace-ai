@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Clock, ChevronRight } from 'lucide-react';
 import { useOwnershipList, useOwnershipDetail, useTransferOwnership } from '../../features/ownership/hooks/useOwnership';
 import { traceApi } from '../../features/trace/api/trace.api';
+import { parseApiError } from '../../api/axios';
 
 export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegister: () => void }) {
   const [view, setView] = useState<'list' | 'detail' | 'transfer'>('list');
@@ -69,8 +70,7 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
       setView('list');
       refetchList();
     } catch (err: any) {
-      const msg = err.response?.data?.error || err.response?.data?.message || 'Chuyển quyền sở hữu thất bại.';
-      setTransferError(msg);
+      setTransferError(parseApiError(err));
     } finally {
       setIsTransferring(false);
     }

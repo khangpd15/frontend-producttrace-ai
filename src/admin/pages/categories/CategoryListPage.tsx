@@ -17,6 +17,7 @@ import {
   useUpdateCategory,
   useDeleteCategory,
 } from '../../../features/categories/hooks/useCategory';
+import { parseApiError } from '../../../api/axios';
 
 // Map icon string to React component
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
@@ -30,7 +31,7 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 
 export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   // Real Backend Integration
-  const { data: categoryListResp, isLoading, isError, refetch } = useCategoryList({ limit: 1000 });
+  const { data: categoryListResp, isLoading, isError, error, refetch } = useCategoryList({ limit: 1000 });
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();
@@ -140,7 +141,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
         }
       });
     } catch (err: any) {
-      alert(err?.response?.data?.message || err?.message || 'Không thể cập nhật trạng thái.');
+      alert(parseApiError(err));
     }
   };
 
@@ -208,8 +209,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
       setIsDrawerOpen(false);
       setFormError(null);
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra, vui lòng thử lại.';
-      setFormError(errMsg);
+      setFormError(parseApiError(err));
     }
   };
 
@@ -513,7 +513,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu danh mục</h3>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            Đã xảy ra lỗi khi tải dữ liệu từ máy chủ. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại.
+            {error ? parseApiError(error) : 'Đã xảy ra lỗi khi tải dữ liệu từ máy chủ. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại.'}
           </p>
           <div className="mt-6 flex gap-3">
             <Button onClick={() => refetch()} className="rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white">
@@ -818,7 +818,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                         try {
                                           await deleteMutation.mutateAsync(cat.id);
                                         } catch (err: any) {
-                                          alert(err?.response?.data?.message || err?.message || 'Không thể xóa danh mục.');
+                                          alert(parseApiError(err));
                                         }
                                       }
                                     }}

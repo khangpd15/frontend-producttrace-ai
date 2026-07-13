@@ -6,6 +6,7 @@ import {
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { useUserList, useDeleteUser } from '../../../features/users/hooks/useUsers';
+import { parseApiError } from '../../../api/axios';
 
 interface UserListProps {
   onNavigate: (tabId: string, userId?: string) => void;
@@ -34,7 +35,7 @@ const UserList: React.FC<UserListProps> = ({ onNavigate }) => {
       setDeleteUserId(null);
       alert('Đã xóa người dùng thành công!');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Xóa người dùng thất bại');
+      alert(parseApiError(err));
     }
   };
 
@@ -112,7 +113,7 @@ const UserList: React.FC<UserListProps> = ({ onNavigate }) => {
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu người dùng</h3>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            {(error as any)?.response?.data?.message || 'Đã xảy ra lỗi kết nối khi tải danh sách người dùng.'}
+            {parseApiError(error)}
           </p>
           <Button onClick={() => refetch()} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
         </Card>

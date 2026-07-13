@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { publicApi, VerifyQRResponse } from '../../../api/public.api';
+import { parseApiError } from '../../../api/axios';
 import { ShieldCheck, ShieldAlert, Calendar, MapPin, Truck, Factory, Package, Barcode, CheckCircle, Info } from 'lucide-react';
 
 export default function VerifyPage() {
@@ -31,8 +32,7 @@ export default function VerifyPage() {
       })
       .catch((err) => {
         console.error(err);
-        const msg = err.response?.data?.message || 'Có lỗi xảy ra khi kết nối tới máy chủ.';
-        setError(msg);
+        setError(parseApiError(err));
       })
       .finally(() => {
         setLoading(false);

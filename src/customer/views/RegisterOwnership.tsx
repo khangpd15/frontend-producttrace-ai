@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { useRequestOTP, useRegisterOwnership } from '../../features/ownership/hooks/useOwnership';
 import { traceApi } from '../../features/trace/api/trace.api';
+import { parseApiError } from '../../api/axios';
 
 export function RegisterOwnership({ onBack }: { onBack: () => void }) {
   const { user } = useAuthStore();
@@ -76,8 +77,7 @@ export function RegisterOwnership({ onBack }: { onBack: () => void }) {
       setTargetEmail(otpRes.data.data?.email || user?.email || '');
       setView('otp');
     } catch (err: any) {
-      const message = err.response?.data?.error || err.response?.data?.message || 'Có lỗi xảy ra khi gửi yêu cầu đăng ký.';
-      setErrorMsg(message);
+      setErrorMsg(parseApiError(err));
     } finally {
       setIsLoading(false);
     }
@@ -102,8 +102,7 @@ export function RegisterOwnership({ onBack }: { onBack: () => void }) {
       alert('Đăng ký quyền sở hữu thành công!');
       onBack();
     } catch (err: any) {
-      const message = err.response?.data?.error || err.response?.data?.message || 'Xác thực OTP thất bại.';
-      setErrorMsg(message);
+      setErrorMsg(parseApiError(err));
     } finally {
       setIsLoading(false);
     }

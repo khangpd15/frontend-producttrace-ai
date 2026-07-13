@@ -13,6 +13,7 @@ import {
   useAdminRegisterOwnership 
 } from '../../../features/ownership/hooks/useOwnership';
 import { traceApi } from '../../../features/trace/api/trace.api';
+import { parseApiError } from '../../../api/axios';
 
 export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'TRANSFERRED' | 'REVOKED'>('ALL');
@@ -151,7 +152,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
         alert('Xóa bản ghi sở hữu thành công!');
         refetch();
       } catch (err: any) {
-        alert(err.response?.data?.error || 'Không thể xóa bản ghi sở hữu.');
+        alert(parseApiError(err));
       }
     }
   };
@@ -184,7 +185,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
         setIsDrawerOpen(false);
         refetch();
       } catch (err: any) {
-        setFormError(err.response?.data?.error || 'Có lỗi xảy ra khi chuyển nhượng.');
+        setFormError(parseApiError(err));
       } finally {
         setIsSubmitting(false);
       }
@@ -246,7 +247,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
         setIsDrawerOpen(false);
         refetch();
       } catch (err: any) {
-        setFormError(err.response?.data?.error || 'Có lỗi xảy ra khi thực hiện đăng ký.');
+        setFormError(parseApiError(err));
       } finally {
         setIsSubmitting(false);
       }

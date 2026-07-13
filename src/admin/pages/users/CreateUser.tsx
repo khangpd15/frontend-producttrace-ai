@@ -6,6 +6,7 @@ import {
   Shield, Settings, User, ChevronLeft, AlertCircle, Check
 } from 'lucide-react';
 import { useCreateUser } from '../../../features/users/hooks/useUsers';
+import { parseApiError } from '../../../api/axios';
 import Button from '../../components/ui/Button';
 
 const createUserSchema = z.object({
@@ -51,7 +52,7 @@ const CreateUser: React.FC<CreateUserProps> = ({ onNavigate }) => {
       alert('Tạo người dùng thành công!');
       onNavigate('users');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Tạo người dùng thất bại');
+      alert(parseApiError(err));
     }
   };
 

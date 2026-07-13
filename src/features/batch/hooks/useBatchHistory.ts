@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { batchApi } from '../api/batch.api';
 import { BatchHistoryItem, GetBatchHistoryParams } from '../api/batch.types';
 import { AxiosError } from 'axios';
-import { ApiError } from '../../../api/axios';
+import { ApiError, parseApiError } from '../../../api/axios';
 
 interface UseBatchHistoryState {
   batchId: string;
@@ -60,15 +60,10 @@ export function useBatchHistory(
         error: null,
       });
     } catch (err) {
-      const axiosError = err as AxiosError<ApiError>;
-      const message =
-        axiosError.response?.data?.message ??
-        axiosError.message ??
-        'Không thể tải lịch sử lô hàng';
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: message,
+        error: parseApiError(err),
       }));
     }
   }, [batchId, fetchTrigger]); // eslint-disable-line react-hooks/exhaustive-deps

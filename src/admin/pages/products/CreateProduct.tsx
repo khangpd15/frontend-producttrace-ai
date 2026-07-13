@@ -8,6 +8,7 @@ import {
 import { useCreateProduct } from '../../../features/products/hooks/useProducts';
 import { useCategoryList } from '../../../features/categories/hooks/useCategory';
 import Button from '../../components/ui/Button';
+import { parseApiError } from '../../../api/axios';
 
 // Mock reference data (fallback if needed)
 const MOCK_CATEGORIES = [
@@ -277,7 +278,7 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
       alert('Tạo sản phẩm thành công!');
       onNavigate('products');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Tạo sản phẩm thất bại. Vui lòng kiểm tra lại dữ liệu.');
+      alert(parseApiError(err));
     }
   };
 

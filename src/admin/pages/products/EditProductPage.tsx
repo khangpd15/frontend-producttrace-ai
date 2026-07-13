@@ -15,6 +15,7 @@ import {
   useUpdateVariant, 
   useDeleteVariant 
 } from '../../../features/products/hooks/useProducts';
+import { parseApiError } from '../../../api/axios';
 
 const STATUS_OPTIONS = [
   { value: 'ACTIVE',       label: 'Đang kinh doanh' },
@@ -168,7 +169,7 @@ export default function EditProductPage({
         </div>
         <h3 className="text-lg font-bold text-slate-900">Không thể tải thông tin sản phẩm</h3>
         <p className="mt-2 text-sm text-slate-500 max-w-sm">
-          {(error as any)?.response?.data?.message || 'Có lỗi xảy ra khi tải dữ liệu chỉnh sửa.'}
+          {parseApiError(error)}
         </p>
         <div className="flex gap-3 mt-6">
           <Button onClick={() => onNavigate('product-detail', productId)} variant="secondary" className="rounded-xl px-4 text-xs font-semibold cursor-pointer">Quay lại</Button>
@@ -200,7 +201,7 @@ export default function EditProductPage({
       alert('Cập nhật sản phẩm thành công!');
       onNavigate('product-detail', productId);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Cập nhật sản phẩm thất bại. Vui lòng kiểm tra lại.');
+      alert(parseApiError(err));
     }
   };
 
@@ -252,7 +253,7 @@ export default function EditProductPage({
       refetch();
       alert('Cập nhật biến thể thành công!');
     } catch (err: any) {
-      setVariantError(err.response?.data?.message || 'Cập nhật biến thể thất bại.');
+      setVariantError(parseApiError(err));
     }
   };
 
@@ -263,7 +264,7 @@ export default function EditProductPage({
         refetch();
         alert('Xóa biến thể thành công!');
       } catch (err: any) {
-        alert(err.response?.data?.message || 'Xóa biến thể thất bại.');
+        alert(parseApiError(err));
       }
     }
   };

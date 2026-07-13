@@ -9,6 +9,7 @@ import {
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { useProductDetail } from '../../../features/products/hooks/useProducts';
+import { parseApiError } from '../../../api/axios';
 
 import {
   AdminProductDetailProductStatus as ProductStatus,
@@ -92,7 +93,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
         </div>
         <h3 className="text-lg font-bold text-slate-900">Không thể tải thông tin sản phẩm</h3>
         <p className="mt-2 text-sm text-slate-500 max-w-sm">
-          {(error as any)?.response?.data?.message || 'Có lỗi xảy ra khi truy vấn chi tiết sản phẩm.'}
+          {parseApiError(error)}
         </p>
         <div className="flex gap-3 mt-6">
           <Button onClick={() => onNavigate('products')} variant="secondary" className="rounded-xl px-4 text-xs font-semibold cursor-pointer">Quay lại</Button>

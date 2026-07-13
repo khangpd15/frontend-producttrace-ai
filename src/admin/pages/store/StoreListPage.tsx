@@ -1,19 +1,20 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { 
-  Search, Plus, Eye, Edit3, X, AlertCircle, 
+import {
+  Search, Plus, Eye, Edit3, X, AlertCircle,
   MapPin, Phone, Mail, Clock, HelpCircle, Inbox, ExternalLink, Trash2, ChevronDown
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import { useAuthStore } from '../../../features/auth/store/auth.store';
-import { 
-  useLocationList, 
-  useCreateLocation, 
-  useUpdateLocation, 
-  useDeleteLocation 
+import {
+  useLocationList,
+  useCreateLocation,
+  useUpdateLocation,
+  useDeleteLocation
 } from '../../../features/locations/hooks/useLocation';
 import { LocationResponse as LocationPoint } from '../../../features/locations/api/location.api';
 import { addressService, Province, District, Ward } from '../../services/addressService';
+import { parseApiError } from '../../../api/axios';
 
 export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const { user } = useAuthStore();
@@ -115,8 +116,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     latitude: 0,
     longitude: 0,
     isActive: true,
-    openTime: '08:00',
-    closeTime: '22:00'
+    openTime: '',
+    closeTime: ''
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,8 +150,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     return safeList.filter(l => {
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase();
-        const matchCode    = l.code?.toLowerCase().includes(query);
-        const matchName    = l.name?.toLowerCase().includes(query);
+        const matchCode = l.code?.toLowerCase().includes(query);
+        const matchName = l.name?.toLowerCase().includes(query);
         const matchAddress = l.address?.toLowerCase().includes(query);
         if (!matchCode && !matchName && !matchAddress) return false;
       }
@@ -249,7 +250,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
         alert('Xóa địa điểm thành công!');
         refetch();
       } catch (err: any) {
-        alert(err.response?.data?.error || 'Có lỗi xảy ra khi xóa địa điểm.');
+        alert(parseApiError(err));
       }
     }
   };
@@ -310,7 +311,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
       setIsDrawerOpen(false);
       refetch();
     } catch (err: any) {
-      setFormError(err.response?.data?.error || 'Có lỗi xảy ra khi cập nhật địa điểm.');
+      setFormError(parseApiError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -357,8 +358,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
             Quản lý mạng lưới kho hàng, cửa hàng bán lẻ, đại lý ủy quyền và các trung tâm bảo hành toàn quốc.
           </p>
         </div>
-        <Button 
-          onClick={handleOpenCreate} 
+        <Button
+          onClick={handleOpenCreate}
           className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
         >
           <Plus size={16} /> Thêm địa điểm
@@ -390,9 +391,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
               <div
                 key={card.id}
                 onClick={() => setActiveKpiFilter(activeKpiFilter === card.id ? 'ALL' : card.id as any)}
-                className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${
-                  activeKpiFilter === card.id ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200'
-                }`}
+                className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${activeKpiFilter === card.id ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200'
+                  }`}
               >
                 <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold uppercase">
                   <span>{card.label}</span>
@@ -410,11 +410,11 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
             <div className="flex items-center gap-4 flex-1 min-w-[280px]">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tìm kiếm theo mã, tên showroom, địa chỉ..." 
+                  placeholder="Tìm kiếm theo mã, tên showroom, địa chỉ..."
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-sm focus:outline-none"
                 />
                 {searchTerm && (
@@ -425,7 +425,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
               {/* Type */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Loại hình:</span>
-                <select 
+                <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
@@ -441,7 +441,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
               {/* City */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Thành phố:</span>
-                <select 
+                <select
                   value={filterCity}
                   onChange={(e) => setFilterCity(e.target.value)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
@@ -455,7 +455,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
             </div>
 
             {(searchTerm || filterType !== 'ALL' || filterCity !== 'ALL' || activeKpiFilter !== 'ALL') && (
-              <button 
+              <button
                 onClick={() => {
                   setSearchTerm('');
                   setFilterType('ALL');
@@ -494,8 +494,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredLocations.map(loc => (
-                      <tr 
-                        key={loc.id} 
+                      <tr
+                        key={loc.id}
                         onClick={() => handleOpenView(loc)}
                         className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
                       >
@@ -513,16 +513,15 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                           <div className="text-[10px] text-slate-400 flex items-center gap-1 truncate"><Mail size={10} className="text-slate-400 flex-shrink-0" /> <span className="truncate">{loc.email}</span></div>
                         </td>
                         <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                            loc.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border border-slate-200'
-                          }`}>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${loc.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border border-slate-200'
+                            }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${loc.isActive ? 'bg-green-500' : 'bg-slate-400'}`}></span>
                             {loc.isActive ? 'Hoạt động' : 'Tạm ngưng'}
                           </span>
                         </td>
                         <td className="p-3.5 pr-5 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
-                            <a 
+                            <a
                               href={`https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`}
                               target="_blank"
                               rel="noreferrer"
@@ -531,21 +530,21 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                             >
                               <ExternalLink size={15} />
                             </a>
-                            <button 
+                            <button
                               onClick={() => handleOpenEdit(loc)}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Sửa địa điểm"
                             >
                               <Edit3 size={15} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleOpenView(loc)}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Xem chi tiết"
                             >
                               <Eye size={15} />
                             </button>
-                            <button 
+                            <button
                               onClick={(e) => handleDelete(loc.id, loc.name, e)}
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Xóa địa điểm"
@@ -569,7 +568,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setIsDrawerOpen(false)}></div>
           <div className="relative bg-white w-[500px] max-h-[90vh] shadow-2xl rounded-2xl flex flex-col justify-between z-10 overflow-hidden">
-            
+
             {/* Header */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
@@ -591,8 +590,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1">Mã địa điểm *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={formData.code}
                       onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                       disabled={drawerMode === 'VIEW' || drawerMode === 'EDIT'}
@@ -618,8 +617,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">Tên địa điểm *</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                     disabled={drawerMode === 'VIEW'}
@@ -631,8 +630,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Phone size={12} /> Điện thoại liên hệ</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={formData.phone}
                       onChange={e => setFormData({ ...formData, phone: e.target.value })}
                       disabled={drawerMode === 'VIEW'}
@@ -641,8 +640,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Mail size={12} /> Email nhận thông báo</label>
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       value={formData.email}
                       onChange={e => setFormData({ ...formData, email: e.target.value })}
                       disabled={drawerMode === 'VIEW'}
@@ -656,8 +655,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 {/* Địa chỉ chi tiết */}
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><MapPin size={12} /> Địa chỉ chi tiết</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.address}
                     onChange={e => setFormData({ ...formData, address: e.target.value })}
                     disabled={drawerMode === 'VIEW'}
@@ -773,8 +772,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Vĩ độ (Latitude)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       step="any"
                       value={formData.latitude}
                       onChange={e => setFormData({ ...formData, latitude: parseFloat(e.target.value) || 0 })}
@@ -784,8 +783,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Kinh độ (Longitude)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       step="any"
                       value={formData.longitude}
                       onChange={e => setFormData({ ...formData, longitude: parseFloat(e.target.value) || 0 })}
@@ -799,8 +798,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Clock size={12} /> Giờ mở cửa *</label>
-                    <input 
-                      type="time" 
+                    <input
+                      type="time"
                       value={formData.openTime}
                       onChange={e => setFormData({ ...formData, openTime: e.target.value })}
                       disabled={drawerMode === 'VIEW'}
@@ -809,8 +808,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Clock size={12} /> Giờ đóng cửa *</label>
-                    <input 
-                      type="time" 
+                    <input
+                      type="time"
                       value={formData.closeTime}
                       onChange={e => setFormData({ ...formData, closeTime: e.target.value })}
                       disabled={drawerMode === 'VIEW'}
@@ -821,8 +820,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
                 <div className="flex items-center">
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={formData.isActive}
                       onChange={e => {
                         if (drawerMode !== 'VIEW') setFormData({ ...formData, isActive: e.target.checked });

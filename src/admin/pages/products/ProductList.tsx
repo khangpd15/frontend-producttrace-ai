@@ -6,6 +6,7 @@ import {
 import { useProductList, useDeleteProduct } from '../../../features/products/hooks/useProducts';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import { parseApiError } from '../../../api/axios';
 
 const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }> = ({ onNavigate }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,7 +27,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
         await deleteMutation.mutateAsync(id);
         alert('Xóa sản phẩm thành công!');
       } catch (err: any) {
-        alert(err.response?.data?.message || 'Xóa sản phẩm thất bại');
+        alert(parseApiError(err));
       }
     }
   };
@@ -77,7 +78,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu sản phẩm</h3>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            {(error as any)?.response?.data?.message || 'Có lỗi xảy ra khi tải danh sách sản phẩm.'}
+            {parseApiError(error)}
           </p>
           <Button onClick={() => refetch()} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
         </Card>

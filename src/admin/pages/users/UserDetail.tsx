@@ -3,6 +3,7 @@ import {
   ChevronLeft, Edit2, FileText, AlertCircle, CheckCircle, 
 } from 'lucide-react';
 import { useUserDetail } from '../../../features/users/hooks/useUsers';
+import { parseApiError } from '../../../api/axios';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 
@@ -80,7 +81,7 @@ const UserDetail: React.FC<UserDetailProps> = ({ onNavigate, userId }) => {
         </div>
         <h3 className="text-lg font-bold text-slate-900">Không thể tải thông tin người dùng</h3>
         <p className="mt-2 text-sm text-slate-500 max-w-sm">
-          {(error as any)?.response?.data?.message || 'Có lỗi xảy ra khi truy vấn dữ liệu chi tiết.'}
+          {parseApiError(error)}
         </p>
         <div className="flex gap-3 mt-6">
           <Button onClick={() => onNavigate('users')} variant="secondary" className="rounded-xl px-4 text-xs font-semibold cursor-pointer">Quay lại</Button>

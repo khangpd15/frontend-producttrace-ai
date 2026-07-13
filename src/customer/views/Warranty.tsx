@@ -7,6 +7,7 @@ import { ShieldCheck, AlertTriangle, Upload, Check } from 'lucide-react';
 import { useOwnershipList } from '../../features/ownership/hooks/useOwnership';
 import { useCreateWarrantyClaim } from '../../features/warranty/hooks/useWarranty';
 import { useAuthStore } from '../../features/auth/store/auth.store';
+import { parseApiError } from '../../api/axios';
 
 export function Warranty({ onBack }: { onBack: () => void }) {
   const { user } = useAuthStore();
@@ -74,8 +75,7 @@ export function Warranty({ onBack }: { onBack: () => void }) {
       });
       setSubmitted(true);
     } catch (err: any) {
-      const msg = err.response?.data?.error || err.response?.data?.message || 'Gửi yêu cầu bảo hành thất bại.';
-      setErrorMsg(msg);
+      setErrorMsg(parseApiError(err));
     }
   };
 

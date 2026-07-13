@@ -7,6 +7,7 @@ import {
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useDashboardStats } from '../../../features/dashboard/hooks/useDashboardStats';
+import { parseApiError } from '../../../api/axios';
 
 interface DashboardProps {
   onNavigate: (tab: string) => void;
@@ -106,7 +107,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-center">
         <AlertTriangle className="text-red-500 w-12 h-12" />
         <h2 className="text-lg font-bold text-slate-800">Không thể tải dữ liệu Dashboard</h2>
-        <p className="text-slate-500 text-sm">{(error as any)?.response?.data?.message || error.message || "Vui lòng kiểm tra lại kết nối"}</p>
+        <p className="text-slate-500 text-sm">{parseApiError(error)}</p>
         <Button onClick={() => refetch()} className="bg-blue-600 text-white rounded-xl px-4 py-2 text-sm font-semibold hover:bg-blue-700">Thử lại</Button>
       </div>
     );

@@ -19,6 +19,7 @@ import { useTraceSearch } from '../../../features/trace/hooks/useTraceSearch';
 import { productApi } from '../../../features/products/api/product.api';
 import type { AdminProduct, AdminProductDetailVariant } from '../../../shared/types/domain';
 import { useAuthStore } from '../../../features/auth/store/auth.store';
+import { parseApiError } from '../../../api/axios';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -625,9 +626,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
       setIsDrawerOpen(false);
       refetch();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Tạo lô hàng thất bại. Vui lòng thử lại.';
-      setFormError(msg);
+      setFormError(parseApiError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -645,9 +644,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
       setIsDrawerOpen(false);
       refetch();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Cập nhật trạng thái thất bại.';
-      setFormError(msg);
+      setFormError(parseApiError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -684,9 +681,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
       setIsDrawerOpen(false);
       refetch();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Xuất lô hàng thất bại.';
-      setFormError(msg);
+      setFormError(parseApiError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -701,9 +696,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
       await batchApi.delete(batch.id);
       refetch();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Xóa lô hàng thất bại.';
-      alert(msg);
+      alert(parseApiError(err));
     }
   }, [refetch]);
 
@@ -775,7 +768,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
             <AlertCircle size={24} />
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu lô hàng</h3>
-          <p className="mt-2 text-sm text-slate-500 max-w-sm">{error}</p>
+          <p className="mt-2 text-sm text-slate-500 max-w-sm">{parseApiError(error)}</p>
           <Button onClick={refetch} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
             Thử lại
           </Button>

@@ -174,4 +174,62 @@ apiClient.interceptors.response.use(
   },
 );
 
+export function parseApiError(error: any): string {
+  // If it's not an Axios error
+  if (!axios.isAxiosError(error)) {
+    if (error instanceof Error) return error.message;
+    return 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.';
+  }
+
+  // Network/Connection error (no response received)
+  if (!error.response) {
+    return 'Không thể kết nối tới máy chủ.';
+  }
+
+  const status = error.response.status;
+  const data = error.response.data as any;
+
+  // 401 Unauthorized
+  if (status === 401) {
+    return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+  }
+
+  // 403 Forbidden
+  if (status === 403) {
+    return 'Bạn không có quyền thực hiện thao tác này.';
+  }
+
+  // 500 Internal Server Error
+  if (status === 500) {
+    return 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.';
+  }
+
+  // Check if backend message/error is available and is a friendly explanation
+  if (data) {
+    const backendMsg = data.message || data.error;
+    if (
+      backendMsg &&
+      typeof backendMsg === 'string' &&
+      backendMsg !== 'INTERNAL_ERROR' &&
+      backendMsg !== 'UNKNOWN_ERROR' &&
+      !backendMsg.includes('Internal Server Error') &&
+      !backendMsg.includes('gorm') &&
+      !backendMsg.includes('SQL')
+    ) {
+      return backendMsg;
+    }
+
+    if (data.details) {
+      if (typeof data.details === 'string') {
+        return data.details;
+      }
+      if (Array.isArray(data.details)) {
+        return data.details.join('\n');
+      }
+    }
+  }
+
+  return 'Yêu cầu không hợp lệ. Vui lòng thử lại.';
+}
+
 export default apiClient;
