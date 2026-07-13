@@ -203,15 +203,25 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     setDistricts([]);
     setWards([]);
 
-    // Parse giờ mở/đóng cửa từ chuỗi "HH:MM - HH:MM"
+    // Parse giờ mở/đóng cửa
     let open = '08:00';
     let close = '22:00';
-    const hoursStr = loc.openingHoursJson?.hours;
-    if (hoursStr) {
-      const parts = hoursStr.split('-');
-      if (parts.length === 2) {
-        open = parts[0].trim();
-        close = parts[1].trim();
+    const hoursMap = loc.openingHoursJson;
+    if (hoursMap && typeof hoursMap === 'object') {
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const firstDay = days.find(d => (hoursMap as any)[d]);
+      if (firstDay) {
+        const entry = (hoursMap as any)[firstDay];
+        if (entry && entry.open && entry.close) {
+          open = entry.open;
+          close = entry.close;
+        }
+      } else if ((hoursMap as any).hours) {
+        const parts = (hoursMap as any).hours.split('-');
+        if (parts.length === 2) {
+          open = parts[0].trim();
+          close = parts[1].trim();
+        }
       }
     }
 
@@ -274,6 +284,20 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
           return;
         }
 
+        const openingHours = {
+          open: formData.openTime || '08:00',
+          close: formData.closeTime || '22:00'
+        };
+        const openingHoursJson = {
+          monday: openingHours,
+          tuesday: openingHours,
+          wednesday: openingHours,
+          thursday: openingHours,
+          friday: openingHours,
+          saturday: openingHours,
+          sunday: openingHours
+        };
+
         await createMutation.mutateAsync({
           ownerUserId: user?.id || '',
           code: formData.code.toUpperCase(),
@@ -287,9 +311,23 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
           city: formData.city.trim(),
           latitude: formData.latitude,
           longitude: formData.longitude,
-          openingHoursJson: { hours: `${formData.openTime} - ${formData.closeTime}` }
+          openingHoursJson
         });
       } else if (drawerMode === 'EDIT' && selectedLocation) {
+        const openingHours = {
+          open: formData.openTime || '08:00',
+          close: formData.closeTime || '22:00'
+        };
+        const openingHoursJson = {
+          monday: openingHours,
+          tuesday: openingHours,
+          wednesday: openingHours,
+          thursday: openingHours,
+          friday: openingHours,
+          saturday: openingHours,
+          sunday: openingHours
+        };
+
         await updateMutation.mutateAsync({
           id: selectedLocation.id,
           payload: {
@@ -304,7 +342,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
             latitude: formData.latitude,
             longitude: formData.longitude,
             isActive: formData.isActive,
-            openingHoursJson: { hours: `${formData.openTime} - ${formData.closeTime}` }
+            openingHoursJson
           }
         });
       }
