@@ -32,6 +32,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
+  const [loadingGeocode, setLoadingGeocode] = useState(false); // true khi đang gọi Nominatim
 
   // Load provinces on mount
   useEffect(() => {
@@ -96,10 +97,41 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     }
   };
 
+  /**
+   * Khi chọn Phường/Xã → cập nhật formData, sau đó tự động geocode bằng Nominatim.
+   * Fallback: nếu Nominatim không tìm thấy → giữ nguyên lat/lng cũ (user tự sửa).
+   */
+  const handleWardChange = useCallback(async (wardName: string, district: string, city: string) => {
+    setFormData(prev => ({ ...prev, ward: wardName }));
+    if (!wardName || !district || !city) return;
+
+    setLoadingGeocode(true);
+    try {
+      const coords = await addressService.geocodeAddress(wardName, district, city);
+      if (coords) {
+        setFormData(prev => ({
+          ...prev,
+          ward: wardName,
+          latitude:  parseFloat(coords.lat.toFixed(6)),
+          longitude: parseFloat(coords.lng.toFixed(6)),
+        }));
+      }
+      // Nếu null: Nominatim không tìm thấy → giữ nguyên, user sửa tay
+    } catch (e) {
+      console.error('[Geocode] Nominatim error:', e);
+    } finally {
+      setLoadingGeocode(false);
+    }
+  }, []);
+
   // Drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<'CREATE' | 'EDIT' | 'VIEW'>('CREATE');
   const [selectedLocation, setSelectedLocation] = useState<LocationPoint | null>(null);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -122,36 +154,36 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load locations from API
-  const { data: locationsRes, isLoading, isError, refetch } = useLocationList({
-    limit: 100, // Fetch up to 100 items to support clientside filtering and search
-  });
+  // Load locations from API (server-side pagination)
+  const { data: locationsRes, isLoading, isError, refetch } = useLocationList({ page, limit });
 
   const locations = useMemo(() => locationsRes?.data || [], [locationsRes]);
+  const total      = locationsRes?.total      ?? 0;
+  const totalPages = locationsRes?.totalPages ?? 1;
 
   // Mutations
   const createMutation = useCreateLocation();
   const updateMutation = useUpdateLocation();
   const deleteMutation = useDeleteLocation();
 
-  // Stats — dùng safe array để tránh crash nếu locations không phải mảng
+  // Stats — dùng safe array, tính trên toàn bộ dữ liệu trang hiện tại
   const stats = useMemo(() => {
-    const total = locations.length;
-    const warehouse = locations.filter(l => l.type === 'WAREHOUSE').length;
-    const store = locations.filter(l => l.type === 'STORE').length;
-    const dealer = locations.filter(l => l.type === 'DEALER').length;
-    const warranty = locations.filter(l => l.type === 'WARRANTY_CENTER').length;
+    const safeList = Array.isArray(locations) ? locations : [];
+    const warehouse = safeList.filter(l => l.type === 'WAREHOUSE').length;
+    const store     = safeList.filter(l => l.type === 'STORE').length;
+    const dealer    = safeList.filter(l => l.type === 'DEALER').length;
+    const warranty  = safeList.filter(l => l.type === 'WARRANTY_CENTER').length;
     return { total, warehouse, store, dealer, warranty };
-  }, [locations]);
+  }, [locations, total]);
 
-  // Filtered locations — guard an toàn trước khi filter
+  // Client-side filter trong trang hiện tại
   const filteredLocations = useMemo(() => {
     const safeList = Array.isArray(locations) ? locations : [];
     return safeList.filter(l => {
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase();
-        const matchCode = l.code?.toLowerCase().includes(query);
-        const matchName = l.name?.toLowerCase().includes(query);
+        const matchCode    = l.code?.toLowerCase().includes(query);
+        const matchName    = l.name?.toLowerCase().includes(query);
         const matchAddress = l.address?.toLowerCase().includes(query);
         if (!matchCode && !matchName && !matchAddress) return false;
       }
@@ -387,7 +419,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            Store & Locations
+            Store &amp; Locations
             <span className="text-[10px] bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full text-slate-500 font-semibold uppercase">
               Role: Admin / Dealer / Shop
             </span>
@@ -517,7 +549,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <Button onClick={handleOpenCreate} className="mt-6 bg-blue-600 text-white rounded-xl px-4 py-2 font-semibold hover:bg-blue-700 cursor-pointer">Thêm địa điểm</Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm table-fixed border-collapse">
                   <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
                     <tr>
@@ -596,6 +629,83 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination footer */}
+              {totalPages > 0 && (() => {
+                const getPageNumbers = () => {
+                  const pages: (number | '...')[] = [];
+                  if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    pages.push(1);
+                    let start = Math.max(2, page - 1);
+                    let end   = Math.min(totalPages - 1, page + 1);
+                    if (page <= 2) end = 4;
+                    else if (page >= totalPages - 1) start = totalPages - 3;
+                    if (start > 2) pages.push('...');
+                    for (let i = start; i <= end; i++) pages.push(i);
+                    if (end < totalPages - 1) pages.push('...');
+                    pages.push(totalPages);
+                  }
+                  return pages;
+                };
+                return (
+                  <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
+                    <div className="text-xs text-slate-500 font-medium">
+                      Hiển thị từ{' '}
+                      <span className="font-bold text-slate-800">{total === 0 ? 0 : (page - 1) * limit + 1}</span>{' '}
+                      đến{' '}
+                      <span className="font-bold text-slate-800">{Math.min(page * limit, total)}</span>{' '}
+                      trong tổng số{' '}
+                      <span className="font-bold text-slate-800">{total}</span> địa điểm
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                      {/* Page size selector */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 font-medium">Hiển thị</span>
+                        <select
+                          value={limit}
+                          onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                          className="bg-white border border-slate-200 rounded-lg text-xs py-1 px-2 focus:outline-none focus:border-blue-500 cursor-pointer font-bold text-slate-700"
+                        >
+                          {[5, 10, 20, 50].map(s => (
+                            <option key={s} value={s}>{s} / trang</option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Page nav */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setPage(p => Math.max(p - 1, 1))}
+                          disabled={page <= 1}
+                          className="px-2.5 py-1.5 border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-semibold text-slate-700 bg-white cursor-pointer transition-colors"
+                        >Trước</button>
+                        {getPageNumbers().map((num, i) =>
+                          num === '...' ? (
+                            <span key={`e${i}`} className="px-2 text-slate-400 text-xs">...</span>
+                          ) : (
+                            <button
+                              key={num}
+                              onClick={() => setPage(num)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                                page === num
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
+                              }`}
+                            >{num}</button>
+                          )
+                        )}
+                        <button
+                          onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+                          disabled={page >= totalPages}
+                          className="px-2.5 py-1.5 border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-semibold text-slate-700 bg-white cursor-pointer transition-colors"
+                        >Sau</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              </>
             )}
           </div>
         </>
@@ -791,7 +901,10 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                     <div className="relative">
                       <select
                         value={formData.ward}
-                        onChange={e => setFormData(prev => ({ ...prev, ward: e.target.value }))}
+                        onChange={e => {
+                          const wardName = e.target.value;
+                          handleWardChange(wardName, formData.district, formData.city);
+                        }}
                         disabled={!selectedDistrictCode || loadingWards}
                         className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-sm appearance-none bg-white pr-8 ${!selectedDistrictCode ? 'text-slate-400 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}`}
                       >
@@ -807,29 +920,85 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                {/* Kinh độ / Vĩ độ — tự động điền khi chọn Phường/Xã */}
+                <div className={`grid grid-cols-2 gap-4 p-3 rounded-lg border transition-colors ${loadingGeocode ? 'bg-blue-50 border-blue-200' : formData.latitude !== 0 && formData.longitude !== 0 ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+                  {/* Header row */}
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                      <MapPin size={10} />
+                      Tọa độ địa lý
+                    </span>
+                    {loadingGeocode ? (
+                      <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1 animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 inline-block animate-ping" />
+                        Đang tìm tọa độ...
+                      </span>
+                    ) : formData.latitude !== 0 && formData.longitude !== 0 ? (
+                      <span className="text-[10px] text-green-600 font-semibold flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                        Tự động điền — có thể sửa tay
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">
+                        Tự điền khi chọn Phường/Xã
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Latitude */}
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Vĩ độ (Latitude)</label>
+                    <label className="text-[10px] font-semibold text-slate-500 block mb-1">Vĩ độ (Latitude)</label>
                     <input
                       type="number"
                       step="any"
                       value={formData.latitude}
                       onChange={e => setFormData({ ...formData, latitude: parseFloat(e.target.value) || 0 })}
-                      disabled={drawerMode === 'VIEW'}
-                      className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                      disabled={drawerMode === 'VIEW' || loadingGeocode}
+                      className={`w-full px-2 py-1.5 border rounded text-xs transition-colors ${
+                        loadingGeocode
+                          ? 'bg-blue-50 border-blue-200 text-blue-500 cursor-wait'
+                          : formData.latitude !== 0
+                          ? 'bg-white border-green-300 text-slate-800'
+                          : 'bg-white border-slate-200 text-slate-800'
+                      }`}
+                      placeholder="VD: 10.762622"
                     />
                   </div>
+
+                  {/* Longitude */}
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Kinh độ (Longitude)</label>
+                    <label className="text-[10px] font-semibold text-slate-500 block mb-1">Kinh độ (Longitude)</label>
                     <input
                       type="number"
                       step="any"
                       value={formData.longitude}
                       onChange={e => setFormData({ ...formData, longitude: parseFloat(e.target.value) || 0 })}
-                      disabled={drawerMode === 'VIEW'}
-                      className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                      disabled={drawerMode === 'VIEW' || loadingGeocode}
+                      className={`w-full px-2 py-1.5 border rounded text-xs transition-colors ${
+                        loadingGeocode
+                          ? 'bg-blue-50 border-blue-200 text-blue-500 cursor-wait'
+                          : formData.longitude !== 0
+                          ? 'bg-white border-green-300 text-slate-800'
+                          : 'bg-white border-slate-200 text-slate-800'
+                      }`}
+                      placeholder="VD: 106.660172"
                     />
                   </div>
+
+                  {/* Link kiểm tra nhanh trên Google Maps */}
+                  {formData.latitude !== 0 && formData.longitude !== 0 && !loadingGeocode && (
+                    <div className="col-span-2">
+                      <a
+                        href={`https://maps.google.com/?q=${formData.latitude},${formData.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 hover:underline font-medium"
+                      >
+                        <ExternalLink size={10} />
+                        Kiểm tra trên Google Maps
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 {/* Giờ mở cửa & Giờ đóng cửa */}
@@ -860,15 +1029,22 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={formData.isActive}
+                      checked={drawerMode === 'CREATE' ? true : formData.isActive}
                       onChange={e => {
-                        if (drawerMode !== 'VIEW') setFormData({ ...formData, isActive: e.target.checked });
+                        if (drawerMode === 'EDIT') setFormData({ ...formData, isActive: e.target.checked });
                       }}
-                      disabled={drawerMode === 'VIEW'}
+                      disabled={drawerMode === 'VIEW' || drawerMode === 'CREATE'}
                       className="sr-only peer"
                     />
                     <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                    <span className="ml-2 text-xs font-semibold text-slate-700">Trạng thái hoạt động</span>
+                    <span className="ml-2 text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      Trạng thái hoạt động
+                      {drawerMode === 'CREATE' && (
+                        <span className="text-[10px] text-slate-400 font-normal italic">
+                          (Mặc định kích hoạt khi tạo mới)
+                        </span>
+                      )}
+                    </span>
                   </label>
                 </div>
               </div>

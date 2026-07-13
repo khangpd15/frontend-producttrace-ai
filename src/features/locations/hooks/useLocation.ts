@@ -19,7 +19,7 @@ export function useLocationList(params?: ListLocationsParams) {
     queryKey: locationKeys.list(params),
     queryFn: async () => {
       const { data } = await locationApi.list(params);
-      return data.data;
+      return data.data; // trả về toàn bộ: { data[], total, page, limit, totalPages }
     },
   });
 }
