@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   Search, Plus, Eye, Edit3, X, AlertCircle, 
-  MapPin, Phone, Mail, Clock, HelpCircle, Inbox, ExternalLink, Trash2
+  MapPin, Phone, Mail, Clock, HelpCircle, Inbox, ExternalLink, Trash2, ChevronDown
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -13,6 +13,7 @@ import {
   useDeleteLocation 
 } from '../../../features/locations/hooks/useLocation';
 import { LocationResponse as LocationPoint } from '../../../features/locations/api/location.api';
+import { addressService, Province, District, Ward } from '../../services/addressService';
 
 export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const { user } = useAuthStore();
@@ -20,6 +21,79 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
   const [filterCity, setFilterCity] = useState<string>('ALL');
+
+  // Administrative divisions states
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | null>(null);
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState<number | null>(null);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+
+  // Load provinces on mount
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      setLoadingProvinces(true);
+      try {
+        const data = await addressService.getProvinces();
+        setProvinces(data);
+      } catch (err) {
+        console.error('Error loading provinces:', err);
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+    fetchProvinces();
+  }, []);
+
+  const handleProvinceChange = async (provinceCode: number, provinceName: string) => {
+    setSelectedProvinceCode(provinceCode || null);
+    setSelectedDistrictCode(null);
+    setDistricts([]);
+    setWards([]);
+    setFormData(prev => ({
+      ...prev,
+      city: provinceName,
+      district: '',
+      ward: ''
+    }));
+
+    if (!provinceCode) return;
+
+    setLoadingDistricts(true);
+    try {
+      const data = await addressService.getDistricts(provinceCode);
+      setDistricts(data);
+    } catch (err) {
+      console.error('Error loading districts:', err);
+    } finally {
+      setLoadingDistricts(false);
+    }
+  };
+
+  const handleDistrictChange = async (districtCode: number, districtName: string) => {
+    setSelectedDistrictCode(districtCode || null);
+    setWards([]);
+    setFormData(prev => ({
+      ...prev,
+      district: districtName,
+      ward: ''
+    }));
+
+    if (!districtCode) return;
+
+    setLoadingWards(true);
+    try {
+      const data = await addressService.getWards(districtCode);
+      setWards(data);
+    } catch (err) {
+      console.error('Error loading wards:', err);
+    } finally {
+      setLoadingWards(false);
+    }
+  };
 
   // Drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -131,8 +205,9 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     // Parse giờ mở/đóng cửa từ chuỗi "HH:MM - HH:MM"
     let open = '08:00';
     let close = '22:00';
-    if (loc.openingHours) {
-      const parts = loc.openingHours.split('-');
+    const hoursStr = loc.openingHoursJson?.hours;
+    if (hoursStr) {
+      const parts = hoursStr.split('-');
       if (parts.length === 2) {
         open = parts[0].trim();
         close = parts[1].trim();
@@ -146,12 +221,15 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
       phone: loc.phone || '',
       email: loc.email || '',
       address: loc.address || '',
-      city: loc.city || 'Hà Nội',
+      ward: loc.ward || '',
+      district: loc.district || '',
+      city: loc.city || '',
       country: loc.country || 'Việt Nam',
       latitude: loc.latitude,
       longitude: loc.longitude,
       isActive: loc.isActive,
-      openingHours: loc.openingHoursJson?.hours || '08:00 - 22:00'
+      openTime: open,
+      closeTime: close
     });
     setFormError(null);
     setIsDrawerOpen(true);
@@ -203,12 +281,12 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
           phone: formData.phone.trim(),
           email: formData.email.trim(),
           address: formData.address.trim(),
-          ward: 'N/A',
-          district: 'N/A',
+          ward: formData.ward.trim() || 'N/A',
+          district: formData.district.trim() || 'N/A',
           city: formData.city.trim(),
           latitude: formData.latitude,
           longitude: formData.longitude,
-          openingHoursJson: { hours: formData.openingHours }
+          openingHoursJson: { hours: `${formData.openTime} - ${formData.closeTime}` }
         });
       } else if (drawerMode === 'EDIT' && selectedLocation) {
         await updateMutation.mutateAsync({
@@ -219,13 +297,13 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
             phone: formData.phone.trim(),
             email: formData.email.trim(),
             address: formData.address.trim(),
-            ward: selectedLocation.ward || 'N/A',
-            district: selectedLocation.district || 'N/A',
+            ward: formData.ward.trim() || 'N/A',
+            district: formData.district.trim() || 'N/A',
             city: formData.city.trim(),
             latitude: formData.latitude,
             longitude: formData.longitude,
             isActive: formData.isActive,
-            openingHoursJson: { hours: formData.openingHours }
+            openingHoursJson: { hours: `${formData.openTime} - ${formData.closeTime}` }
           }
         });
       }

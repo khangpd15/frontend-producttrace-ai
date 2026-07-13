@@ -26,7 +26,9 @@ export interface CustomerRegisterReq {
 export interface AdminRegisterReq {
   otp: string;
   product_id: string;
+  owner_name: string;
   owner_email: string;
+  owner_phone?: string;
 }
 
 export interface TransferOwnershipReq {

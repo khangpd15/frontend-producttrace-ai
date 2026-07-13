@@ -160,6 +160,10 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     e.preventDefault();
 
     if (drawerMode === 'TRANSFER' && selectedOwnership) {
+      if (!transferData.newOwnerName.trim()) {
+        setFormError('Vui lòng nhập tên của người sở hữu mới');
+        return;
+      }
       if (!transferData.newOwnerEmail.trim()) {
         setFormError('Vui lòng nhập email của người sở hữu mới');
         return;
@@ -230,11 +234,12 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
         }
 
         setIsSubmitting(true);
-        // Step 4: Verify Admin Register
         await registerMutation.mutateAsync({
           otp: otpInput.trim(),
           product_id: resolvedProductId,
+          owner_name: formData.ownerName.trim(),
           owner_email: formData.ownerEmail.trim(),
+          owner_phone: formData.ownerPhone.trim() || undefined,
         });
 
         alert('Đăng ký quyền sở hữu thành công!');
@@ -489,6 +494,16 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                   </div>
 
                   <div className="space-y-3.5">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-700 block mb-1">Tên người sở hữu mới *</label>
+                      <input 
+                        type="text" 
+                        value={transferData.newOwnerName}
+                        onChange={e => setTransferData({ ...transferData, newOwnerName: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Họ và tên người nhận"
+                      />
+                    </div>
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Email người sở hữu mới *</label>
                       <input 

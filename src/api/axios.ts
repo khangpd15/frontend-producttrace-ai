@@ -92,8 +92,19 @@ apiClient.interceptors.response.use(
 
     const status = error.response?.status;
 
-    // Only attempt refresh on 401 and if we haven't retried yet
-    if (status !== 401 || originalRequest._retry) {
+    // Exclude public auth endpoints from token refresh
+    const isPublicAuthRoute = originalRequest?.url && (
+      originalRequest.url.includes('/auth/login') ||
+      originalRequest.url.includes('/auth/register') ||
+      originalRequest.url.includes('/auth/verify-otp') ||
+      originalRequest.url.includes('/auth/resend-otp') ||
+      originalRequest.url.includes('/auth/forgot-password') ||
+      originalRequest.url.includes('/auth/reset-password') ||
+      originalRequest.url.includes('/auth/refresh')
+    );
+
+    // Only attempt refresh on 401, if we haven't retried yet, and if it's not a public auth endpoint
+    if (status !== 401 || originalRequest?._retry || isPublicAuthRoute) {
       return Promise.reject(error);
     }
 
