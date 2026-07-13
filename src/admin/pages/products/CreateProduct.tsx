@@ -83,7 +83,7 @@ const Field: React.FC<{ label: string; required?: boolean; hint?: string; error?
 const inputCls = "w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-shadow placeholder:text-slate-400";
 
 const CategorySelect: React.FC<{ value: string; onChange: (id: string) => void }> = ({ value, onChange }) => {
-  const { data: categoryListResp } = useCategoryList({ limit: 1000 });
+  const { data: categoryListResp } = useCategoryList({ limit: 100 });
   const categories = categoryListResp?.data || [];
 
   const [open, setOpen] = useState(false);

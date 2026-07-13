@@ -207,24 +207,44 @@ export function parseApiError(error: any): string {
   // Check if backend message/error is available and is a friendly explanation
   if (data) {
     const backendMsg = data.message || data.error;
-    if (
-      backendMsg &&
-      typeof backendMsg === 'string' &&
-      backendMsg !== 'INTERNAL_ERROR' &&
-      backendMsg !== 'UNKNOWN_ERROR' &&
-      !backendMsg.includes('Internal Server Error') &&
-      !backendMsg.includes('gorm') &&
-      !backendMsg.includes('SQL')
-    ) {
-      return backendMsg;
+    
+    // Check for raw validation errors to return friendly Vietnamese messages
+    const checkValidationMsg = (msg: string): string | null => {
+      if (msg.includes('Field validation') || msg.includes('failed on the')) {
+        if (msg.includes("'Limit'") && msg.includes("'max'")) {
+          return 'Giới hạn số lượng hiển thị vượt quá tối đa cho phép.';
+        }
+        return 'Thông tin yêu cầu không hợp lệ. Vui lòng kiểm tra lại.';
+      }
+      return null;
+    };
+
+    if (backendMsg && typeof backendMsg === 'string') {
+      const friendlyValMsg = checkValidationMsg(backendMsg);
+      if (friendlyValMsg) return friendlyValMsg;
+
+      if (
+        backendMsg !== 'INTERNAL_ERROR' &&
+        backendMsg !== 'UNKNOWN_ERROR' &&
+        !backendMsg.includes('Internal Server Error') &&
+        !backendMsg.includes('gorm') &&
+        !backendMsg.includes('SQL')
+      ) {
+        return backendMsg;
+      }
     }
 
     if (data.details) {
       if (typeof data.details === 'string') {
+        const friendlyValMsg = checkValidationMsg(data.details);
+        if (friendlyValMsg) return friendlyValMsg;
         return data.details;
       }
       if (Array.isArray(data.details)) {
-        return data.details.join('\n');
+        const joinedDetails = data.details.join('\n');
+        const friendlyValMsg = checkValidationMsg(joinedDetails);
+        if (friendlyValMsg) return friendlyValMsg;
+        return joinedDetails;
       }
     }
   }

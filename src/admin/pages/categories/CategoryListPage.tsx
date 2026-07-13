@@ -31,7 +31,7 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 
 export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   // Real Backend Integration
-  const { data: categoryListResp, isLoading, isError, error, refetch } = useCategoryList({ limit: 1000 });
+  const { data: categoryListResp, isLoading, isError, error, refetch } = useCategoryList({ limit: 100 });
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();
