@@ -75,4 +75,49 @@ export const addressService = {
     _wardsCache.set(districtCode, wards);
     return wards;
   },
+
+  /**
+   * Geocode địa chỉ Việt Nam bằng Nominatim (OpenStreetMap) — miễn phí, không cần API key.
+   * @param ward     - Tên phường/xã
+   * @param district - Tên quận/huyện
+   * @param city     - Tên tỉnh/thành phố
+   * @returns { lat, lng } hoặc null nếu không tìm thấy
+   */
+  geocodeAddress: async (
+    ward: string,
+    district: string,
+    city: string,
+  ): Promise<{ lat: number; lng: number } | null> => {
+    // Xây query từ chi tiết nhất → ít chi tiết nhất để tăng tỉ lệ tìm thấy
+    const queries = [
+      `${ward}, ${district}, ${city}, Vietnam`,
+      `${district}, ${city}, Vietnam`,
+      `${city}, Vietnam`,
+    ];
+
+    for (const q of queries) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=vn`;
+        const res = await fetch(url, {
+          headers: {
+            // Nominatim yêu cầu User-Agent để tránh bị rate-limit
+            'Accept-Language': 'vi,en',
+          },
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (data && data.length > 0) {
+          return {
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon),
+          };
+        }
+      } catch {
+        // Tiếp tục thử query tiếp theo nếu lỗi
+        continue;
+      }
+    }
+    return null;
+  },
 };
+

@@ -141,16 +141,41 @@ const extractArray = (body: any): BackendItem[] => {
   return [];
 };
 
+export interface PaginatedLocationsResponse {
+  locations: LocationPoint[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 // ---- Service ----
 export const locationService = {
   /**
    * [GET] /api/locations
-   * Cấu trúc thực tế: { success, message, data: { data: [...] } }
+   * Cấu trúc thực tế: { success, message, data: { data: [...], page, limit, total, totalPages } }
    */
-  getAll: async (): Promise<LocationPoint[]> => {
-    const response = await apiClient.get('/locations');
-    const rawList = extractArray(response.data);
-    return rawList.map(mapItem);
+  getAll: async (page = 1, limit = 20): Promise<PaginatedLocationsResponse> => {
+    const response = await apiClient.get('/locations', {
+      params: { page, limit }
+    });
+    const body = response.data;
+    const rawList = extractArray(body);
+    const locations = rawList.map(mapItem);
+
+    // Đọc thông tin phân trang từ response body
+    const pageVal = body?.data?.page ?? body?.page ?? page;
+    const limitVal = body?.data?.limit ?? body?.limit ?? limit;
+    const totalVal = body?.data?.total ?? body?.total ?? locations.length;
+    const totalPagesVal = body?.data?.totalPages ?? body?.totalPages ?? Math.ceil(totalVal / limitVal);
+
+    return {
+      locations,
+      page: pageVal,
+      limit: limitVal,
+      total: totalVal,
+      totalPages: totalPagesVal
+    };
   },
 
   /**
