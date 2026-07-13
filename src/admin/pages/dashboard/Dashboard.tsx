@@ -6,107 +6,14 @@ import {
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { dashboardService, DashboardStats, DashboardActivity, DashboardAlert, DashboardChartItem } from '../../services/dashboardService';
+import { useDashboardStats } from '../../../features/dashboard/hooks/useDashboardStats';
 
 interface DashboardProps {
   onNavigate: (tab: string) => void;
 }
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [activities, setActivities] = useState<DashboardActivity[]>([]);
-  const [alerts, setAlerts] = useState<DashboardAlert[]>([]);
-  const [chartData, setChartData] = useState<DashboardChartItem[]>([]);
-  
-  const [loading, setLoading] = useState(true);
-  const [activitiesLoading, setActivitiesLoading] = useState(true);
-  const [alertsLoading, setAlertsLoading] = useState(true);
-  const [chartLoading, setChartLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchStats = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await dashboardService.getStats();
-      setStats(data);
-    } catch (err: any) {
-      console.error('[Dashboard] Lỗi khi tải thống kê:', err);
-      setError(err.response?.data?.message || err.message || 'Đã xảy ra lỗi kết nối');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchActivities = async () => {
-    setActivitiesLoading(true);
-    try {
-      const data = await dashboardService.getActivities(10);
-      setActivities(data);
-    } catch (err: any) {
-      console.error('[Dashboard] Lỗi khi tải nhật ký hoạt động:', err);
-    } finally {
-      setActivitiesLoading(false);
-    }
-  };
-
-  const fetchAlerts = async () => {
-    setAlertsLoading(true);
-    try {
-      const data = await dashboardService.getAlerts();
-      setAlerts(data);
-    } catch (err: any) {
-      console.error('[Dashboard] Lỗi khi tải cảnh báo:', err);
-    } finally {
-      setAlertsLoading(false);
-    }
-  };
-
-  const fetchChartData = async () => {
-    setChartLoading(true);
-    try {
-      const data = await dashboardService.getChartData();
-      setChartData(data);
-    } catch (err: any) {
-      console.error('[Dashboard] Lỗi khi tải dữ liệu biểu đồ:', err);
-    } finally {
-      setChartLoading(false);
-    }
-  };
-
-  const fetchAllData = () => {
-    fetchStats();
-    fetchActivities();
-    fetchAlerts();
-    fetchChartData();
-  };
-
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const formatTime = (isoString: string) => {
-    try {
-      const date = new Date(isoString);
-      return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return '';
-    }
-  };
-
-  const formatPeriod = (isoString: string) => {
-    try {
-      const date = new Date(isoString);
-      return `Tháng ${date.getMonth() + 1}`;
-    } catch {
-      return '';
-    }
-  };
-
-  const getStatValue = (val: number | undefined | null, fallback: string) => {
-    if (val === undefined || val === null) return fallback;
-    return val.toLocaleString();
-  };
+  const { data: stats, isLoading, error, refetch } = useDashboardStats();
 
   // Stat Card Component
   const StatCard = ({ label, value, trend, color, bg, icon: Icon, tabId, loading }: any) => (
@@ -133,6 +40,28 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       </div>
     </div>
   );
+
+  const SkeletonCard = () => (
+    <div className="bg-white p-5 rounded-xl border border-slate-200 animate-pulse flex justify-between items-start">
+      <div className="space-y-3 w-2/3">
+        <div className="h-2.5 bg-slate-200 rounded w-1/2"></div>
+        <div className="h-7 bg-slate-200 rounded w-3/4"></div>
+        <div className="h-2 bg-slate-200 rounded w-5/6"></div>
+      </div>
+      <div className="w-9 h-9 bg-slate-200 rounded-lg"></div>
+    </div>
+  );
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-center">
+        <AlertTriangle className="text-red-500 w-12 h-12" />
+        <h2 className="text-lg font-bold text-slate-800">Không thể tải dữ liệu Dashboard</h2>
+        <p className="text-slate-500 text-sm">{(error as any)?.response?.data?.message || error.message || "Vui lòng kiểm tra lại kết nối"}</p>
+        <Button onClick={() => refetch()} className="bg-blue-600 text-white rounded-xl px-4 py-2 text-sm font-semibold hover:bg-blue-700">Thử lại</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -168,68 +97,25 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       )}
 
       {/* SECTION 1: KPI Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-        <StatCard 
-          label="Tổng sản phẩm" 
-          value={getStatValue(stats?.total_products, "1,248")} 
-          trend="↑ 12.4%" 
-          color="text-blue-600" 
-          bg="bg-blue-50" 
-          icon={Package} 
-          tabId="products" 
-          loading={loading}
-        />
-        <StatCard 
-          label="Tổng số lô hàng" 
-          value={getStatValue(stats?.total_batches, "91")} 
-          trend="↑ 8.2%" 
-          color="text-purple-600" 
-          bg="bg-purple-50" 
-          icon={Layers} 
-          tabId="batches" 
-          loading={loading}
-        />
-        <StatCard 
-          label="Lượt sở hữu" 
-          value={getStatValue(stats?.total_ownerships, "1,246")} 
-          trend="↑ 10.1%" 
-          color="text-green-600" 
-          bg="bg-green-50" 
-          icon={Users} 
-          tabId="ownership" 
-          loading={loading}
-        />
-        <StatCard 
-          label="Đang bảo hành" 
-          value={getStatValue(stats?.total_under_warranty, "844")} 
-          trend="↑ 4.5%" 
-          color="text-blue-600" 
-          bg="bg-blue-50" 
-          icon={ShieldCheck} 
-          tabId="warranty" 
-          loading={loading}
-        />
-        <StatCard 
-          label="Yêu cầu chờ duyệt" 
-          value={getStatValue(stats?.total_pending_approval, "5")} 
-          trend="↓ 18%" 
-          color="text-amber-600" 
-          bg="bg-amber-50" 
-          icon={ClipboardList} 
-          tabId="warranty" 
-          loading={loading}
-        />
-        <StatCard 
-          label="Đại lý & Kho" 
-          value={getStatValue(stats?.total_locations, "37")} 
-          trend="↑ 3%" 
-          color="text-slate-700" 
-          bg="bg-slate-50" 
-          icon={Building} 
-          tabId="store" 
-          loading={loading}
-        />
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <StatCard label="Tổng sản phẩm" value={stats?.total_products.toLocaleString() ?? "0"} trend="↑ 12.4%" color="text-blue-600" bg="bg-blue-50" icon={Package} tabId="products" />
+          <StatCard label="Tổng số lô hàng" value={stats?.total_batches.toLocaleString() ?? "0"} trend="↑ 8.2%" color="text-purple-600" bg="bg-purple-50" icon={Layers} tabId="batches" />
+          <StatCard label="Lượt sở hữu" value={stats?.total_ownerships.toLocaleString() ?? "0"} trend="↑ 10.1%" color="text-green-600" bg="bg-green-50" icon={Users} tabId="ownership" />
+          <StatCard label="Đang bảo hành" value={stats?.total_under_warranty.toLocaleString() ?? "0"} trend="↑ 4.5%" color="text-blue-600" bg="bg-blue-50" icon={ShieldCheck} tabId="warranty" />
+          <StatCard label="Yêu cầu chờ duyệt" value={stats?.total_pending_approval.toLocaleString() ?? "0"} trend="↓ 18%" color="text-amber-600" bg="bg-amber-50" icon={ClipboardList} tabId="warranty" />
+          <StatCard label="Đại lý & Kho" value={stats?.total_locations.toLocaleString() ?? "0"} trend="↑ 3%" color="text-slate-700" bg="bg-slate-50" icon={Building} tabId="store" />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         

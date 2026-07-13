@@ -11,6 +11,12 @@ import Badge from '../../components/ui/Badge';
 
 // Types for Category
 import { AdminCategory as Category } from '@shared/types/domain';
+import {
+  useCategoryList,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+} from '../../../features/categories/hooks/useCategory';
 
 // Map icon string to React component
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
@@ -23,31 +29,27 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 };
 
 export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
-  // Demo States: 'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'
-  const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
+  // Real Backend Integration
+  const { data: categoryListResp, isLoading, isError, refetch } = useCategoryList({ limit: 1000 });
+  const createMutation = useCreateCategory();
+  const updateMutation = useUpdateCategory();
+  const deleteMutation = useDeleteCategory();
 
-  // Hardcoded statistics as baseline, updated dynamically when items are added/changed
-  const [baseStats, setBaseStats] = useState({
-    total: 128,
-    active: 118,
-    root: 12,
-    child: 116
-  });
-
-  // Mock Category Database
-  const [categories, setCategories] = useState<Category[]>([
-    { id: 'cat-1', name: 'Điện tử', code: 'DIENTU', slug: 'dien-tu', parentId: null, description: 'Các thiết bị công nghệ và điện tử tiêu dùng', status: 'ACTIVE', icon: 'Folder', createdAt: '2026-01-10', updatedAt: '2026-06-25 10:15' },
-    { id: 'cat-2', name: 'Điện thoại', code: 'DIENTHOAI', slug: 'dien-thoai', parentId: 'cat-1', description: 'Điện thoại di động thông minh, điện thoại bàn', status: 'ACTIVE', icon: 'Smartphone', createdAt: '2026-01-12', updatedAt: '2026-06-25 10:30' },
-    { id: 'cat-3', name: 'Laptop', code: 'LAPTOP', slug: 'laptop', parentId: 'cat-1', description: 'Máy tính xách tay văn phòng, gaming, đồ họa', status: 'ACTIVE', icon: 'Laptop', createdAt: '2026-01-15', updatedAt: '2026-06-24 16:45' },
-    { id: 'cat-4', name: 'Tivi', code: 'TIVI', slug: 'tivi', parentId: 'cat-1', description: 'Tivi thông minh OLED, QLED, phụ kiện tivi', status: 'INACTIVE', icon: 'Tv', createdAt: '2026-01-20', updatedAt: '2026-06-23 09:12' },
-    
-    { id: 'cat-5', name: 'Gia dụng', code: 'GIADUNG', slug: 'gia-dung', parentId: null, description: 'Thiết bị điện gia dụng, nhà bếp và tiện ích gia đình', status: 'ACTIVE', icon: 'Folder', createdAt: '2026-02-01', updatedAt: '2026-06-25 08:20' },
-    { id: 'cat-6', name: 'Máy giặt', code: 'MAYGIAT', slug: 'may-giat', parentId: 'cat-5', description: 'Máy giặt cửa trước, cửa trên, máy sấy quần áo', status: 'ACTIVE', icon: 'WashingMachine', createdAt: '2026-02-05', updatedAt: '2026-06-22 14:35' },
-    { id: 'cat-7', name: 'Tủ lạnh', code: 'TULANH', slug: 'tu-lanh', parentId: 'cat-5', description: 'Tủ lạnh mini, tủ lạnh side-by-side, tủ đông', status: 'PENDING', icon: 'Folder', createdAt: '2026-02-10', updatedAt: '2026-06-25 11:00' },
-    
-    { id: 'cat-8', name: 'Thời trang', code: 'THOITRANG', slug: 'thoi-trang', parentId: null, description: 'Quần áo thời trang nam nữ, phụ kiện và giày dép', status: 'ACTIVE', icon: 'Folder', createdAt: '2026-03-01', updatedAt: '2026-06-20 11:00' },
-    { id: 'cat-9', name: 'Thời trang Nam', code: 'THOITRANGNAM', slug: 'thoi-trang-nam', parentId: 'cat-8', description: 'Quần áo, phụ kiện thời trang dành cho nam giới', status: 'ACTIVE', icon: 'Folder', createdAt: '2026-03-05', updatedAt: '2026-06-18 15:40' },
-  ]);
+  const categories = useMemo<Category[]>(() => {
+    if (!categoryListResp?.data) return [];
+    return categoryListResp.data.map(item => ({
+      id: item.id,
+      name: item.name,
+      code: item.code || '',
+      slug: item.code ? item.code.toLowerCase() : '',
+      parentId: item.parent_id || null,
+      description: item.description || '',
+      status: item.is_active ? 'ACTIVE' : 'INACTIVE',
+      icon: item.parent_id ? 'Laptop' : 'Folder', // Dynamically style child vs root categories
+      createdAt: item.created_at ? new Date(item.created_at).toISOString().substring(0, 10) : '',
+      updatedAt: item.updated_at ? new Date(item.updated_at).toISOString().replace('T', ' ').substring(0, 16) : ''
+    }));
+  }, [categoryListResp]);
 
   // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -75,11 +77,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   const [selectedTreeCategory, setSelectedTreeCategory] = useState<string | null>(null);
 
   // Tree Expand/Collapse state
-  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
-    'cat-1': true,
-    'cat-5': true,
-    'cat-8': true
-  });
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
 
   // KPI card selection filter
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'ROOT' | 'CHILD'>('ALL');
@@ -132,29 +130,22 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   };
 
   // Handle status toggle (Kích hoạt / Vô hiệu hóa)
-  const handleToggleStatus = (id: string, currentStatus: 'ACTIVE' | 'INACTIVE' | 'PENDING') => {
+  const handleToggleStatus = async (id: string, currentStatus: 'ACTIVE' | 'INACTIVE' | 'PENDING') => {
     const nextStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    setCategories(prev => prev.map(cat => {
-      if (cat.id === id) {
-        return {
-          ...cat,
-          status: nextStatus,
-          updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-        };
-      }
-      return cat;
-    }));
-
-    // Update KPI counter offset
-    if (nextStatus === 'ACTIVE') {
-      setBaseStats(prev => ({ ...prev, active: prev.active + 1 }));
-    } else {
-      setBaseStats(prev => ({ ...prev, active: prev.active - 1 }));
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        payload: {
+          status: nextStatus
+        }
+      });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err?.message || 'Không thể cập nhật trạng thái.');
     }
   };
 
   // Form submission (Create / Edit)
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
@@ -193,89 +184,33 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
     const parentIdValue = formData.parentId === '' ? null : formData.parentId;
 
-    if (drawerMode === 'CREATE') {
-      const newCat: Category = {
-        id: `cat-${Date.now()}`,
-        name: formData.name.trim(),
-        code: formData.code.trim().toUpperCase(),
-        slug: formData.slug.trim().toLowerCase(),
-        parentId: parentIdValue,
-        description: formData.description.trim(),
-        status: formData.status,
-        icon: formData.icon,
-        createdAt: new Date().toISOString().substring(0, 10),
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      };
-
-      setCategories(prev => [newCat, ...prev]);
-
-      // Update KPI counters
-      setBaseStats(prev => {
-        const isRoot = parentIdValue === null;
-        return {
-          total: prev.total + 1,
-          active: formData.status === 'ACTIVE' ? prev.active + 1 : prev.active,
-          root: isRoot ? prev.root + 1 : prev.root,
-          child: !isRoot ? prev.child + 1 : prev.child
-        };
-      });
-
-    } else if (drawerMode === 'EDIT' && selectedCategory) {
-      const original = selectedCategory;
-      setCategories(prev => prev.map(cat => {
-        if (cat.id === original.id) {
-          return {
-            ...cat,
+    try {
+      if (drawerMode === 'CREATE') {
+        await createMutation.mutateAsync({
+          name: formData.name.trim(),
+          code: formData.code.trim().toUpperCase(),
+          parent_id: parentIdValue,
+          description: formData.description.trim(),
+          status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE'
+        });
+      } else if (drawerMode === 'EDIT' && selectedCategory) {
+        await updateMutation.mutateAsync({
+          id: selectedCategory.id,
+          payload: {
             name: formData.name.trim(),
             code: formData.code.trim().toUpperCase(),
-            slug: formData.slug.trim().toLowerCase(),
-            parentId: parentIdValue,
+            parent_id: parentIdValue,
             description: formData.description.trim(),
-            status: formData.status,
-            icon: formData.icon,
-            updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-          };
-        }
-        return cat;
-      }));
-
-      // Adjust KPI stats if parent changed or status changed
-      setBaseStats(prev => {
-        let rootDiff = 0;
-        let childDiff = 0;
-        let activeDiff = 0;
-
-        // Parent changes
-        const wasRoot = original.parentId === null;
-        const isRoot = parentIdValue === null;
-        if (wasRoot !== isRoot) {
-          if (wasRoot) {
-            rootDiff = -1;
-            childDiff = 1;
-          } else {
-            rootDiff = 1;
-            childDiff = -1;
+            status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE'
           }
-        }
-
-        // Status changes
-        const wasActive = original.status === 'ACTIVE';
-        const isActive = formData.status === 'ACTIVE';
-        if (wasActive !== isActive) {
-          activeDiff = isActive ? 1 : -1;
-        }
-
-        return {
-          ...prev,
-          active: prev.active + activeDiff,
-          root: prev.root + rootDiff,
-          child: prev.child + childDiff
-        };
-      });
+        });
+      }
+      setIsDrawerOpen(false);
+      setFormError(null);
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Có lỗi xảy ra, vui lòng thử lại.';
+      setFormError(errMsg);
     }
-
-    setIsDrawerOpen(false);
-    setFormError(null);
   };
 
   // Generate automatically slug based on Name
@@ -465,19 +400,18 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
   // Dynamic statistics displayed on KPI Cards
   const stats = useMemo(() => {
-    // We add base offset from 128 base stats to simulate massive enterprise catalog
-    const addedCount = categories.length - 9; // base categories is 9
-    const activeAdded = categories.filter(c => c.status === 'ACTIVE').length - 7;
-    const rootAdded = categories.filter(c => c.parentId === null).length - 3;
-    const childAdded = categories.filter(c => c.parentId !== null).length - 6;
+    const total = categories.length;
+    const active = categories.filter(c => c.status === 'ACTIVE').length;
+    const root = categories.filter(c => c.parentId === null).length;
+    const child = categories.filter(c => c.parentId !== null).length;
 
     return {
-      total: baseStats.total + addedCount,
-      active: baseStats.active + activeAdded,
-      root: baseStats.root + rootAdded,
-      child: baseStats.child + childAdded,
+      total,
+      active,
+      root,
+      child,
     };
-  }, [categories, baseStats]);
+  }, [categories]);
 
   // Loading Skeleton rendering helper
   const renderSkeleton = () => {
@@ -520,48 +454,6 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       
-      {/* Demo State Control Panel - ONLY FOR PREVIEWING DIFFERENT STATES */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md uppercase tracking-wider">Demo Controls</span>
-          <span className="text-xs text-blue-600 font-medium">Bấm để chuyển đổi nhanh các trạng thái hiển thị của UI/UX:</span>
-        </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setDemoState('NORMAL')} 
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-              demoState === 'NORMAL' ? 'bg-blue-600 text-white shadow-xs' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-100/50'
-            }`}
-          >
-            Bình thường
-          </button>
-          <button 
-            onClick={() => setDemoState('LOADING')} 
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-              demoState === 'LOADING' ? 'bg-blue-600 text-white shadow-xs' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-100/50'
-            }`}
-          >
-            Đang tải (Skeleton)
-          </button>
-          <button 
-            onClick={() => setDemoState('EMPTY')} 
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-              demoState === 'EMPTY' ? 'bg-blue-600 text-white shadow-xs' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-100/50'
-            }`}
-          >
-            Trống (Empty)
-          </button>
-          <button 
-            onClick={() => setDemoState('ERROR')} 
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-              demoState === 'ERROR' ? 'bg-blue-600 text-white shadow-xs' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-100/50'
-            }`}
-          >
-            Lỗi kết nối (Error)
-          </button>
-        </div>
-      </div>
-
       {/* Header section */}
       <div className="flex justify-between items-start">
         <div className="space-y-1">
@@ -614,7 +506,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
       </div>
 
       {/* Render error state if selected */}
-      {demoState === 'ERROR' ? (
+      {isError ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
           <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4 border border-red-100">
             <AlertCircle size={24} />
@@ -624,15 +516,12 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
             Đã xảy ra lỗi khi tải dữ liệu từ máy chủ. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại.
           </p>
           <div className="mt-6 flex gap-3">
-            <Button variant="secondary" onClick={() => setDemoState('NORMAL')} className="rounded-xl px-4 text-sm font-semibold">
-              Quay lại
-            </Button>
-            <Button onClick={() => setDemoState('NORMAL')} className="rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white">
+            <Button onClick={() => refetch()} className="rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white">
               Thử lại
             </Button>
           </div>
         </Card>
-      ) : demoState === 'LOADING' ? (
+      ) : isLoading ? (
         renderSkeleton()
       ) : (
         <>
@@ -756,10 +645,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
               <button 
                 onClick={() => {
-                  // Simulate refresh trigger
-                  const originalState = demoState;
-                  setDemoState('LOADING');
-                  setTimeout(() => setDemoState(originalState), 500);
+                  refetch();
                 }}
                 className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors cursor-pointer bg-white"
                 title="Tải lại dữ liệu"
@@ -808,7 +694,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
             {/* Section 4: Category List Table */}
             <div className="col-span-3 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col min-h-[480px]">
-              {demoState === 'EMPTY' || filteredCategories.length === 0 ? (
+              {filteredCategories.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center bg-white">
                   <div className="w-14 h-14 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center mb-4 border border-slate-100 mx-auto">
                     <Folder size={28} />
@@ -926,10 +812,14 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
                                   {/* Delete Category */}
                                   <button 
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                       e.stopPropagation();
                                       if (confirm(`Bạn có chắc chắn muốn xóa danh mục ${cat.name}?`)) {
-                                        setCategories(prev => prev.filter(c => c.id !== cat.id));
+                                        try {
+                                          await deleteMutation.mutateAsync(cat.id);
+                                        } catch (err: any) {
+                                          alert(err?.response?.data?.message || err?.message || 'Không thể xóa danh mục.');
+                                        }
                                       }
                                     }}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors border-none bg-transparent cursor-pointer"

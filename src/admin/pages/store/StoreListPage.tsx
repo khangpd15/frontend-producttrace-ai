@@ -1,114 +1,22 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
-  Search, Plus, RotateCw, Eye, Edit3, X, AlertCircle, 
-  MapPin, Phone, Mail, Clock, ShieldCheck, HelpCircle, Inbox, Tag, AlertTriangle, ExternalLink, Trash2, ChevronDown
+  Search, Plus, Eye, Edit3, X, AlertCircle, 
+  MapPin, Phone, Mail, Clock, HelpCircle, Inbox, ExternalLink, Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import { locationService, LocationPoint } from '../../services/locationService';
-import { addressService, Province, District, Ward } from '../../services/addressService';
-
-// Interface LocationPoint được import từ locationService.ts
+import { useAuthStore } from '../../../features/auth/store/auth.store';
+import { 
+  useLocationList, 
+  useCreateLocation, 
+  useUpdateLocation, 
+  useDeleteLocation 
+} from '../../../features/locations/hooks/useLocation';
+import { LocationResponse as LocationPoint } from '../../../features/locations/api/location.api';
 
 export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
-  const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
+  const { user } = useAuthStore();
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'WAREHOUSE' | 'STORE' | 'DEALER' | 'WARRANTY_CENTER'>('ALL');
-
-  // Danh sách địa điểm - được load từ API backend
-  const [locations, setLocations] = useState<LocationPoint[]>([]);
-
-  // State theo dõi khi đang gọi API submit (để disable nút)
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // ---- State cho cascading dropdown hành chính Việt Nam ----
-  const [provinces,  setProvinces]  = useState<Province[]>([]);
-  const [districts,  setDistricts]  = useState<District[]>([]);
-  const [wards,      setWards]      = useState<Ward[]>([]);
-  const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
-  const [loadingWards,     setLoadingWards]     = useState(false);
-  // Lưu code để biết phải gọi API nào tiếp theo
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | null>(null);
-  const [selectedDistrictCode, setSelectedDistrictCode] = useState<number | null>(null);
-
-  // Fetch danh sách địa điểm từ backend khi component mount
-  const fetchLocations = useCallback(async () => {
-    setDemoState('LOADING');
-    try {
-      const data = await locationService.getAll(); // luôn trả về LocationPoint[]
-      setLocations(data);
-      setDemoState('NORMAL');
-    } catch (error: any) {
-      console.error('[Location] Lỗi khi tải danh sách địa điểm:', error);
-      if (error.response) {
-        console.error('[Location] HTTP Status:', error.response.status);
-        console.error('[Location] Response data:', error.response.data);
-      } else if (error.request) {
-        console.error('[Location] Không nhận được response — backend có đang chạy không?');
-      } else {
-        console.error('[Location] Lỗi khởi tạo request:', error.message);
-      }
-      setDemoState('ERROR');
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchLocations();
-  }, [fetchLocations]);
-
-  // Load danh sách tỉnh/TP khi component mount
-  useEffect(() => {
-    const load = async () => {
-      setLoadingProvinces(true);
-      try {
-        const data = await addressService.getProvinces();
-        setProvinces(data);
-      } catch (e) {
-        console.error('[Address] Không tải được danh sách tỉnh/TP:', e);
-      } finally {
-        setLoadingProvinces(false);
-      }
-    };
-    load();
-  }, []);
-
-  // Khi chọn Tỉnh/TP → tải Quận/Huyện
-  const handleProvinceChange = useCallback(async (provinceCode: number, provinceName: string) => {
-    setSelectedProvinceCode(provinceCode);
-    setSelectedDistrictCode(null);
-    setFormData(prev => ({ ...prev, city: provinceName, district: '', ward: '' }));
-    setDistricts([]);
-    setWards([]);
-    if (!provinceCode) return;
-    setLoadingDistricts(true);
-    try {
-      const data = await addressService.getDistricts(provinceCode);
-      setDistricts(data);
-    } catch (e) {
-      console.error('[Address] Không tải được quận/huyện:', e);
-    } finally {
-      setLoadingDistricts(false);
-    }
-  }, []);
-
-  // Khi chọn Quận/Huyện → tải Phường/Xã
-  const handleDistrictChange = useCallback(async (districtCode: number, districtName: string) => {
-    setSelectedDistrictCode(districtCode);
-    setFormData(prev => ({ ...prev, district: districtName, ward: '' }));
-    setWards([]);
-    if (!districtCode) return;
-    setLoadingWards(true);
-    try {
-      const data = await addressService.getWards(districtCode);
-      setWards(data);
-    } catch (e) {
-      console.error('[Address] Không tải được phường/xã:', e);
-    } finally {
-      setLoadingWards(false);
-    }
-  }, []);
-
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
   const [filterCity, setFilterCity] = useState<string>('ALL');
@@ -137,15 +45,27 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     closeTime: '22:00'
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load locations from API
+  const { data: locationsRes, isLoading, isError, refetch } = useLocationList({
+    limit: 100, // Fetch up to 100 items to support clientside filtering and search
+  });
+
+  const locations = useMemo(() => locationsRes?.data || [], [locationsRes]);
+
+  // Mutations
+  const createMutation = useCreateLocation();
+  const updateMutation = useUpdateLocation();
+  const deleteMutation = useDeleteLocation();
 
   // Stats — dùng safe array để tránh crash nếu locations không phải mảng
   const stats = useMemo(() => {
-    const safeList = Array.isArray(locations) ? locations : [];
-    const total     = safeList.length;
-    const warehouse = safeList.filter(l => l.type === 'WAREHOUSE').length;
-    const store     = safeList.filter(l => l.type === 'STORE').length;
-    const dealer    = safeList.filter(l => l.type === 'DEALER').length;
-    const warranty  = safeList.filter(l => l.type === 'WARRANTY_CENTER').length;
+    const total = locations.length;
+    const warehouse = locations.filter(l => l.type === 'WAREHOUSE').length;
+    const store = locations.filter(l => l.type === 'STORE').length;
+    const dealer = locations.filter(l => l.type === 'DEALER').length;
+    const warranty = locations.filter(l => l.type === 'WARRANTY_CENTER').length;
     return { total, warehouse, store, dealer, warranty };
   }, [locations]);
 
@@ -168,7 +88,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
   }, [locations, searchTerm, filterType, filterCity, activeKpiFilter]);
 
   const cities = useMemo(() => {
-    return Array.from(new Set(locations.map(l => l.city)));
+    return Array.from(new Set(locations.map(l => l.city))).filter(Boolean);
   }, [locations]);
 
   const handleOpenCreate = () => {
@@ -223,18 +143,15 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
       code: loc.code,
       name: loc.name,
       type: loc.type,
-      phone: loc.phone ?? '',
-      email: loc.email ?? '',
-      address: loc.address ?? '',
-      ward: loc.ward ?? '',
-      district: loc.district ?? '',
-      city: loc.city ?? '',
-      country: loc.country ?? '',
-      latitude: loc.latitude ?? 0,
-      longitude: loc.longitude ?? 0,
+      phone: loc.phone || '',
+      email: loc.email || '',
+      address: loc.address || '',
+      city: loc.city || 'Hà Nội',
+      country: loc.country || 'Việt Nam',
+      latitude: loc.latitude,
+      longitude: loc.longitude,
       isActive: loc.isActive,
-      openTime: open,
-      closeTime: close
+      openingHours: loc.openingHoursJson?.hours || '08:00 - 22:00'
     });
     setFormError(null);
     setIsDrawerOpen(true);
@@ -246,74 +163,76 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     setIsDrawerOpen(true);
   };
 
+  const handleDelete = async (id: string, name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Bạn có chắc chắn muốn xóa địa điểm ${name}?`)) {
+      try {
+        await deleteMutation.mutateAsync(id);
+        alert('Xóa địa điểm thành công!');
+        refetch();
+      } catch (err: any) {
+        alert(err.response?.data?.error || 'Có lỗi xảy ra khi xóa địa điểm.');
+      }
+    }
+  };
+
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.code.trim()) {
       setFormError('Mã và Tên địa điểm là bắt buộc');
       return;
     }
-    if (!formData.city.trim() || !formData.district.trim() || !formData.ward.trim()) {
-      setFormError('Tỉnh/Thành phố, Quận/Huyện và Phường/Xã là bắt buộc');
-      return;
-    }
-    
-    // Kiểm tra định dạng Email ở frontend
-    if (formData.email.trim() !== '') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email.trim())) {
-        setFormError('Email không đúng định dạng (ví dụ: store@example.com)');
-        return;
-      }
-    }
 
-    if (!formData.openTime || !formData.closeTime) {
-      setFormError('Vui lòng chọn đầy đủ Giờ mở cửa và Giờ đóng cửa');
-      return;
-    }
-
-    // Payload gửi lên API backend (giữ định dạng "HH:MM - HH:MM" cũ để locationService.ts unwrap chính xác)
-    const payload = {
-      code: formData.code.toUpperCase(),
-      name: formData.name.trim(),
-      type: formData.type,
-      phone: formData.phone.trim(),
-      email: formData.email.trim(),
-      address: formData.address.trim(),
-      ward: formData.ward.trim(),
-      district: formData.district.trim(),
-      city: formData.city.trim(),
-      country: formData.country.trim(),
-      latitude: formData.latitude,
-      longitude: formData.longitude,
-      isActive: formData.isActive,
-      openingHours: `${formData.openTime} - ${formData.closeTime}`,
-    };
-
-    setIsSubmitting(true);
     setFormError(null);
+    setIsSubmitting(true);
 
     try {
       if (drawerMode === 'CREATE') {
         const isDuplicate = locations.some(l => l.code.toUpperCase() === formData.code.toUpperCase());
         if (isDuplicate) {
-          setFormError('Mã địa điểm đã tồn tại trong hệ thống');
+          setFormError('Mã địa điểm đã tồn tại');
           setIsSubmitting(false);
           return;
         }
-        // Gọi API POST /api/locations
-        const newLoc = await locationService.create(payload);
-        setLocations(prev => [newLoc, ...prev]);
+
+        await createMutation.mutateAsync({
+          ownerUserId: user?.id || '',
+          code: formData.code.toUpperCase(),
+          name: formData.name.trim(),
+          type: formData.type,
+          phone: formData.phone.trim(),
+          email: formData.email.trim(),
+          address: formData.address.trim(),
+          ward: 'N/A',
+          district: 'N/A',
+          city: formData.city.trim(),
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          openingHoursJson: { hours: formData.openingHours }
+        });
       } else if (drawerMode === 'EDIT' && selectedLocation) {
-        // Gọi API PUT /api/locations/:id
-        const updatedLoc = await locationService.update(selectedLocation.id, payload);
-        setLocations(prev => prev.map(l => l.id === selectedLocation.id ? updatedLoc : l));
+        await updateMutation.mutateAsync({
+          id: selectedLocation.id,
+          payload: {
+            name: formData.name.trim(),
+            type: formData.type,
+            phone: formData.phone.trim(),
+            email: formData.email.trim(),
+            address: formData.address.trim(),
+            ward: selectedLocation.ward || 'N/A',
+            district: selectedLocation.district || 'N/A',
+            city: formData.city.trim(),
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+            isActive: formData.isActive,
+            openingHoursJson: { hours: formData.openingHours }
+          }
+        });
       }
       setIsDrawerOpen(false);
-    } catch (error: any) {
-      console.error('[Location] Lỗi khi lưu địa điểm:', error);
-      // Ưu tiên hiển thị message lỗi từ backend (nếu có)
-      const backendMessage = error.response?.data?.message || error.response?.data?.error;
-      setFormError(backendMessage || 'Không thể lưu thông tin. Vui lòng kiểm tra kết nối và thử lại!');
+      refetch();
+    } catch (err: any) {
+      setFormError(err.response?.data?.error || 'Có lỗi xảy ra khi cập nhật địa điểm.');
     } finally {
       setIsSubmitting(false);
     }
@@ -347,35 +266,6 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      
-      {/* Demo Controls - chỉ dùng khi phát triển/test UI */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">⚠ Dev Controls</span>
-          <span className="text-xs text-amber-600 font-medium">Giả lập trạng thái UI (chỉ dùng khi test):</span>
-        </div>
-        <div className="flex gap-2">
-          {(['NORMAL', 'LOADING', 'EMPTY', 'ERROR'] as const).map(st => (
-            <button
-              key={st}
-              onClick={() => {
-                if (st === 'NORMAL') {
-                  // Khi bấm NORMAL → fetch lại API thật
-                  fetchLocations();
-                } else {
-                  setDemoState(st);
-                }
-              }}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                demoState === st ? 'bg-amber-500 text-white' : 'bg-white border border-amber-300 text-amber-700 hover:bg-amber-50'
-              }`}
-            >
-              {st === 'NORMAL' ? '↺ Reload API' : st === 'LOADING' ? 'Đang tải' : st === 'EMPTY' ? 'Trống' : 'Lỗi'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -397,24 +287,16 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
         </Button>
       </div>
 
-      {demoState === 'ERROR' ? (
+      {isError ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
           <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
             <AlertCircle size={24} />
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu địa điểm</h3>
-          <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            Đã xảy ra lỗi kết nối tới backend. Kiểm tra console trình duyệt để xem chi tiết lỗi.
-          </p>
-          <p className="mt-1 text-xs text-slate-400 font-mono bg-slate-50 px-3 py-1 rounded-lg border">
-            {import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/locations
-          </p>
-          {/* Nút Thử lại gọi đúng fetchLocations() */}
-          <Button onClick={fetchLocations} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
-            ↺ Thử kết nối lại
-          </Button>
+          <p className="mt-2 text-sm text-slate-500 max-w-sm">Đã xảy ra lỗi kết nối khi tải danh sách kho/cửa hàng.</p>
+          <Button onClick={() => refetch()} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
         </Card>
-      ) : demoState === 'LOADING' ? (
+      ) : isLoading ? (
         renderSkeleton()
       ) : (
         <>
@@ -511,7 +393,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
           {/* Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            {demoState === 'EMPTY' || filteredLocations.length === 0 ? (
+            {filteredLocations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Chưa có địa điểm nào</h3>
@@ -549,7 +431,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                           </div>
                         </td>
                         <td className="p-3.5 truncate">
-                          <div className="text-xs text-slate-700 flex items-center gap-1"><Phone size={10} className="text-slate-400" /> {loc.phone}</div>
+                          <div className="text-xs text-slate-700 flex items-center gap-1"><Phone size={10} className="text-slate-400 animate-pulse" /> {loc.phone}</div>
                           <div className="text-[10px] text-slate-400 flex items-center gap-1 truncate"><Mail size={10} className="text-slate-400 flex-shrink-0" /> <span className="truncate">{loc.email}</span></div>
                         </td>
                         <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>
@@ -586,20 +468,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                               <Eye size={15} />
                             </button>
                             <button 
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (confirm(`Bạn có chắc chắn muốn xóa địa điểm "${loc.name}"?\n\nHành động này không thể hoàn tác!`)) {
-                                  try {
-                                    // Gọi API DELETE /api/locations/:id
-                                    await locationService.delete(loc.id);
-                                    setLocations(prev => prev.filter(item => item.id !== loc.id));
-                                  } catch (error: any) {
-                                    console.error('[Location] Lỗi khi xóa địa điểm:', error);
-                                    const backendMessage = error.response?.data?.message || error.response?.data?.error;
-                                    alert(backendMessage || `Không thể xóa địa điểm "${loc.name}". Vui lòng thử lại!`);
-                                  }
-                                }
-                              }}
+                              onClick={(e) => handleDelete(loc.id, loc.name, e)}
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Xóa địa điểm"
                             >
@@ -648,7 +517,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                       type="text" 
                       value={formData.code}
                       onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                      disabled={drawerMode === 'VIEW'}
+                      disabled={drawerMode === 'VIEW' || drawerMode === 'EDIT'}
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono"
                       placeholder="WH-HN-01"
                     />
@@ -896,19 +765,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 {drawerMode === 'VIEW' ? 'Đóng' : 'Hủy'}
               </Button>
               {drawerMode !== 'VIEW' && (
-                <Button
-                  onClick={handleSubmitForm}
-                  disabled={isSubmitting}
-                  className={`rounded-xl px-4 text-xs font-semibold shadow-sm cursor-pointer ${
-                    isSubmitting
-                      ? 'bg-blue-400 text-white cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  {isSubmitting
-                    ? (drawerMode === 'CREATE' ? 'Đang thêm...' : 'Đang lưu...')
-                    : (drawerMode === 'CREATE' ? 'Thêm địa điểm' : 'Lưu thay đổi')
-                  }
+                <Button onClick={handleSubmitForm} disabled={isSubmitting} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer">
+                  {isSubmitting ? 'Đang lưu...' : (drawerMode === 'CREATE' ? 'Thêm địa điểm' : 'Lưu thay đổi')}
                 </Button>
               )}
             </div>
