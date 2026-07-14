@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   Package, Layers, ShieldCheck, Users, Activity, 
   AlertTriangle, Building, ChevronRight, ArrowUpRight, 
@@ -6,7 +6,12 @@ import {
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { useDashboardStats } from '../../../features/dashboard/hooks/useDashboardStats';
+import {
+  useDashboardStats,
+  useDashboardActivities,
+  useDashboardAlerts,
+  useDashboardCharts,
+} from '../../../features/dashboard/hooks/useDashboardStats';
 import { parseApiError } from '../../../api/axios';
 
 interface DashboardProps {
@@ -15,33 +20,9 @@ interface DashboardProps {
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
   const { data: stats, isLoading, error, refetch } = useDashboardStats();
-
-  // TODO: Create backend APIs for dashboard charts, activities, and alerts.
-  // Currently these do not exist on the Go backend router setup (SetupDashboardRouter),
-  // so we keep the premium UI widgets and bind them to local mock data.
-  const chartLoading = false;
-  const activitiesLoading = false;
-  const alertsLoading = false;
-
-  const chartData = [
-    { time_period: '2025-01-01T00:00:00Z', production_volume: 45.2, sales_volume: 38.1 },
-    { time_period: '2025-02-01T00:00:00Z', production_volume: 50.0, sales_volume: 42.5 },
-    { time_period: '2025-03-01T00:00:00Z', production_volume: 55.4, sales_volume: 48.0 },
-    { time_period: '2025-04-01T00:00:00Z', production_volume: 62.1, sales_volume: 54.3 },
-    { time_period: '2025-05-01T00:00:00Z', production_volume: 68.5, sales_volume: 60.1 },
-    { time_period: '2025-06-01T00:00:00Z', production_volume: 75.0, sales_volume: 66.8 }
-  ];
-
-  const activities = [
-    { id: '1', description: 'Đại lý Nguyễn Văn A kích hoạt bảo hành sản phẩm PRD-001', created_at: new Date().toISOString() },
-    { id: '2', description: 'Lô hàng BAT-004 đã được xuất kho phân phối sang Đại lý Quận 1', created_at: new Date(Date.now() - 3600000).toISOString() },
-    { id: '3', description: 'Yêu cầu kích hoạt bảo hành cho sản phẩm PRD-002 bị từ chối do quá hạn', created_at: new Date(Date.now() - 7200000).toISOString() }
-  ];
-
-  const alerts = [
-    { id: '1', type: 'DANGER' as const, title: 'Phát hiện mã QR giả mạo', description: 'Hệ thống AI phát hiện 5 lượt quét trùng lặp bất thường từ địa chỉ IP tại Hà Nội.' },
-    { id: '2', type: 'WARNING' as const, title: 'Sản phẩm sắp hết hạn bảo hành', description: 'Lô hàng BAT-001 có hơn 150 sản phẩm sắp hết thời hạn bảo hành trong 30 ngày tới.' }
-  ];
+  const { data: activities = [], isLoading: activitiesLoading } = useDashboardActivities(10);
+  const { data: alerts = [],     isLoading: alertsLoading }     = useDashboardAlerts();
+  const { data: chartData = [],  isLoading: chartLoading }      = useDashboardCharts();
 
   const fetchStats = () => {
     void refetch();
@@ -306,6 +287,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 activities.map((act) => (
                   <div key={act?.id} className="py-3 flex justify-between items-start gap-4">
                     <span className="leading-relaxed">
+                      {act?.title && (
+                        <span className="font-semibold text-slate-800">{act.title} — </span>
+                      )}
                       {act?.description}
                     </span>
                     <span className="text-slate-400 flex-shrink-0">
