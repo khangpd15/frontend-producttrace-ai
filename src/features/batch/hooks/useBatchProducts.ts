@@ -13,7 +13,7 @@ import {
   GetBatchProductsParams,
 } from '../api/batch.types';
 import { AxiosError } from 'axios';
-import { ApiError } from '../../../api/axios';
+import { ApiError, parseApiError } from '../../../api/axios';
 
 interface UseBatchProductsState {
   items: BatchProductItem[];
@@ -64,15 +64,10 @@ export function useBatchProducts(
         error: null,
       });
     } catch (err) {
-      const axiosError = err as AxiosError<ApiError>;
-      const message =
-        axiosError.response?.data?.message ??
-        axiosError.message ??
-        'Không thể tải danh sách sản phẩm trong lô';
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: message,
+        error: parseApiError(err),
       }));
     }
   }, [batchId, page, limit, status, keyword, fetchTrigger]);

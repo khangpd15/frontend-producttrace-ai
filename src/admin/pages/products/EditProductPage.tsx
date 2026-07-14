@@ -1,69 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import {
-  ChevronLeft, Save, X, Plus, Trash2, Edit3,
+  ChevronLeft, Save, X, Trash2, Edit3,
   AlertCircle, Package, Check, Tag, Info,
-  Layers, Globe, Star, Image as ImageIcon, Code
+  Layers, Globe, Star, Image as ImageIcon, Code, AlertTriangle, Plus
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
+import { 
+  useProductDetail, 
+  useUpdateProduct, 
+  useUpdateVariant, 
+  useDeleteVariant 
+} from '../../../features/products/hooks/useProducts';
+import { parseApiError } from '../../../api/axios';
 
-import {
-  AdminProductStatus as ProductStatus,
-  AdminVariantStatus as VariantStatus,
-  AdminEditAttributeValue as AttributeValue,
-  AdminEditVariant as Variant,
-  AdminEditProductFormData as ProductFormData
-} from '@shared/types/domain';
-
-// Mock seeded data per product ID
-const MOCK_PRODUCT_DATA: Record<string, { form: ProductFormData; variants: Variant[] }> = {
-  '1': {
-    form: {
-      name: 'Máy lọc nước RO Kangaroo VT3',
-      slug: 'may-loc-nuoc-ro-kangaroo-vt3',
-      category_id: 'CAT-HOME-001',
-      category: 'Thiết bị gia dụng',
-      description: 'Máy lọc nước RO Kangaroo VT3 với công nghệ lọc ngược thẩm thấu hiện đại 9 lõi lọc.',
-      thumbnail_url: 'https://example.com/thumbnail1.jpg',
-      tags: 'Gia dụng, Lọc nước, Kangaroo, RO Technology',
-      status: 'ACTIVE',
-    },
-    variants: [
-      { 
-        id: 'v1', sku: 'KG-VT3-TRANG', name: 'Màu Trắng - 9 lõi', barcode: '8938514050123', 
-        price: 3500000, currency: 'VND', images_json: '[]', status: 'ACTIVE', 
-        attributes: [
-          { label: 'Màu sắc', value_text: 'Trắng' },
-          { label: 'Trọng lượng (kg)', value_number: 8.5 }
-        ]
-      },
-    ],
-  },
-};
-
-const BLANK_FORM: ProductFormData = {
-  name: '', slug: '', category_id: '', category: '',
-  description: '', thumbnail_url: '', tags: '', status: 'DRAFT',
-};
-
-const BLANK_VARIANT: Variant = {
-  id: '', sku: '', name: '', barcode: '',
-  price: 0, currency: 'VND', images_json: '[]', status: 'ACTIVE', attributes: []
-};
-
-const STATUS_OPTIONS: { value: ProductStatus; label: string }[] = [
+const STATUS_OPTIONS = [
   { value: 'ACTIVE',       label: 'Đang kinh doanh' },
   { value: 'DRAFT',        label: 'Bản nháp' },
   { value: 'DISCONTINUED', label: 'Ngừng kinh doanh' },
 ];
 
-const STATUS_BADGE: Record<ProductStatus, string> = {
+const STATUS_BADGE: Record<string, string> = {
   ACTIVE:       'bg-green-50 text-green-700 border-green-200',
   DRAFT:        'bg-amber-50 text-amber-700 border-amber-200',
   DISCONTINUED: 'bg-red-50 text-red-700 border-red-200',
 };
-const STATUS_DOT: Record<ProductStatus, string> = {
+
+const STATUS_DOT: Record<string, string> = {
   ACTIVE: 'bg-green-500', DRAFT: 'bg-amber-500', DISCONTINUED: 'bg-red-500',
 };
+
+const slugify = (s: string) =>
+  s.toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
+// Form Validation Schema
+const productEditFormSchema = z.object({
+  name: z.string().min(1, 'Tên sản phẩm không được để trống').max(255, 'Tên sản phẩm tối đa 255 ký tự'),
+  slug: z.string().min(1, 'Slug không được để trống'),
+  category_id: z.string().min(1, 'Vui lòng chọn danh mục sản phẩm'),
+  description: z.string().optional(),
+  thumbnail_url: z.string().url('URL không hợp lệ').or(z.literal('')),
+  tags: z.string().optional(),
+  metadata_json: z.string().refine((val) => {
+    if (!val.trim()) return true;
+    try {
+      const parsed = JSON.parse(val);
+      return typeof parsed === 'object' && !Array.isArray(parsed) && parsed !== null;
+    } catch {
+      return false;
+    }
+  }, 'Metadata phải là JSON Object hợp lệ'),
+  status: z.enum(['DRAFT', 'ACTIVE', 'DISCONTINUED']).default('DRAFT'),
+});
+
+type ProductEditFormValues = z.infer<typeof productEditFormSchema>;
+
+const Field: React.FC<{ label: string; required?: boolean; hint?: string; error?: string; children: React.ReactNode; className?: string }> = ({ label, required, hint, error, children, className }) => (
+  <div className={`space-y-1.5 ${className || ''}`}>
+    <div className="flex items-baseline justify-between">
+      <label className="text-xs font-bold text-slate-700">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {hint && <span className="text-[10px] text-slate-400">{hint}</span>}
+    </div>
+    {children}
+    {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
+  </div>
+);
+
+const inputCls = "w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-shadow placeholder:text-slate-400";
 
 export default function EditProductPage({
   productId,
@@ -72,135 +85,202 @@ export default function EditProductPage({
   productId?: string;
   onNavigate: (tabId: string, id?: string) => void;
 }) {
-  const seed = MOCK_PRODUCT_DATA[productId || '1'] || { form: BLANK_FORM, variants: [] };
+  if (!productId) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-red-500 font-semibold">Thiếu mã sản phẩm.</p>
+        <button onClick={() => onNavigate('products')} className="mt-4 text-blue-600 hover:underline bg-transparent border-none cursor-pointer">Quay lại danh sách</button>
+      </div>
+    );
+  }
 
-  const [formData, setFormData] = useState<ProductFormData>(seed.form);
-  const [variants, setVariants] = useState<Variant[]>(seed.variants);
+  const { data: product, isLoading, error, refetch } = useProductDetail(productId);
+  const updateProductMutation = useUpdateProduct();
+  const updateVariantMutation = useUpdateVariant();
+  const deleteVariantMutation = useDeleteVariant();
+
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-
-  // Variant drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<'CREATE' | 'EDIT'>('CREATE');
-  const [variantForm, setVariantForm] = useState<Variant>(BLANK_VARIANT);
+  const [editingVariant, setEditingVariant] = useState<any>(null);
   const [variantError, setVariantError] = useState<string | null>(null);
+
+  // Variant fields
+  const [variantSku, setVariantSku] = useState('');
+  const [variantName, setVariantName] = useState('');
+  const [variantBarcode, setVariantBarcode] = useState('');
+  const [variantPrice, setVariantPrice] = useState('');
+  const [variantCurrency, setVariantCurrency] = useState('VND');
+  const [variantStatus, setVariantStatus] = useState('ACTIVE');
+  const [variantImages, setVariantImages] = useState<string[]>([]);
+  const [imageDraft, setImageDraft] = useState('');
+
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<any>({
+    resolver: zodResolver(productEditFormSchema),
+    defaultValues: {
+      name: '',
+      slug: '',
+      category_id: '',
+      description: '',
+      thumbnail_url: '',
+      tags: '',
+      metadata_json: '',
+      status: 'DRAFT'
+    }
+  });
+
+  // Populate data when loaded
+  useEffect(() => {
+    if (product) {
+      setValue('name', product.name || '');
+      setValue('slug', product.slug || '');
+      setValue('category_id', product.categoryId || '');
+      setValue('description', product.description || '');
+      setValue('thumbnail_url', product.thumbnailUrl || '');
+      setValue('tags', (product.tags || []).join(', '));
+      setValue('metadata_json', JSON.stringify((product as any).metadata || {}, null, 2));
+      setValue('status', product.status as any || 'DRAFT');
+    }
+  }, [product, setValue]);
+
+  const productName = watch('name');
+
+  // Auto slug
+  useEffect(() => {
+    if (productName && !product) {
+      setValue('slug', slugify(productName));
+    }
+  }, [productName, product, setValue]);
+
+  if (isLoading) {
+    return (
+      <div className="bg-slate-50 p-8 space-y-8 min-h-screen animate-pulse">
+        <div className="h-6 bg-slate-200 rounded w-1/4"></div>
+        <div className="h-48 bg-slate-200 rounded-xl"></div>
+        <div className="h-48 bg-slate-200 rounded-xl"></div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
+        <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
+          <AlertCircle size={24} />
+        </div>
+        <h3 className="text-lg font-bold text-slate-900">Không thể tải thông tin sản phẩm</h3>
+        <p className="mt-2 text-sm text-slate-500 max-w-sm">
+          {parseApiError(error)}
+        </p>
+        <div className="flex gap-3 mt-6">
+          <Button onClick={() => onNavigate('product-detail', productId)} variant="secondary" className="rounded-xl px-4 text-xs font-semibold cursor-pointer">Quay lại</Button>
+          <Button onClick={() => refetch()} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
+        </div>
+      </Card>
+    );
+  }
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
-  /* ---------- Product save ---------- */
-  const handleSave = () => {
-    if (!formData.name.trim()) {
-      setFormError('Tên sản phẩm không được để trống.');
+  const onSubmit = async (values: ProductEditFormValues) => {
+    try {
+      const payload = {
+        name: values.name,
+        slug: values.slug,
+        category_id: values.category_id,
+        description: values.description,
+        thumbnail_url: values.thumbnail_url || undefined,
+        tags: values.tags ? values.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        metadata: values.metadata_json ? JSON.parse(values.metadata_json) : {},
+        status: values.status,
+      };
+
+      await updateProductMutation.mutateAsync({ id: productId, payload });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      alert('Cập nhật sản phẩm thành công!');
+      onNavigate('product-detail', productId);
+    } catch (err: any) {
+      alert(parseApiError(err));
+    }
+  };
+
+  const handleOpenEditVariant = (v: any) => {
+    setEditingVariant(v);
+    setVariantSku(v.sku || '');
+    setVariantName(v.name || '');
+    setVariantBarcode(v.barcode || '');
+    setVariantPrice(v.price !== undefined ? String(v.price) : '');
+    setVariantCurrency(v.currency || 'VND');
+    setVariantStatus(v.status || 'ACTIVE');
+    
+    let parsedImages: string[] = [];
+    if (v.images_json) {
+      try {
+        parsedImages = JSON.parse(v.images_json);
+      } catch {
+        parsedImages = [];
+      }
+    }
+    setVariantImages(parsedImages);
+    setVariantError(null);
+    setIsDrawerOpen(true);
+  };
+
+  const handleSaveVariant = async () => {
+    if (!variantSku.trim()) { setVariantError('SKU không được để trống.'); return; }
+    if (!variantName.trim()) { setVariantError('Tên biến thể không được để trống.'); return; }
+
+    const priceNum = variantPrice === '' ? undefined : parseFloat(variantPrice);
+    if (priceNum !== undefined && (isNaN(priceNum) || priceNum < 0)) {
+      setVariantError('Giá bán phải là số hợp lệ >= 0.');
       return;
     }
-    setFormError(null);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
-  };
 
-  /* ---------- Variant CRUD ---------- */
-  const openCreateVariant = () => {
-    setDrawerMode('CREATE');
-    setVariantForm(BLANK_VARIANT);
-    setVariantError(null);
-    setIsDrawerOpen(true);
-  };
-
-  const openEditVariant = (v: Variant) => {
-    setDrawerMode('EDIT');
-    setVariantForm({ ...v });
-    setVariantError(null);
-    setIsDrawerOpen(true);
-  };
-
-  const validateVariant = (v: Variant): string | null => {
-    if (!v.sku.trim()) return 'SKU không được để trống.';
-    if (!v.name.trim()) return 'Tên biến thể không được để trống.';
-    if (v.price < 0) return 'Giá không hợp lệ.';
     try {
-      JSON.parse(v.images_json || '[]');
-    } catch {
-      return 'Images JSON không hợp lệ.';
+      const payload = {
+        sku: variantSku.toUpperCase(),
+        name: variantName,
+        barcode: variantBarcode || undefined,
+        price: priceNum,
+        currency: variantCurrency,
+        status: variantStatus,
+        images: variantImages,
+      };
+
+      await updateVariantMutation.mutateAsync({ id: editingVariant.id, payload });
+      setIsDrawerOpen(false);
+      refetch();
+      alert('Cập nhật biến thể thành công!');
+    } catch (err: any) {
+      setVariantError(parseApiError(err));
     }
-    const duplicate = variants.some(
-      (ex) => ex.sku.toUpperCase() === v.sku.toUpperCase() && ex.id !== v.id
-    );
-    if (duplicate) return 'SKU đã tồn tại trong danh sách biến thể.';
-    return null;
   };
 
-  const handleSaveVariant = () => {
-    const err = validateVariant(variantForm);
-    if (err) { setVariantError(err); return; }
+  const handleDeleteVariant = async (id: string) => {
+    if (confirm('Bạn có chắc chắn muốn xóa biến thể này?')) {
+      try {
+        await deleteVariantMutation.mutateAsync(id);
+        refetch();
+        alert('Xóa biến thể thành công!');
+      } catch (err: any) {
+        alert(parseApiError(err));
+      }
+    }
+  };
 
-    if (drawerMode === 'CREATE') {
-      setVariants([...variants, { ...variantForm, id: 'v-' + Date.now() }]);
+  const handleAddImage = () => {
+    const url = imageDraft.trim();
+    if (url && /^https?:\/\//.test(url)) {
+      setVariantImages([...variantImages, url]);
+      setImageDraft('');
     } else {
-      setVariants(variants.map((v) => (v.id === variantForm.id ? variantForm : v)));
+      alert('Vui lòng nhập URL hình ảnh hợp lệ.');
     }
-    setIsDrawerOpen(false);
   };
-
-  const handleDeleteVariant = (id: string) => {
-    if (confirm('Xóa biến thể này?')) setVariants(variants.filter((v) => v.id !== id));
-  };
-
-  const handleAddAttribute = () => {
-    setVariantForm({
-      ...variantForm,
-      attributes: [...variantForm.attributes, { label: '', value_text: '' }]
-    });
-  };
-  
-  const updateAttribute = (idx: number, field: keyof AttributeValue, value: any) => {
-    const newAttrs = [...variantForm.attributes];
-    newAttrs[idx] = { ...newAttrs[idx], [field]: value };
-    setVariantForm({ ...variantForm, attributes: newAttrs });
-  };
-  
-  const removeAttribute = (idx: number) => {
-    const newAttrs = [...variantForm.attributes];
-    newAttrs.splice(idx, 1);
-    setVariantForm({ ...variantForm, attributes: newAttrs });
-  };
-
-  /* ---------- Field helper ---------- */
-  const field = (
-    label: string,
-    value: string,
-    key: keyof ProductFormData,
-    placeholder = '',
-    required = false,
-    type: 'input' | 'textarea' | 'select' = 'input'
-  ) => (
-    <div className="space-y-1">
-      <label className="text-xs font-bold text-slate-700 block">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      {type === 'textarea' ? (
-        <textarea
-          value={value}
-          onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-          rows={5}
-          placeholder={placeholder}
-          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none resize-none transition-colors"
-        />
-      ) : (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-          placeholder={placeholder}
-          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none transition-colors"
-        />
-      )}
-    </div>
-  );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
-
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-7xl mx-auto pb-20">
       {/* Success toast */}
       {saveSuccess && (
         <div className="fixed top-5 right-5 z-50 bg-white border border-green-200 shadow-xl rounded-xl px-5 py-3 flex items-center gap-3 animate-fade-in">
@@ -218,6 +298,7 @@ export default function EditProductPage({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => onNavigate('product-detail', productId)}
             className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border-none bg-transparent cursor-pointer"
             title="Quay lại chi tiết"
@@ -227,18 +308,19 @@ export default function EditProductPage({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Chỉnh sửa sản phẩm</h1>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_BADGE[formData.status]}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[formData.status]}`}></span>
-                {STATUS_OPTIONS.find(s => s.value === formData.status)?.label}
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_BADGE[watch('status')] || 'bg-gray-50'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[watch('status')] || 'bg-gray-400'}`}></span>
+                {STATUS_OPTIONS.find(s => s.value === watch('status'))?.label || watch('status')}
               </span>
             </div>
             <p className="text-sm text-slate-500 mt-0.5">
-              ID: <span className="font-mono font-semibold">PRD-{(productId || '1').padStart(6, '0')}</span>
+              ID: <span className="font-mono font-semibold">PRD-{productId.substring(0, 8)}</span>
             </p>
           </div>
         </div>
         <div className="flex gap-2">
           <Button
+            type="button"
             variant="secondary"
             onClick={() => onNavigate('product-detail', productId)}
             className="rounded-xl px-4 py-2 text-sm font-semibold cursor-pointer"
@@ -246,27 +328,18 @@ export default function EditProductPage({
             Hủy
           </Button>
           <Button
-            onClick={handleSave}
-            className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
+            type="submit"
+            disabled={updateProductMutation.isPending}
+            className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer border-none"
           >
-            <Save size={15} /> Lưu thay đổi
+            <Save size={15} /> {updateProductMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
           </Button>
         </div>
       </div>
 
-      {/* Form error */}
-      {formError && (
-        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-          <AlertCircle size={16} />
-          {formError}
-        </div>
-      )}
-
       <div className="grid grid-cols-3 gap-6">
-
         {/* ===== LEFT: Main form ===== */}
         <div className="col-span-2 space-y-6">
-
           {/* Basic Info */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-xs p-6 space-y-5">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
@@ -275,21 +348,25 @@ export default function EditProductPage({
 
             <div className="grid grid-cols-2 gap-5">
               <div className="col-span-2">
-                {field('Tên sản phẩm', formData.name, 'name', 'Ví dụ: Máy lọc nước RO Kangaroo', true)}
+                <Field label="Tên sản phẩm" required error={errors.name?.message as string}>
+                  <input {...register('name')} className={inputCls} placeholder="Ví dụ: Máy lọc nước RO Kangaroo" />
+                </Field>
               </div>
               <div className="col-span-2">
-                {field('Slug', formData.slug, 'slug', 'may-loc-nuoc-ro-kangaroo', true)}
+                <Field label="Slug" required error={errors.slug?.message as string}>
+                  <input {...register('slug')} className={`${inputCls} font-mono`} placeholder="may-loc-nuoc-ro-kangaroo" />
+                </Field>
               </div>
               
-              {field('Mã Danh mục', formData.category_id, 'category_id', 'Ví dụ: CAT-HOME-001')}
-              {field('Danh mục sản phẩm', formData.category, 'category', 'Ví dụ: Thiết bị gia dụng')}
+              <Field label="Mã Danh mục" required error={errors.category_id?.message as string}>
+                <input {...register('category_id')} className={inputCls} placeholder="Ví dụ: CAT-HOME-001" />
+              </Field>
 
               {/* Status */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 block">Trạng thái kinh doanh</label>
                 <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as ProductStatus })}
+                  {...register('status')}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none transition-colors cursor-pointer"
                 >
                   {STATUS_OPTIONS.map((opt) => (
@@ -306,10 +383,20 @@ export default function EditProductPage({
               <ImageIcon size={15} className="text-slate-400" /> Hình ảnh & Mô tả
             </h2>
             <div className="col-span-2">
-              {field('Thumbnail URL', formData.thumbnail_url, 'thumbnail_url', 'https://...')}
+              <Field label="Thumbnail URL" error={errors.thumbnail_url?.message as string}>
+                <input {...register('thumbnail_url')} className={inputCls} placeholder="https://..." />
+              </Field>
             </div>
-            {field('Nội dung mô tả chi tiết', formData.description, 'description',
-              'Nhập mô tả đầy đủ, thông số kỹ thuật và đặc điểm nổi bật của sản phẩm...', false, 'textarea')}
+            <div className="col-span-2">
+              <Field label="Nội dung mô tả chi tiết" error={errors.description?.message as string}>
+                <textarea
+                  {...register('description')}
+                  rows={5}
+                  placeholder="Nhập mô tả đầy đủ, thông số kỹ thuật và đặc điểm nổi bật..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none resize-none transition-colors"
+                />
+              </Field>
+            </div>
           </div>
 
           {/* Variants */}
@@ -318,26 +405,19 @@ export default function EditProductPage({
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Layers size={15} className="text-slate-400" /> Biến thể sản phẩm
                 <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                  {variants.length} biến thể
+                  {(product.variants || []).length} biến thể
                 </span>
               </h2>
-              <button
-                onClick={openCreateVariant}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer"
-              >
-                <Plus size={13} /> Thêm biến thể
-              </button>
             </div>
 
-            {variants.length === 0 ? (
+            {(!product.variants || product.variants.length === 0) ? (
               <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
                 <Layers size={36} className="mb-3 opacity-40" />
                 <p className="text-sm font-semibold text-slate-500">Chưa có biến thể nào</p>
-                <p className="text-xs text-slate-400 mt-1">Nhấn &ldquo;Thêm biến thể&rdquo; để bắt đầu.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {variants.map((v) => (
+                {product.variants.map((v) => (
                   <div
                     key={v.id}
                     className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-slate-300 transition-all group"
@@ -367,13 +447,15 @@ export default function EditProductPage({
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                       <button
-                        onClick={() => openEditVariant(v)}
+                        type="button"
+                        onClick={() => handleOpenEditVariant(v)}
                         className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer border-none bg-transparent"
                         title="Sửa biến thể"
                       >
                         <Edit3 size={14} />
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDeleteVariant(v.id)}
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border-none bg-transparent"
                         title="Xóa biến thể"
@@ -390,7 +472,6 @@ export default function EditProductPage({
 
         {/* ===== RIGHT: Sidebar ===== */}
         <div className="col-span-1 space-y-5">
-
           {/* Tags */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-xs p-5 space-y-4">
             <h2 className="text-xs font-bold text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100 uppercase tracking-wider">
@@ -399,16 +480,15 @@ export default function EditProductPage({
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 block">Danh sách tags (phân cách bằng dấu phẩy)</label>
               <textarea
-                value={formData.tags}
-                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                {...register('tags')}
                 rows={3}
                 placeholder="Ví dụ: Gia dụng, Lọc nước, Kangaroo"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-xs focus:outline-none resize-none transition-colors"
               />
             </div>
-            {formData.tags.trim() && (
+            {watch('tags')?.trim() && (
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean).map((tag) => (
+                {watch('tags')!.split(',').map((tag: string) => tag.trim()).filter(Boolean).map((tag: string) => (
                   <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-semibold rounded-full">
                     <Tag size={9} />{tag}
                   </span>
@@ -424,9 +504,9 @@ export default function EditProductPage({
             </h2>
             <dl className="space-y-2.5 text-xs">
               {[
-                { label: 'Tổng biến thể', value: variants.length },
-                { label: 'Đang bán',      value: variants.filter(v => v.status === 'ACTIVE').length },
-                { label: 'Bản nháp',      value: variants.filter(v => v.status === 'INACTIVE').length },
+                { label: 'Tổng biến thể', value: (product.variants || []).length },
+                { label: 'Đang bán',      value: (product.variants || []).filter(v => v.status === 'ACTIVE').length },
+                { label: 'Bản nháp',      value: (product.variants || []).filter(v => v.status !== 'ACTIVE').length },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between">
                   <dt className="text-slate-500 font-medium">{item.label}</dt>
@@ -442,21 +522,22 @@ export default function EditProductPage({
               <Globe size={13} className="text-slate-400" /> Lưu ý chỉnh sửa
             </h2>
             <ul className="space-y-2 text-[11px] text-slate-500 leading-relaxed">
-              <li className="flex gap-2"><span className="text-blue-400 font-bold">•</span> Thay đổi trạng thái chỉ có hiệu lực khi sản phẩm có ít nhất 1 biến thể đang bán.</li>
-              <li className="flex gap-2"><span className="text-blue-400 font-bold">•</span> Xóa biến thể sẽ ẩn toàn bộ dữ liệu lô hàng liên quan.</li>
-              <li className="flex gap-2"><span className="text-blue-400 font-bold">•</span> Tags phân cách nhau bằng dấu phẩy, không có khoảng trắng đầu/cuối.</li>
+              <li className="flex gap-2"><span className="text-blue-400 font-bold">•</span> Thay đổi thông tin sản phẩm và biến thể sẽ cập nhật tức thời trên blockchain & QR search.</li>
+              <li className="flex gap-2"><span className="text-blue-400 font-bold">•</span> Xóa biến thể sẽ không thể khôi phục các lô hàng của biến thể đó.</li>
             </ul>
           </div>
 
           {/* Action buttons */}
           <div className="space-y-2">
             <Button
-              onClick={handleSave}
-              className="w-full justify-center rounded-xl py-2.5 text-sm flex items-center gap-2 font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
+              type="submit"
+              disabled={updateProductMutation.isPending}
+              className="w-full justify-center rounded-xl py-2.5 text-sm flex items-center gap-2 font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer border-none"
             >
-              <Save size={15} /> Lưu thay đổi
+              <Save size={15} /> {updateProductMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
             </Button>
             <Button
+              type="button"
               variant="secondary"
               onClick={() => onNavigate('product-detail', productId)}
               className="w-full justify-center rounded-xl py-2.5 text-sm font-semibold cursor-pointer"
@@ -467,21 +548,20 @@ export default function EditProductPage({
         </div>
       </div>
 
-      {/* ===== VARIANT DRAWER ===== */}
-      {isDrawerOpen && (
+      {/* ===== VARIANT DRAWER (EDIT ONLY) ===== */}
+      {isDrawerOpen && editingVariant && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setIsDrawerOpen(false)} />
           <div className="relative bg-white w-[540px] max-h-[90vh] shadow-2xl rounded-2xl flex flex-col z-10 overflow-hidden">
 
             {/* Drawer Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0 bg-gray-50 rounded-t-2xl">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
-                  {drawerMode === 'CREATE' ? 'Thêm biến thể mới' : 'Sửa biến thể'}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Điền đầy đủ thông tin SKU và định giá.</p>
+                <h3 className="text-base font-bold text-slate-900">Chỉnh sửa biến thể</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Cập nhật thông tin biến thể: {editingVariant.sku}</p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsDrawerOpen(false)}
                 className="p-1.5 hover:bg-slate-100 text-slate-400 rounded-lg border-none bg-transparent cursor-pointer"
               >
@@ -502,8 +582,8 @@ export default function EditProductPage({
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700">SKU <span className="text-red-500">*</span></label>
                   <input
-                    value={variantForm.sku}
-                    onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
+                    value={variantSku}
+                    onChange={(e) => setVariantSku(e.target.value)}
                     placeholder="KG-VT3-TRANG"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none font-mono"
                   />
@@ -511,8 +591,8 @@ export default function EditProductPage({
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700">Trạng thái</label>
                   <select
-                    value={variantForm.status}
-                    onChange={(e) => setVariantForm({ ...variantForm, status: e.target.value as VariantStatus })}
+                    value={variantStatus}
+                    onChange={(e) => setVariantStatus(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none cursor-pointer"
                   >
                     <option value="ACTIVE">Đang bán (ACTIVE)</option>
@@ -525,8 +605,8 @@ export default function EditProductPage({
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700">Tên biến thể <span className="text-red-500">*</span></label>
                 <input
-                  value={variantForm.name}
-                  onChange={(e) => setVariantForm({ ...variantForm, name: e.target.value })}
+                  value={variantName}
+                  onChange={(e) => setVariantName(e.target.value)}
                   placeholder="Ví dụ: Màu Trắng - 9 lõi"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none"
                 />
@@ -535,8 +615,8 @@ export default function EditProductPage({
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700">Barcode (EAN/UPC)</label>
                 <input
-                  value={variantForm.barcode}
-                  onChange={(e) => setVariantForm({ ...variantForm, barcode: e.target.value })}
+                  value={variantBarcode}
+                  onChange={(e) => setVariantBarcode(e.target.value)}
                   placeholder="8938514050123"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none font-mono"
                 />
@@ -549,8 +629,8 @@ export default function EditProductPage({
                   <input
                     type="number"
                     min={0}
-                    value={variantForm.price}
-                    onChange={(e) => setVariantForm({ ...variantForm, price: parseFloat(e.target.value) || 0 })}
+                    value={variantPrice}
+                    onChange={(e) => setVariantPrice(e.target.value)}
                     placeholder="3500000"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none"
                   />
@@ -558,8 +638,8 @@ export default function EditProductPage({
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700">Đơn vị tiền tệ</label>
                   <select
-                    value={variantForm.currency}
-                    onChange={(e) => setVariantForm({ ...variantForm, currency: e.target.value })}
+                    value={variantCurrency}
+                    onChange={(e) => setVariantCurrency(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none cursor-pointer"
                   >
                     <option value="VND">VND - Đồng</option>
@@ -570,58 +650,35 @@ export default function EditProductPage({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">Hình ảnh JSON (images_json)</label>
-                <textarea
-                  value={variantForm.images_json}
-                  onChange={(e) => setVariantForm({ ...variantForm, images_json: e.target.value })}
-                  rows={2}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none font-mono resize-none"
-                />
-              </div>
-
-              {/* Attributes */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Thuộc tính (Attributes)</label>
-                  <button type="button" onClick={handleAddAttribute} className="text-xs text-blue-600 hover:underline">
-                    + Thêm thuộc tính
-                  </button>
-                </div>
-                {variantForm.attributes.map((attr, idx) => (
-                  <div key={idx} className="flex gap-2 items-start">
-                    <input 
-                      placeholder="Label (vd: Màu sắc)"
-                      value={attr.label}
-                      onChange={e => updateAttribute(idx, 'label', e.target.value)}
-                      className="w-1/3 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 bg-slate-50"
-                    />
-                    <input 
-                      placeholder="Value text"
-                      value={attr.value_text || ''}
-                      onChange={e => updateAttribute(idx, 'value_text', e.target.value)}
-                      className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 bg-slate-50"
-                    />
-                    <input 
-                      placeholder="Value number"
-                      type="number"
-                      value={attr.value_number || ''}
-                      onChange={e => updateAttribute(idx, 'value_number', parseFloat(e.target.value) || undefined)}
-                      className="w-1/4 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 bg-slate-50"
-                    />
-                    <button type="button" onClick={() => removeAttribute(idx)} className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-colors border-none bg-transparent cursor-pointer">
-                      <Trash2 size={14} />
-                    </button>
+                <label className="text-xs font-bold text-slate-700">Hình ảnh biến thể</label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input value={imageDraft} onChange={e => setImageDraft(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddImage(); } }}
+                      placeholder="Dán URL hình ảnh rồi nhấn Enter" className={inputCls} />
+                    <button type="button" onClick={handleAddImage} className="px-3 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 cursor-pointer bg-white"><Plus size={16} /></button>
                   </div>
-                ))}
-                {variantForm.attributes.length === 0 && (
-                  <p className="text-[11px] text-slate-400 italic">Không có thuộc tính nào.</p>
-                )}
+                  {variantImages.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {variantImages.map((url, i) => (
+                        <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 group">
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => setVariantImages(variantImages.filter((_, idx) => idx !== i))}
+                            className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white cursor-pointer transition-opacity border-none">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Drawer Footer */}
             <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2 flex-shrink-0">
               <Button
+                type="button"
                 variant="secondary"
                 onClick={() => setIsDrawerOpen(false)}
                 className="rounded-xl px-4 text-xs font-semibold cursor-pointer"
@@ -629,15 +686,17 @@ export default function EditProductPage({
                 Hủy
               </Button>
               <Button
+                type="button"
                 onClick={handleSaveVariant}
-                className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
+                disabled={updateVariantMutation.isPending}
+                className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer border-none"
               >
-                {drawerMode === 'CREATE' ? 'Thêm biến thể' : 'Lưu thay đổi'}
+                {updateVariantMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
               </Button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </form>
   );
 }

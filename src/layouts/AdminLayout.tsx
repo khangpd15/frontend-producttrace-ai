@@ -16,7 +16,6 @@ const NAV_ITEMS = [
   { icon: Layers,          label: 'Sở hữu',           to: '/ownership' },
   { icon: ShieldCheck,     label: 'Bảo hành',         to: '/warranty' },
   { icon: MapPin,          label: 'Đại lý',           to: '/store' },
-  { icon: ClipboardList,   label: 'Báo cáo',          to: '/reports' },
   { icon: Bell,            label: 'Thông báo',        to: '/notifications' },
   { icon: Activity,        label: 'Audit Logs',       to: '/audit' },
 ] as const;

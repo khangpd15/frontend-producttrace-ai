@@ -18,11 +18,12 @@ import { useBatchEvents } from '../../../features/batch/hooks/useBatchEvents';
 import { useExportBatches } from '../../../features/batch/hooks/useExportBatches';
 import { useLocations } from '../../../features/location/hooks/useLocations';
 import { batchApi } from '../../../features/batch/api/batch.api';
-import { BatchListItem, BatchStatus } from '../../../features/batch/api/batch.types';
+import { BatchListItem, BatchStatus, ExportBatchRequest } from '../../../features/batch/api/batch.types';
 import { useTraceSearch } from '../../../features/trace/hooks/useTraceSearch';
 import { productApi } from '../../../features/products/api/product.api';
 import type { AdminProduct, AdminProductDetailVariant } from '../../../shared/types/domain';
 import { useAuthStore } from '../../../features/auth/store/auth.store';
+import { parseApiError } from '../../../api/axios';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -600,6 +601,12 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
   });
 
   const [newStatus, setNewStatus] = useState<BatchStatus>('ACTIVE');
+  const [exportForm, setExportForm] = useState<ExportBatchRequest>({
+    destination_location: '',
+    quantity: 1,
+    operator_name: '',
+    notes: '',
+  });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -782,9 +789,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
       setIsDrawerOpen(false);
       refetch();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Tạo lô hàng thất bại. Vui lòng thử lại.';
-      setFormError(msg);
+      setFormError(parseApiError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -802,13 +807,48 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
       setIsDrawerOpen(false);
       refetch();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Cập nhật trạng thái thất bại.';
-      setFormError(msg);
+      setFormError(parseApiError(err));
     } finally {
       setIsSubmitting(false);
     }
   }, [selectedBatch, newStatus, refetch]);
+
+  // ── Submit Export ─────────────────────────────────────────────────────────
+
+  const handleSubmitExport = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBatch) return;
+    setFormError(null);
+
+    if (!exportForm.destination_location.trim()) {
+      setFormError('Địa điểm xuất đến là bắt buộc');
+      return;
+    }
+    if (exportForm.quantity < 1) {
+      setFormError('Số lượng xuất phải lớn hơn 0');
+      return;
+    }
+    if (!exportForm.operator_name.trim()) {
+      setFormError('Tên người thực hiện là bắt buộc');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await batchApi.export(selectedBatch.id, {
+        destination_location: exportForm.destination_location.trim(),
+        quantity: exportForm.quantity,
+        operator_name: exportForm.operator_name.trim(),
+        notes: exportForm.notes,
+      });
+      setIsDrawerOpen(false);
+      refetch();
+    } catch (err: unknown) {
+      setFormError(parseApiError(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [selectedBatch, exportForm, refetch]);
 
   // ── Delete ────────────────────────────────────────────────────────────────
 
@@ -819,9 +859,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
       await batchApi.delete(batch.id);
       refetch();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? 'Xóa lô hàng thất bại.';
-      alert(msg);
+      alert(parseApiError(err));
     }
   }, [refetch]);
 
@@ -896,7 +934,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
             <AlertCircle size={24} />
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu lô hàng</h3>
-          <p className="mt-2 text-sm text-slate-500 max-w-sm">{error}</p>
+          <p className="mt-2 text-sm text-slate-500 max-w-sm">{parseApiError(error)}</p>
           <Button onClick={refetch} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
             Thử lại
           </Button>

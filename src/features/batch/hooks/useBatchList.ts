@@ -15,7 +15,7 @@ import {
   GetBatchListParams,
 } from '../api/batch.types';
 import { AxiosError } from 'axios';
-import { ApiError } from '../../../api/axios';
+import { ApiError, parseApiError } from '../../../api/axios';
 
 interface UseBatchListState {
   items: BatchListItem[];
@@ -65,15 +65,10 @@ export function useBatchList(params?: GetBatchListParams): UseBatchListReturn {
         error: null,
       });
     } catch (err) {
-      const axiosError = err as AxiosError<ApiError>;
-      const message =
-        axiosError.response?.data?.message ??
-        axiosError.message ??
-        'Không thể tải danh sách lô hàng';
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: message,
+        error: parseApiError(err),
       }));
     }
   }, [page, limit, search, status, origin_country, fetchTrigger]);
