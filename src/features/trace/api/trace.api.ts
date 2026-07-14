@@ -18,6 +18,7 @@ import {
   TracePDFExportRequest,
   TraceExcelExportRequest,
   ExportJobResponse,
+  VerifyQRResponse,
 } from './trace.types';
 
 export const traceApi = {
@@ -28,6 +29,16 @@ export const traceApi = {
    */
   search: (params: TraceSearchParams) =>
     apiClient.get<ApiResponse<TraceSearchResponse>>('/trace/search', { params }),
+
+  /**
+   * GET /api/public/verify
+   * Auth: Public (Xác thực sản phẩm từ QR)
+   * `item_code` và `token` bắt buộc
+   */
+  verifyQR: (itemCode: string, token: string) =>
+    apiClient.get<ApiResponse<VerifyQRResponse>>('/public/verify', {
+      params: { item_code: itemCode, token },
+    }),
 
   /**
    * POST /api/trace/export/pdf
@@ -54,3 +65,4 @@ export const traceApi = {
       responseType: 'blob',
     }),
 };
+

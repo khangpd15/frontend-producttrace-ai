@@ -23,21 +23,24 @@ const CreateProduct = lazy(() => import('../admin/pages/products/CreateProduct')
 const EditProductPage = lazy(() => import('../admin/pages/products/EditProductPage'));
 const CategoryListPage = lazy(() => import('../admin/pages/categories/CategoryListPage'));
 const BatchListPage = lazy(() => import('../admin/pages/batches/BatchListPage'));
+const BatchProductsPage = lazy(() => import('../admin/pages/batches/BatchProductsPage'));
+const BatchTracePage = lazy(() => import('../admin/pages/batches/BatchTracePage'));
 const OwnershipListPage = lazy(() => import('../admin/pages/ownership/OwnershipListPage'));
 const WarrantyListPage = lazy(() => import('../admin/pages/warranty/WarrantyListPage'));
 const StoreListPage = lazy(() => import('../admin/pages/store/StoreListPage'));
 const AuditListPage = lazy(() => import('../admin/pages/audit/AuditListPage'));
 const SettingsPage = lazy(() => import('../admin/pages/settings/SettingsPage'));
 const NotificationListPage = lazy(() => import('../admin/pages/notifications/NotificationListPage'));
+const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
 
 // ─── Customer pages (lazy) ────────────────────────────────────────────────────
 const CustomerHome = lazy(() => import('../customer/views/Home'));
 const CustomerProductDetail = lazy(() => import('../customer/views/ProductDetail'));
 const CustomerOwnership = lazy(() => import('../customer/views/Ownership'));
-const CustomerRegisterOwnership = lazy(() => import('../customer/views/RegisterOwnership'));
 const CustomerWarranty = lazy(() => import('../customer/views/Warranty'));
 const CustomerProfile = lazy(() => import('../customer/views/Profile'));
-const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
+const CustomerRegisterOwnership = lazy(() => import('../customer/views/RegisterOwnership'));
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -155,6 +158,8 @@ export default function AppRouter() {
               <Route path="/product-detail" element={<ProductDetailRoute />} />
               <Route path="/edit-product" element={<EditProductRoute />} />
               <Route path="/batches" element={<BatchesPage />} />
+              <Route path="/batches/:batchId/products" element={<BatchProductsPage />} />
+              <Route path="/batches/:batchId/trace" element={<BatchTracePage />} />
               <Route path="/ownership" element={<OwnershipPage />} />
               <Route path="/warranty" element={<WarrantyPage />} />
               <Route path="/store" element={<StorePage />} />
