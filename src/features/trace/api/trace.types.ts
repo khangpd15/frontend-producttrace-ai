@@ -116,8 +116,41 @@ export interface VerifyQRBatchInfo {
 
 export interface VerifyQRProductInfo {
   productName: string;
+  description: string;
+  thumbnailUrl: string;
+  categoryName: string;
   variantName: string;
   variantSKU: string;
+  barcode: string;
+}
+
+export interface VerifyQROwnership {
+  ownerName: string;
+  registeredAt: string;
+  ownershipType: string;
+  status: string;
+}
+
+export interface VerifyQRWarranty {
+  claimNumber: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface VerifyQRLocation {
+  name: string;
+  type: string;
+  address: string;
+  city: string;
+}
+
+export interface VerifyQREvent {
+  eventType: string;
+  title: string;
+  description: string;
+  location: string;
+  actorName: string;
+  occurredAt: string;
 }
 
 export interface VerifyQRResponse {
@@ -125,7 +158,11 @@ export interface VerifyQRResponse {
   serialNumber: string;
   itemStatus: string;
   scannedAt: string;
-  batch: VerifyQRBatchInfo;
   product: VerifyQRProductInfo;
+  batch: VerifyQRBatchInfo;
+  ownership: VerifyQROwnership | null;
+  warranty: VerifyQRWarranty | null;
+  location: VerifyQRLocation | null;
+  traceHistory: VerifyQREvent[];
 }
 
