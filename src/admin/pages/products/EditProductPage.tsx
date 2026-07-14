@@ -49,7 +49,7 @@ const productEditFormSchema = z.object({
   description: z.string().optional(),
   thumbnail_url: z.string().url('URL không hợp lệ').or(z.literal('')),
   tags: z.string().optional(),
-  metadata_json: z.string().refine((val) => {
+  metadata: z.string().refine((val) => {
     if (!val.trim()) return true;
     try {
       const parsed = JSON.parse(val);
@@ -123,7 +123,7 @@ export default function EditProductPage({
       description: '',
       thumbnail_url: '',
       tags: '',
-      metadata_json: '',
+      metadata: '',
       status: 'DRAFT'
     }
   });
@@ -137,7 +137,7 @@ export default function EditProductPage({
       setValue('description', product.description || '');
       setValue('thumbnail_url', product.thumbnailUrl || '');
       setValue('tags', (product.tags || []).join(', '));
-      setValue('metadata_json', JSON.stringify((product as any).metadata || {}, null, 2));
+      setValue('metadata', JSON.stringify((product as any).metadata || {}, null, 2));
       setValue('status', product.status as any || 'DRAFT');
     }
   }, [product, setValue]);
@@ -191,7 +191,7 @@ export default function EditProductPage({
         description: values.description,
         thumbnail_url: values.thumbnail_url || undefined,
         tags: values.tags ? values.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-        metadata: values.metadata_json ? JSON.parse(values.metadata_json) : {},
+        metadata: values.metadata ? JSON.parse(values.metadata) : {},
         status: values.status,
       };
 
@@ -215,14 +215,14 @@ export default function EditProductPage({
     setVariantStatus(v.status || 'ACTIVE');
     
     let parsedImages: string[] = [];
-    if (v.images_json) {
+    if (v.images) {
       try {
-        parsedImages = JSON.parse(v.images_json);
+        parsedImages = JSON.parse(v.images);
       } catch {
         parsedImages = [];
       }
     }
-    setVariantImages(parsedImages);
+    setVariantImages(v.images || []);
     setVariantError(null);
     setIsDrawerOpen(true);
   };

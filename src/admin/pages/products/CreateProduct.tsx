@@ -52,7 +52,7 @@ const productFormSchema = z.object({
   description: z.string().optional(),
   thumbnail_url: z.string().url('URL không hợp lệ').or(z.literal('')),
   tags: z.array(z.string()).default([]),
-  metadata_json: z.string().refine((val) => {
+  metadata: z.string().refine((val) => {
     if (!val.trim()) return true;
     try {
       const parsed = JSON.parse(val);
@@ -170,7 +170,7 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
       description: '',
       thumbnail_url: '',
       tags: [],
-      metadata_json: '',
+      metadata: '',
       status: 'DRAFT',
       variants: [],
     }
@@ -262,7 +262,7 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
         description: values.description,
         thumbnail_url: values.thumbnail_url || undefined,
         tags: values.tags,
-        metadata: values.metadata_json ? JSON.parse(values.metadata_json) : {},
+        metadata: values.metadata ? JSON.parse(values.metadata) : {},
         status: values.status,
         variants: values.variants.map(v => ({
           sku: v.sku,
@@ -351,11 +351,11 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
           </div>
 
           <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="text-xs font-bold text-blue-600 hover:underline bg-transparent border-none cursor-pointer flex items-center gap-1">
-            <ChevronDown size={12} className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} /> Tuỳ chọn nâng cao (metadata_json)
+            <ChevronDown size={12} className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} /> Tuỳ chọn nâng cao (metadata)
           </button>
           {showAdvanced && (
-            <Field label="Metadata JSON" hint="object tuỳ ý, vd seo, ghi chú nội bộ…" error={errors.metadata_json?.message as string}>
-              <textarea {...register('metadata_json')} rows={4} className={`${inputCls} font-mono bg-slate-50 resize-none`} placeholder='{"seo_title": "..."}' />
+            <Field label="Metadata JSON" hint="object tuỳ ý, vd seo, ghi chú nội bộ…" error={errors.metadata?.message as string}>
+              <textarea {...register('metadata')} rows={4} className={`${inputCls} font-mono bg-slate-50 resize-none`} placeholder='{"seo_title": "..."}' />
             </Field>
           )}
         </div>

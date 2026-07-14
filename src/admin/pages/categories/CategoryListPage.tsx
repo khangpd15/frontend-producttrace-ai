@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Search, Plus, RotateCw, ChevronRight, ChevronDown, 
-  Filter, Eye, Edit3, Smartphone, Laptop, Tv, WashingMachine, 
-  Info, X, Upload, Check, AlertCircle, ArrowUpRight, 
+import {
+  Search, Plus, RotateCw, ChevronRight, ChevronDown,
+  Filter, Eye, Edit3, Smartphone, Laptop, Tv, WashingMachine,
+  Info, X, Upload, Check, AlertCircle, ArrowUpRight,
   HelpCircle, Folder, FileText, BarChart2, Download, CheckSquare, Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
@@ -27,6 +27,268 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
   WashingMachine: WashingMachine,
   Folder: Folder,
   FileText: FileText,
+};
+
+type CategoryTreeNode = Category & { depth: number };
+
+// Dựng cây phân cấp đệ quy cho dropdown "Danh mục cha": cha luôn đứng ngay
+// trước danh sách con của nó, hỗ trợ nhiều cấp (cha -> con -> cháu -> ...),
+// sắp xếp theo tên trong từng cấp. excludeIds dùng để loại bỏ chính danh mục
+// đang sửa và toàn bộ hậu duệ của nó (tránh tạo vòng lặp cha-con).
+function buildCategoryOptionsTree(categories: Category[], excludeIds: Set<string> = new Set()): CategoryTreeNode[] {
+  const list = categories.filter(c => !excludeIds.has(c.id));
+  const byId = new Map(list.map(c => [c.id, c]));
+  const childrenMap = new Map<string, Category[]>();
+  const roots: Category[] = [];
+
+  for (const c of list) {
+    const parentOk = c.parentId && byId.has(c.parentId) && c.parentId !== c.id;
+    if (parentOk) {
+      const key = c.parentId as string;
+      if (!childrenMap.has(key)) childrenMap.set(key, []);
+      childrenMap.get(key)!.push(c);
+    } else {
+      roots.push(c);
+    }
+  }
+
+  const collator = new Intl.Collator('vi');
+  const sortByName = (list: Category[]) => [...list].sort((a, b) => collator.compare(a.name, b.name));
+
+  const result: CategoryTreeNode[] = [];
+  const visited = new Set<string>();
+  const visit = (nodes: Category[], depth: number) => {
+    for (const node of sortByName(nodes)) {
+      if (visited.has(node.id)) continue; // chặn vòng lặp vô hạn nếu data bị lỗi
+      visited.add(node.id);
+      result.push({ ...node, depth });
+      const children = childrenMap.get(node.id);
+      if (children?.length) visit(children, depth + 1);
+    }
+  };
+  visit(roots, 0);
+  return result;
+}
+
+type CategoryTreeItem = Category & { children: CategoryTreeItem[] };
+
+function buildCategoryTree(categories: Category[], excludeIds: Set<string> = new Set()): CategoryTreeItem[] {
+  const list = categories.filter(c => !excludeIds.has(c.id));
+  const byId = new Map(list.map(c => [c.id, c]));
+  const childrenMap = new Map<string, Category[]>();
+  const roots: Category[] = [];
+
+  for (const c of list) {
+    const parentOk = c.parentId && byId.has(c.parentId) && c.parentId !== c.id;
+    if (parentOk) {
+      const key = c.parentId as string;
+      if (!childrenMap.has(key)) childrenMap.set(key, []);
+      childrenMap.get(key)!.push(c);
+    } else {
+      roots.push(c);
+    }
+  }
+
+  const collator = new Intl.Collator('vi');
+  const sortByName = (l: Category[]) => [...l].sort((a, b) => collator.compare(a.name, b.name));
+
+  const visited = new Set<string>();
+  const build = (nodes: Category[]): CategoryTreeItem[] =>
+    sortByName(nodes)
+      .filter(n => {
+        if (visited.has(n.id)) return false; // chặn vòng lặp nếu data lỗi
+        visited.add(n.id);
+        return true;
+      })
+      .map(n => ({ ...n, children: build(childrenMap.get(n.id) || []) }));
+
+  return build(roots);
+}
+
+// Tìm đường đi từ 1 node lên tới gốc, dùng để tự expand cây tới danh mục đang chọn
+function getAncestorIds(categories: Category[], id: string): string[] {
+  const byId = new Map(categories.map(c => [c.id, c]));
+  const result: string[] = [];
+  let current = byId.get(id);
+  while (current?.parentId) {
+    result.push(current.parentId);
+    current = byId.get(current.parentId);
+  }
+  return result;
+}
+
+// Tìm toàn bộ id con/cháu/chắt... của 1 danh mục, để loại khỏi lựa chọn "Danh mục cha"
+// khi đang sửa chính danh mục đó (tránh vòng lặp cha tự trỏ vào con của mình).
+function collectDescendantIds(categories: Category[], rootId: string): Set<string> {
+  const childrenMap = new Map<string, string[]>();
+  categories.forEach(c => {
+    if (c.parentId) {
+      if (!childrenMap.has(c.parentId)) childrenMap.set(c.parentId, []);
+      childrenMap.get(c.parentId)!.push(c.id);
+    }
+  });
+  const result = new Set<string>();
+  const stack = [rootId];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    for (const childId of childrenMap.get(cur) || []) {
+      if (!result.has(childId)) {
+        result.add(childId);
+        stack.push(childId);
+      }
+    }
+  }
+  return result;
+}
+
+// Dropdown "Danh mục cha" tự dựng bằng div/button thay cho <select> gốc,
+// vì <select> của trình duyệt không cho phép CSS thụt lề thật (padding bị trim).
+// Style đồng bộ với cây danh mục ở sidebar bên ngoài: icon Folder, đường nối "└".
+const ParentCategorySelect: React.FC<{
+  categories: Category[];
+  excludeIds: Set<string>;
+  value: string;
+  onChange: (id: string) => void;
+  disabled?: boolean;
+}> = ({ categories, excludeIds, value, onChange, disabled }) => {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
+  const tree = useMemo(() => buildCategoryTree(categories, excludeIds), [categories, excludeIds]);
+  const flatOptions = useMemo(() => buildCategoryOptionsTree(categories, excludeIds), [categories, excludeIds]);
+
+  const selected = flatOptions.find(c => c.id === value);
+  const query = q.trim().toLowerCase();
+  const flatVisible = query ? flatOptions.filter(c => c.name.toLowerCase().includes(query)) : [];
+
+  const handleOpen = () => {
+    if (disabled) return;
+    // Tự động mở rộng cây tới danh mục đang được chọn để dễ nhìn thấy vị trí hiện tại
+    if (value) {
+      const ancestorIds = getAncestorIds(categories, value);
+      if (ancestorIds.length) {
+        setExpandedNodes(prev => {
+          const next = { ...prev };
+          ancestorIds.forEach(id => { next[id] = true; });
+          return next;
+        });
+      }
+    }
+    setOpen(o => !o);
+  };
+
+  const toggleExpand = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const renderNode = (node: CategoryTreeItem, depth: number) => {
+    const hasChildren = node.children.length > 0;
+    const isExpanded = !!expandedNodes[node.id];
+    const isSelected = node.id === value;
+
+    return (
+      <div key={node.id}>
+        <div
+          onClick={() => { onChange(node.id); setOpen(false); setQ(''); }}
+          style={{ paddingLeft: `${depth * 16 + 12}px` }}
+          className={`w-full flex items-center gap-1.5 py-2 pr-3 text-sm hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 text-blue-700 font-semibold' : depth === 0 ? 'text-slate-800 font-semibold' : 'text-slate-600'
+            }`}
+        >
+          <span className="w-4 h-4 flex items-center justify-center shrink-0">
+            {hasChildren ? (
+              <button
+                type="button"
+                onClick={(e) => toggleExpand(node.id, e)}
+                className="p-0.5 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer flex items-center justify-center"
+              >
+                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+            ) : (
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+            )}
+          </span>
+          <Folder size={13} className={isSelected ? 'text-blue-500' : 'text-slate-400'} />
+          <span className="truncate">
+            {node.name} <span className="text-slate-400 font-normal">({node.code})</span>
+          </span>
+          {hasChildren && (
+            <span className="ml-auto text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md font-normal shrink-0">
+              {node.children.length}
+            </span>
+          )}
+        </div>
+        {hasChildren && isExpanded && node.children.map(child => renderNode(child, depth + 1))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={handleOpen}
+        className={`w-full px-3 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-between text-left ${!selected ? 'text-slate-500' : 'text-slate-800'}`}
+      >
+        <span className="truncate flex items-center gap-1.5">
+          {selected && <Folder size={14} className="text-slate-400 shrink-0" />}
+          {selected ? `${selected.name} (${selected.code})` : '-- Không có (Danh mục gốc) --'}
+        </span>
+        <ChevronDown size={14} className="text-slate-400 shrink-0" />
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-slate-100 flex items-center gap-2">
+            <Search size={14} className="text-slate-400" />
+            <input
+              autoFocus
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Tìm danh mục…"
+              className="w-full text-sm outline-none border-none bg-transparent focus:ring-0"
+            />
+          </div>
+          <div className="max-h-60 overflow-y-auto py-1">
+            <button
+              type="button"
+              onClick={() => { onChange(''); setOpen(false); setQ(''); }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-none bg-transparent ${!value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-500 italic'}`}
+            >
+              -- Không có (Danh mục gốc) --
+            </button>
+
+            {query ? (
+              // Đang tìm kiếm: hiển thị list phẳng, thụt lề theo depth (không cần expand/collapse)
+              flatVisible.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-slate-400">Không tìm thấy danh mục</div>
+              ) : (
+                flatVisible.map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => { onChange(cat.id); setOpen(false); setQ(''); }}
+                    style={{ paddingLeft: `${cat.depth * 16 + 12}px` }}
+                    className={`w-full text-left py-2 pr-3 text-sm hover:bg-blue-50 cursor-pointer border-none bg-transparent flex items-center gap-1.5 ${cat.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : cat.depth === 0 ? 'text-slate-800 font-semibold' : 'text-slate-600'}`}
+                  >
+                    {cat.depth > 0 && <span className="text-slate-300">└</span>}
+                    <Folder size={13} className={cat.id === value ? 'text-blue-500' : 'text-slate-400'} />
+                    <span className="truncate">{cat.name} <span className="text-slate-400 font-normal">({cat.code})</span></span>
+                  </button>
+                ))
+              )
+            ) : tree.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-400">Chưa có danh mục</div>
+            ) : (
+              tree.map(node => renderNode(node, 0))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
@@ -56,6 +318,18 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<'CREATE' | 'EDIT' | 'VIEW'>('CREATE');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+
+  // Cây danh mục dùng cho dropdown "Danh mục cha": con luôn nằm ngay dưới cha,
+  // thụt lề theo độ sâu. Khi đang sửa (EDIT), tự động loại bỏ chính danh mục
+  // đó và toàn bộ con/cháu của nó khỏi danh sách để tránh chọn nhầm gây vòng lặp.
+  const excludeIdsForParentSelect = useMemo(() => {
+    const excludeIds = new Set<string>();
+    if (drawerMode === 'EDIT' && selectedCategory) {
+      excludeIds.add(selectedCategory.id);
+      collectDescendantIds(categories, selectedCategory.id).forEach(id => excludeIds.add(id));
+    }
+    return excludeIds;
+  }, [categories, drawerMode, selectedCategory]);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -164,8 +438,8 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     }
 
     // Slug unique validation (except itself if editing)
-    const isSlugDuplicate = categories.some(cat => 
-      cat.slug.toLowerCase() === formData.slug.toLowerCase() && 
+    const isSlugDuplicate = categories.some(cat =>
+      cat.slug.toLowerCase() === formData.slug.toLowerCase() &&
       (drawerMode === 'CREATE' || cat.id !== selectedCategory?.id)
     );
     if (isSlugDuplicate) {
@@ -174,8 +448,8 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     }
 
     // Code unique validation
-    const isCodeDuplicate = categories.some(cat => 
-      cat.code.toUpperCase() === formData.code.toUpperCase() && 
+    const isCodeDuplicate = categories.some(cat =>
+      cat.code.toUpperCase() === formData.code.toUpperCase() &&
       (drawerMode === 'CREATE' || cat.id !== selectedCategory?.id)
     );
     if (isCodeDuplicate) {
@@ -227,7 +501,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
-    
+
     setFormData(prev => ({
       ...prev,
       name: nameVal,
@@ -269,19 +543,18 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
     return (
       <div key={category.id} className="select-none">
-        <div 
+        <div
           onClick={() => setSelectedTreeCategory(isSelected ? null : category.id)}
-          className={`flex items-center gap-1 py-1.5 px-2.5 rounded-lg cursor-pointer transition-all duration-150 ${
-            isSelected 
-              ? 'bg-blue-50 text-blue-600 font-semibold' 
-              : 'hover:bg-slate-50 text-slate-700'
-          }`}
+          className={`flex items-center gap-1 py-1.5 px-2.5 rounded-lg cursor-pointer transition-all duration-150 ${isSelected
+            ? 'bg-blue-50 text-blue-600 font-semibold'
+            : 'hover:bg-slate-50 text-slate-700'
+            }`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
         >
           <div className="w-5 h-5 flex items-center justify-center">
             {hasChildren ? (
-              <button 
-                onClick={(e) => toggleNode(category.id, e)} 
+              <button
+                onClick={(e) => toggleNode(category.id, e)}
                 className="p-0.5 rounded hover:bg-slate-200 transition-colors text-slate-400 hover:text-slate-600 font-normal border-none bg-transparent flex items-center justify-center cursor-pointer"
               >
                 {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -290,7 +563,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
               <div className="w-2.5 h-2.5 rounded-full bg-slate-300 ml-1.5 mr-1"></div>
             )}
           </div>
-          
+
           {/* Custom or mapped icon */}
           <span className="text-slate-400">
             {React.createElement(ICON_MAP[category.icon] || Folder, { size: 16, className: isSelected ? 'text-blue-500' : 'text-slate-400' })}
@@ -453,7 +726,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      
+
       {/* Header section */}
       <div className="flex justify-between items-start">
         <div className="space-y-1">
@@ -467,11 +740,11 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
             Quản lý danh mục sản phẩm và cấu trúc phân loại trong hệ thống ProductTrace-AI.
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {/* Action: Bulk Update (Coming soon) */}
-          <button 
-            disabled 
+          <button
+            disabled
             className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-400 bg-slate-50 cursor-not-allowed flex items-center gap-1.5"
             title="Bulk Update Category — Sắp mở rộng"
           >
@@ -479,8 +752,8 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
           </button>
 
           {/* Action: Import/Export (Coming soon) */}
-          <button 
-            disabled 
+          <button
+            disabled
             className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-400 bg-slate-50 cursor-not-allowed flex items-center gap-1.5"
             title="Category Import/Export — Sắp mở rộng"
           >
@@ -488,16 +761,16 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
           </button>
 
           {/* Action: Analytics (Coming soon) */}
-          <button 
-            disabled 
+          <button
+            disabled
             className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-400 bg-slate-50 cursor-not-allowed flex items-center gap-1.5"
             title="Category Analytics — Sắp mở rộng"
           >
             <BarChart2 size={14} /> Analytics
           </button>
 
-          <Button 
-            onClick={handleOpenCreate} 
+          <Button
+            onClick={handleOpenCreate}
             className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Plus size={16} /> Tạo danh mục
@@ -533,7 +806,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
               { id: 'ROOT', label: 'Category gốc', value: stats.root, tooltip: 'Danh mục cao nhất, không có danh mục cha' },
               { id: 'CHILD', label: 'Category con', value: stats.child, tooltip: 'Danh mục phụ thuộc phân cấp bên dưới danh mục cha' },
             ].map((stat) => (
-              <div 
+              <div
                 key={stat.id}
                 onClick={() => {
                   setActiveKpiFilter(activeKpiFilter === stat.id ? 'ALL' : stat.id as any);
@@ -542,11 +815,10 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                 }}
                 onMouseEnter={() => setHoveredKpi(stat.id)}
                 onMouseLeave={() => setHoveredKpi(null)}
-                className={`relative p-5 rounded-xl border transition-all duration-200 cursor-pointer ${
-                  activeKpiFilter === stat.id 
-                    ? 'bg-blue-50/50 border-blue-400 ring-2 ring-blue-100 shadow-sm' 
-                    : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
-                }`}
+                className={`relative p-5 rounded-xl border transition-all duration-200 cursor-pointer ${activeKpiFilter === stat.id
+                  ? 'bg-blue-50/50 border-blue-400 ring-2 ring-blue-100 shadow-sm'
+                  : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
+                  }`}
               >
                 <div className="flex justify-between items-start">
                   <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">{stat.label}</span>
@@ -571,16 +843,16 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
             <div className="flex items-center gap-4 flex-1 min-w-[280px]">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tìm theo tên hoặc mã danh mục..." 
+                  placeholder="Tìm theo tên hoặc mã danh mục..."
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 hover:bg-slate-100/50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
                 />
                 {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm('')} 
+                  <button
+                    onClick={() => setSearchTerm('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer"
                   >
                     <X size={14} />
@@ -591,7 +863,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
               {/* Filter Role (Gốc / Con) */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Loại:</span>
-                <select 
+                <select
                   value={filterRole}
                   onChange={(e) => setFilterRole(e.target.value as any)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
@@ -605,7 +877,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
               {/* Status Filter */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Trạng thái:</span>
-                <select 
+                <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
@@ -620,7 +892,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
               {/* Sort filter */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Sắp xếp:</span>
-                <select 
+                <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
@@ -635,7 +907,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
             <div className="flex items-center gap-3">
               {(searchTerm || filterRole !== 'ALL' || filterStatus !== 'ALL' || sortBy !== 'NEWEST' || selectedTreeCategory || activeKpiFilter !== 'ALL') && (
-                <button 
+                <button
                   onClick={handleResetFilters}
                   className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 py-1.5 px-3 rounded-lg hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer"
                 >
@@ -643,7 +915,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                 </button>
               )}
 
-              <button 
+              <button
                 onClick={() => {
                   refetch();
                 }}
@@ -657,13 +929,13 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
 
           {/* Main Content Area: Tree Panel (Left) & Table List (Right) */}
           <div className="grid grid-cols-4 gap-6 items-start">
-            
+
             {/* Section 3: Category Tree Panel */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col min-h-[480px]">
               <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
                 <h3 className="text-sm font-bold text-slate-800">Cấu trúc cây</h3>
                 {selectedTreeCategory && (
-                  <button 
+                  <button
                     onClick={() => setSelectedTreeCategory(null)}
                     className="text-[10px] text-blue-600 hover:underline font-semibold border-none bg-transparent cursor-pointer"
                   >
@@ -737,8 +1009,8 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                         {filteredCategories.map((cat) => {
                           const IconComp = ICON_MAP[cat.icon] || Folder;
                           return (
-                            <tr 
-                              key={cat.id} 
+                            <tr
+                              key={cat.id}
                               className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
                               onClick={() => handleOpenView(cat)}
                             >
@@ -767,11 +1039,11 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                               <td className="p-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex flex-col items-center gap-1.5 justify-center">
                                   {renderStatusBadge(cat.status)}
-                                  
+
                                   {/* Interactive Toggle Switch */}
                                   <label className="relative inline-flex items-center cursor-pointer scale-90">
-                                    <input 
-                                      type="checkbox" 
+                                    <input
+                                      type="checkbox"
                                       checked={cat.status === 'ACTIVE'}
                                       onChange={() => handleToggleStatus(cat.id, cat.status)}
                                       className="sr-only peer"
@@ -784,7 +1056,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                               <td className="p-3.5 pr-5 text-right" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex justify-end items-center gap-1">
                                   {/* Navigate to Products */}
-                                  <button 
+                                  <button
                                     onClick={() => onNavigate('products')}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors border-none bg-transparent cursor-pointer"
                                     title="Xem sản phẩm thuộc danh mục"
@@ -793,7 +1065,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                   </button>
 
                                   {/* Edit Category */}
-                                  <button 
+                                  <button
                                     onClick={(e) => handleOpenEdit(cat, e)}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer"
                                     title="Chỉnh sửa danh mục"
@@ -802,7 +1074,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                   </button>
 
                                   {/* View Detail */}
-                                  <button 
+                                  <button
                                     onClick={(e) => handleOpenView(cat, e)}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer"
                                     title="Xem chi tiết"
@@ -811,7 +1083,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                   </button>
 
                                   {/* Delete Category */}
-                                  <button 
+                                  <button
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       if (confirm(`Bạn có chắc chắn muốn xóa danh mục ${cat.name}?`)) {
@@ -869,9 +1141,9 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all">
           {/* Overlay click to close */}
           <div className="absolute inset-0" onClick={() => setIsDrawerOpen(false)}></div>
-          
+
           <div className="relative bg-white w-[500px] max-h-[90vh] shadow-2xl flex flex-col justify-between z-10 rounded-2xl overflow-hidden">
-            
+
             {/* Drawer Header */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
@@ -882,7 +1154,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   {drawerMode === 'CREATE' ? 'Thêm phân loại mới cho hệ thống' : drawerMode === 'EDIT' ? 'Cập nhật thông tin và phân cấp danh mục' : 'Xem thông tin chi tiết danh mục'}
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsDrawerOpen(false)}
                 className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer"
               >
@@ -900,21 +1172,21 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
               )}
 
               <div className="space-y-4">
-                
+
                 {/* Tên danh mục */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700">
                     Tên danh mục <span className="text-red-500">*</span>
                   </label>
-                  <input 
-                    type="text" 
-                    value={formData.name} 
+                  <input
+                    type="text"
+                    value={formData.name}
                     onChange={(e) => {
                       if (drawerMode !== 'VIEW') handleNameChange(e.target.value);
                     }}
                     disabled={drawerMode === 'VIEW'}
-                    className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" 
-                    placeholder="Ví dụ: Thiết bị gia dụng" 
+                    className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    placeholder="Ví dụ: Thiết bị gia dụng"
                   />
                 </div>
 
@@ -923,15 +1195,15 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   <label className="text-xs font-semibold text-slate-700">
                     Mã danh mục <span className="text-red-500">*</span>
                   </label>
-                  <input 
-                    type="text" 
-                    value={formData.code} 
+                  <input
+                    type="text"
+                    value={formData.code}
                     onChange={(e) => {
                       if (drawerMode !== 'VIEW') setFormData({ ...formData, code: e.target.value.toUpperCase() });
                     }}
                     disabled={drawerMode === 'VIEW'}
-                    className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" 
-                    placeholder="Ví dụ: THIETBIGIADUNG" 
+                    className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    placeholder="Ví dụ: THIETBIGIADUNG"
                   />
                 </div>
 
@@ -940,46 +1212,37 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   <label className="text-xs font-semibold text-slate-700">
                     Slug <span className="text-red-500">*</span>
                   </label>
-                  <input 
-                    type="text" 
-                    value={formData.slug} 
+                  <input
+                    type="text"
+                    value={formData.slug}
                     onChange={(e) => {
                       if (drawerMode !== 'VIEW') setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') });
                     }}
                     disabled={drawerMode === 'VIEW'}
-                    className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" 
-                    placeholder="thiet-bi-gia-dung" 
+                    className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    placeholder="thiet-bi-gia-dung"
                   />
                 </div>
 
                 {/* Danh mục cha */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700">Danh mục cha</label>
-                  <select 
-                    value={formData.parentId || ''} 
-                    onChange={(e) => {
-                      if (drawerMode !== 'VIEW') setFormData({ ...formData, parentId: e.target.value });
+                  <ParentCategorySelect
+                    categories={categories}
+                    excludeIds={excludeIdsForParentSelect}
+                    value={formData.parentId || ''}
+                    onChange={(id) => {
+                      if (drawerMode !== 'VIEW') setFormData({ ...formData, parentId: id });
                     }}
                     disabled={drawerMode === 'VIEW'}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    <option value="">-- Không có (Danh mục gốc) --</option>
-                    {categories
-                      .filter(cat => drawerMode === 'CREATE' || cat.id !== selectedCategory?.id) // Prevent selecting itself as parent
-                      .map(cat => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name} ({cat.code})
-                        </option>
-                      ))
-                    }
-                  </select>
+                  />
                 </div>
-
+                
                 {/* Trạng thái */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700">Trạng thái</label>
-                  <select 
-                    value={formData.status} 
+                  <select
+                    value={formData.status}
                     onChange={(e) => {
                       if (drawerMode !== 'VIEW') setFormData({ ...formData, status: e.target.value as any });
                     }}
@@ -995,15 +1258,15 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                 {/* Mô tả */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700">Mô tả danh mục</label>
-                  <textarea 
-                    value={formData.description} 
+                  <textarea
+                    value={formData.description}
                     onChange={(e) => {
                       if (drawerMode !== 'VIEW') setFormData({ ...formData, description: e.target.value });
                     }}
                     disabled={drawerMode === 'VIEW'}
                     rows={3}
-                    className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" 
-                    placeholder="Mô tả ngắn gọn về phạm vi và loại mặt hàng trong danh mục này..." 
+                    className="w-full px-3 py-2 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    placeholder="Mô tả ngắn gọn về phạm vi và loại mặt hàng trong danh mục này..."
                   />
                 </div>
 
@@ -1025,11 +1288,10 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                               key={iconName}
                               type="button"
                               onClick={() => setFormData({ ...formData, icon: iconName })}
-                              className={`p-2.5 rounded-lg border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
-                                formData.icon === iconName 
-                                  ? 'border-blue-500 bg-blue-50/50 text-blue-600 font-semibold' 
-                                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                              }`}
+                              className={`p-2.5 rounded-lg border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${formData.icon === iconName
+                                ? 'border-blue-500 bg-blue-50/50 text-blue-600 font-semibold'
+                                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                                }`}
                             >
                               <IconElem size={18} />
                               <span className="text-[10px]">{iconName}</span>
@@ -1039,7 +1301,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                       </div>
 
                       {/* Mock upload area */}
-                      <div 
+                      <div
                         onClick={handleSimulateUpload}
                         className="border-2 border-dashed border-slate-200 hover:border-blue-300 rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer bg-slate-50/50 hover:bg-blue-50/10 transition-colors"
                       >
@@ -1067,8 +1329,8 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
             <div className="p-6 border-t border-slate-100 flex justify-between items-center bg-slate-50/50">
               {drawerMode === 'VIEW' ? (
                 <>
-                  <Button 
-                    variant="secondary" 
+                  <Button
+                    variant="secondary"
                     onClick={() => setIsDrawerOpen(false)}
                     className="rounded-xl px-4 text-xs font-semibold w-full cursor-pointer"
                   >
@@ -1077,18 +1339,18 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                 </>
               ) : (
                 <>
-                  <Button 
-                    variant="secondary" 
+                  <Button
+                    variant="secondary"
                     onClick={() => setIsDrawerOpen(false)}
                     className="rounded-xl px-4 text-xs font-semibold cursor-pointer"
                   >
                     Hủy
                   </Button>
-                  
+
                   <div className="flex gap-2">
-                    <Button 
+                    <Button
                       type="button"
-                      variant="secondary" 
+                      variant="secondary"
                       onClick={() => {
                         // Simulate draft save
                         setIsDrawerOpen(false);
@@ -1098,8 +1360,8 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                     >
                       Lưu nháp
                     </Button>
-                    
-                    <Button 
+
+                    <Button
                       onClick={handleSubmitForm}
                       className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
                     >
