@@ -22,6 +22,8 @@ const CreateProduct        = lazy(() => import('../admin/pages/products/CreatePr
 const EditProductPage      = lazy(() => import('../admin/pages/products/EditProductPage'));
 const CategoryListPage     = lazy(() => import('../admin/pages/categories/CategoryListPage'));
 const BatchListPage        = lazy(() => import('../admin/pages/batches/BatchListPage'));
+const BatchProductsPage    = lazy(() => import('../admin/pages/batches/BatchProductsPage'));
+const BatchTracePage       = lazy(() => import('../admin/pages/batches/BatchTracePage'));
 const OwnershipListPage    = lazy(() => import('../admin/pages/ownership/OwnershipListPage'));
 const WarrantyListPage     = lazy(() => import('../admin/pages/warranty/WarrantyListPage'));
 const StoreListPage        = lazy(() => import('../admin/pages/store/StoreListPage'));
@@ -36,6 +38,7 @@ const CustomerProductDetail = lazy(() => import('../customer/views/ProductDetail
 const CustomerOwnership     = lazy(() => import('../customer/views/Ownership'));
 const CustomerWarranty      = lazy(() => import('../customer/views/Warranty'));
 const CustomerProfile       = lazy(() => import('../customer/views/Profile'));
+const VerifyProductPage     = lazy(() => import('../features/trace/pages/VerifyProductPage'));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -151,6 +154,8 @@ export default function AppRouter() {
               <Route path="/product-detail" element={<ProductDetailRoute />} />
               <Route path="/edit-product"  element={<EditProductRoute />} />
               <Route path="/batches"       element={<BatchesPage />} />
+              <Route path="/batches/:batchId/products" element={<BatchProductsPage />} />
+              <Route path="/batches/:batchId/trace"    element={<BatchTracePage />} />
               <Route path="/ownership"     element={<OwnershipPage />} />
               <Route path="/warranty"      element={<WarrantyPage />} />
               <Route path="/store"         element={<StorePage />} />
@@ -203,6 +208,9 @@ export default function AppRouter() {
               <CustomerProfile onBack={() => window.history.back()} />
             } />
           </Route>
+
+          {/* Public Verification Route */}
+          <Route path="/verify" element={<VerifyProductPage />} />
 
           {/* 404 */}
           <Route

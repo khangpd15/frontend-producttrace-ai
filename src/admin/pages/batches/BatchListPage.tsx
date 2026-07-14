@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search, Plus, Eye, Edit3, X, AlertCircle,
   Calendar, MapPin, Truck, HelpCircle, Inbox, Layers,
@@ -13,6 +14,7 @@ import { useBatchList } from '../../../features/batch/hooks/useBatchList';
 import { useBatchDetail } from '../../../features/batch/hooks/useBatchDetail';
 import { useBatchHistory } from '../../../features/batch/hooks/useBatchHistory';
 import { useBatchProducts } from '../../../features/batch/hooks/useBatchProducts';
+import { useBatchEvents } from '../../../features/batch/hooks/useBatchEvents';
 import { batchApi } from '../../../features/batch/api/batch.api';
 import { BatchListItem, BatchStatus } from '../../../features/batch/api/batch.types';
 import { useTraceSearch } from '../../../features/trace/hooks/useTraceSearch';
@@ -214,7 +216,8 @@ function DrawerHistoryPanel({ batchId }: { batchId: string }) {
 
 // ─── DrawerProductsPanel ──────────────────────────────────────────────────────
 
-function DrawerProductsPanel({ batchId }: { batchId: string }) {
+function DrawerProductsPanel({ batchId, batchCode }: { batchId: string; batchCode: string }) {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const { items, pagination, isLoading, error } = useBatchProducts(batchId, { page, limit: 10 });
 
@@ -245,6 +248,15 @@ function DrawerProductsPanel({ batchId }: { batchId: string }) {
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <button
+          onClick={() => navigate(`/batches/${batchId}/products?code=${batchCode}`)}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-transparent border-none cursor-pointer"
+        >
+          Xem dạng toàn trang →
+        </button>
+      </div>
+
       {items.map(item => (
         <div key={item.itemId} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center">
           <div>
@@ -286,18 +298,9 @@ function DrawerProductsPanel({ batchId }: { batchId: string }) {
   );
 }
 
-// ─── DrawerTracePanel ─────────────────────────────────────────────────────────
-
 function DrawerTracePanel({ batch }: { batch: BatchListItem }) {
-  const { result, isLoading, error, search } = useTraceSearch();
-  const [searchCode, setSearchCode] = useState('');
-
-  // Auto-search bằng batch_code khi mở panel
-  useEffect(() => {
-    if (batch.batch_code) {
-      search({ code: batch.batch_code });
-    }
-  }, [batch.batch_code]); // eslint-disable-line react-hooks/exhaustive-deps
+  const navigate = useNavigate();
+  const { events, isLoading, error } = useBatchEvents(batch.id);
 
   if (isLoading) {
     return (
@@ -309,87 +312,31 @@ function DrawerTracePanel({ batch }: { batch: BatchListItem }) {
 
   if (error) {
     return (
-      <div className="space-y-3">
-        <div className="p-4 bg-red-50 rounded-lg text-red-700 text-sm flex items-center gap-2">
-          <AlertCircle size={16} /> {error}
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={searchCode}
-            onChange={e => setSearchCode(e.target.value)}
-            placeholder="Nhập mã sản phẩm / serial..."
-            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm"
-          />
-          <Button
-            onClick={() => search({ code: searchCode })}
-            className="px-3 py-2 text-xs bg-blue-600 text-white rounded-lg font-semibold cursor-pointer"
-          >
-            Tìm
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!result) {
-    return (
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={searchCode}
-            onChange={e => setSearchCode(e.target.value)}
-            placeholder="Nhập mã sản phẩm / serial..."
-            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm"
-          />
-          <Button
-            onClick={() => search({ code: searchCode })}
-            className="px-3 py-2 text-xs bg-blue-600 text-white rounded-lg font-semibold cursor-pointer"
-          >
-            Tìm
-          </Button>
-        </div>
+      <div className="p-4 bg-red-50 rounded-lg text-red-700 text-sm flex items-center gap-2">
+        <AlertCircle size={16} /> {error}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {result.warning && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-xs">
-          {result.warning}
-        </div>
-      )}
+      <div className="flex justify-end">
+        <button
+          onClick={() => navigate(`/batches/${batch.id}/trace?code=${batch.batch_code}`)}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-transparent border-none cursor-pointer"
+        >
+          Xem dạng toàn trang →
+        </button>
+      </div>
 
-      {result.productItem && (
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-          <p className="text-xs text-slate-500 font-semibold mb-1">Sản phẩm:</p>
-          <p className="text-sm font-bold text-slate-900">{result.productItem.productName}</p>
-          <p className="text-xs text-slate-500 font-mono">SN: {result.productItem.serialNumber}</p>
-          <div className="mt-1">{renderStatusBadge(result.productItem.status)}</div>
-        </div>
-      )}
-
-      {result.matchedEventsCount !== null && (
-        <p className="text-xs text-slate-500 font-semibold">
-          {result.matchedEventsCount} sự kiện tìm thấy
-        </p>
-      )}
-
-      {result.timeline.length > 0 ? (
+      {events.length > 0 ? (
         <div className="border-l-2 border-slate-200 pl-4 space-y-4">
-          {result.timeline.map(event => (
-            <div key={event.eventId} className="relative">
+          {events.map((event, idx) => (
+            <div key={idx} className="relative">
               <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white" />
-              <p className="text-sm font-semibold text-slate-900">{event.title}</p>
-              <p className="text-xs text-slate-500">{event.description}</p>
-              {event.location && (
-                <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                  <MapPin size={10} /> {event.location}
-                </p>
-              )}
-              <p className="text-[10px] text-slate-400 mt-1">{formatDateTime(event.timestamp)}</p>
+              <p className="text-sm font-semibold text-slate-900">{event.event_name}</p>
+              <p className="text-xs text-slate-500">{event.detail}</p>
+              <p className="text-[10px] text-slate-400 mt-1">{formatDateTime(event.created_at)}</p>
             </div>
           ))}
         </div>
@@ -407,6 +354,7 @@ function DrawerTracePanel({ batch }: { batch: BatchListItem }) {
 
 export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const { role } = useAuthStore();
+  const navigate = useNavigate();
 
   // ── Filter & Pagination state ────────────────────────────────────────────
   const [page, setPage] = useState(1);
@@ -422,7 +370,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
     if (filterStatus && filterStatus !== 'ALL') return filterStatus;
     if (activeKpiFilter === 'ACTIVE') return 'ACTIVE';
     if (activeKpiFilter === 'EXPIRED') return 'EXPIRED';
-    // RECALLED_BLOCKED: không có param tổng hợp — để BE xử lý với filter riêng
+    if (activeKpiFilter === 'RECALLED_BLOCKED') return 'RECALLED,BLOCKED';
     return undefined;
   })();
 
@@ -759,12 +707,6 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
           >
             <Plus size={16} /> Nhập lô hàng
           </Button>
-          <Button
-            onClick={refetch}
-            className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs"
-          >
-            <RotateCw size={16} className={isLoading ? 'animate-spin' : ''} />
-          </Button>
         </div>
       </div>
 
@@ -838,7 +780,11 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Trạng thái:</span>
                 <select
                   value={filterStatus}
-                  onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
+                  onChange={e => {
+                    setFilterStatus(e.target.value);
+                    setPage(1);
+                    setActiveKpiFilter('ALL');
+                  }}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
                 >
                   <option value="">Tất cả</option>
@@ -883,14 +829,14 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <table className="w-full text-left text-sm table-fixed border-collapse">
                   <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
                     <tr>
-                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[18%]">Mã Lô Hàng</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[24%]">Sản phẩm</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">Số lượng</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[12%] text-center">NSX</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[12%] text-center">HSD</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[12%]">Xuất xứ</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[15%] text-center">Trạng thái</th>
-                      <th className="p-3.5 pr-5 font-bold tracking-wider w-[12%] text-right">Thao tác</th>
+                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[12%]">Mã Lô Hàng</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[22%]">Sản phẩm</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[8%] text-center">Số lượng</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">NSX</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">HSD</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[10%]">Xuất xứ</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[13%] text-center">Trạng thái</th>
+                      <th className="p-3.5 pr-5 font-bold tracking-wider w-[15%] text-right">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -927,9 +873,12 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
                           {renderStatusBadge(batch.status)}
                         </td>
                         <td className="p-3.5 pr-5 text-right" onClick={e => e.stopPropagation()}>
-                          <div className="flex justify-end gap-1">
+                          <div className="flex justify-end gap-2">
                             <button
-                              onClick={e => openTrace(batch, e)}
+                              onClick={e => {
+                                e.stopPropagation();
+                                navigate(`/batches/${batch.id}/trace?code=${batch.batch_code}`);
+                              }}
                               className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Truy xuất nguồn gốc"
                             >
@@ -1021,12 +970,14 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
               {/* Extra actions khi VIEW */}
               {drawerMode === 'VIEW' && selectedBatch && (
                 <div className="flex gap-1 mr-2">
-                  <button
-                    onClick={() => setDrawerMode('HISTORY')}
-                    className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer border-none bg-transparent flex items-center gap-1"
-                  >
-                    <Clock size={13} /> Lịch sử
-                  </button>
+                  {(role === 'ADMIN' || role === 'STAFF') && (
+                    <button
+                      onClick={() => setDrawerMode('HISTORY')}
+                      className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer border-none bg-transparent flex items-center gap-1"
+                    >
+                      <Clock size={13} /> Lịch sử
+                    </button>
+                  )}
                   <button
                     onClick={() => setDrawerMode('PRODUCTS')}
                     className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer border-none bg-transparent flex items-center gap-1"
@@ -1065,7 +1016,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
 
               {/* ── PRODUCTS: Sản phẩm trong lô ──────────────────────────── */}
               {drawerMode === 'PRODUCTS' && selectedBatch && (
-                <DrawerProductsPanel batchId={selectedBatch.id} />
+                <DrawerProductsPanel batchId={selectedBatch.id} batchCode={selectedBatch.batch_code} />
               )}
 
               {/* ── TRACE: Truy xuất ──────────────────────────────────────── */}
@@ -1278,7 +1229,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
 
             {/* Drawer Footer */}
             <div className="p-6 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50 shrink-0">
-              {drawerMode === 'VIEW' && selectedBatch && (role === 'ADMIN' || role === 'MANUFACTURER') && (
+              {drawerMode === 'VIEW' && selectedBatch && (role === 'ADMIN' || (role as string) === 'MANUFACTURER') && (
                 <Button
                   onClick={async () => {
                     try {

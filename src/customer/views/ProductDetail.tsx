@@ -69,7 +69,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
             location: { name: 'Hệ thống phân phối', address: 'Đang cập nhật', type: 'STORE' },
             ownership: undefined,
             warranty: undefined,
-            events: traceRes.timeline.map((e) => ({
+            events: (traceRes.timeline || []).map((e) => ({
               type: e.eventType,
               title: e.title,
               description: e.description,
@@ -84,7 +84,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
               scanCount: traceRes.matchedEventsCount || 0,
               transferCount: 0,
               warrantyCount: 0,
-              eventCount: traceRes.timeline.length,
+              eventCount: (traceRes.timeline || []).length,
             },
           };
           setProductData(mapped);

@@ -100,3 +100,32 @@ export interface ExportJobResponse {
   status: string;
   estimatedTimeSeconds: number;
 }
+
+// ─── Verify QR Response ──────────────────────────────────────────────────────
+
+export interface VerifyQRBatchInfo {
+  batchCode: string;
+  manufactureDate: string | null;
+  expiryDate: string | null;
+  manufacturerName: string;
+  supplierName: string;
+  originCountry: string;
+  productionPlace: string;
+  batchStatus: string;
+}
+
+export interface VerifyQRProductInfo {
+  productName: string;
+  variantName: string;
+  variantSKU: string;
+}
+
+export interface VerifyQRResponse {
+  itemCode: string;
+  serialNumber: string;
+  itemStatus: string;
+  scannedAt: string;
+  batch: VerifyQRBatchInfo;
+  product: VerifyQRProductInfo;
+}
+
