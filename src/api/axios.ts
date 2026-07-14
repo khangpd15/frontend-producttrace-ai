@@ -39,11 +39,35 @@ export const apiClient: AxiosInstance = axios.create({
 
 // ─── Request Interceptor: attach Authorization header ─────────────────────────
 
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = tokenStorage.getAccessToken();
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
+      
+      // The backend Ownership API specifically requires these headers 
+      // instead of reading directly from the JWT context middleware
+      const payload = parseJwt(token);
+      if (payload) {
+        if (payload.user_id) config.headers['X-User-Id'] = payload.user_id;
+        else if (payload.userId) config.headers['X-User-Id'] = payload.userId;
+        else if (payload.sub) config.headers['X-User-Id'] = payload.sub;
+        
+        if (payload.role) config.headers['X-User-Role'] = payload.role;
+      }
     }
     return config;
   },

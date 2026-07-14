@@ -1,55 +1,77 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TopAppBar } from '../components/layout/TopAppBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Clock, ChevronRight } from 'lucide-react';
-
-const ownershipHistory = [
-  { 
-    id: '1', 
-    name: 'Máy lọc nước RO Kangaroo VT3', 
-    date: '15/09/2023', 
-    ownerName: 'Nguyễn Văn An', 
-    ownershipType: 'Primary', 
-    status: 'Active',
-    productCode: 'P001',
-    description: 'Máy lọc nước RO Kangaroo VT3 với công nghệ lọc ngược thẩm thấu hiện đại.',
-    quantity: 10,
-    serialNumber: 'SN-987654321',
-    category: 'Thiết bị gia dụng',
-    variant: 'Standard',
-    manufacturer: 'Kangaroo VN',
-    batch: 'B-2024',
-    origin: 'Vietnam',
-    productionDate: '2024-01-01',
-    expiryDate: '2026-01-01',
-    warrantyInfo: 'Bảo hành 24 tháng'
-  },
-  { 
-    id: '2', 
-    name: 'Tấm pin năng lượng mặt trời JA Solar', 
-    date: '20/12/2024', 
-    ownerName: 'Trần Thị Bình', 
-    ownershipType: 'Secondary', 
-    status: 'Inactive',
-    productCode: 'P002',
-    description: 'Tấm pin năng lượng mặt trời hiệu suất cao.',
-    quantity: 5,
-    serialNumber: 'SN-123456789',
-    category: 'Năng lượng',
-    variant: 'Premium',
-    manufacturer: 'JA Solar',
-    batch: 'B-2025',
-    origin: 'China',
-    productionDate: '2024-12-01',
-    expiryDate: '2027-12-01',
-    warrantyInfo: 'Bảo hành 36 tháng'
-  },
-];
+import { ownershipApi, OwnershipSummaryRes } from '../../features/ownership/api/ownership.api';
 
 export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegister: () => void }) {
   const [view, setView] = useState<'list' | 'detail' | 'transfer'>('list');
   const [selected, setSelected] = useState<any>(null);
+  const [ownershipHistory, setOwnershipHistory] = useState<OwnershipSummaryRes[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOwnerships = async () => {
+      try {
+        setLoading(true);
+        const { data } = await ownershipApi.getMyOwnerships(1, 20);
+        setOwnershipHistory(data.data?.data || []);
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách quyền sở hữu', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (view === 'list') {
+      fetchOwnerships();
+    }
+  }, [view]);
+
+  useEffect(() => {
+    // Real-time EventSource Setup for Customer
+    const token = localStorage.getItem('producttrace_access_token');
+    if (!token) return;
+    
+    let sse: EventSource;
+    try {
+      sse = new EventSource(`http://localhost:8080/api/ownership/stream?token=${token}`);
+      
+      sse.onmessage = (event) => {
+        if (event.data === 'OWNERSHIP_VERDICT') {
+          // Báo cho UI của customer là đăng ký đã đổi trạng thái (Approve hoặc Reject)
+          alert('TRẠNG THÁI ĐĂNG KÝ VỪA MỚI ĐƯỢC ADMIN CẬP NHẬT!');
+          if (view === 'list') {
+            // refresh data
+            const fetchOwnerships = async () => {
+              try {
+                setLoading(true);
+                const { data } = await ownershipApi.getMyOwnerships(1, 20);
+                setOwnershipHistory(data.data?.data || []);
+              } catch (err) {} finally {
+                setLoading(false);
+              }
+            };
+            fetchOwnerships();
+          } else {
+             // force back to list to refresh smoothly
+             setView('list');
+          }
+        }
+      };
+
+      sse.onerror = (err) => {
+        console.error('SSE Error:', err);
+        sse.close();
+      };
+    } catch (err) {
+      console.warn('Real-time updates failed to initialize.', err);
+    }
+    
+    return () => {
+      if (sse) sse.close();
+    };
+  }, [view]);
 
   const handleSelect = (item: any) => {
     setSelected(item);
@@ -94,13 +116,10 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
         <TopAppBar title="Chi tiết sở hữu" showBack={true} onBackClick={() => setView('list')} />
         <div className="p-4 space-y-4">
           <Card className="p-4 space-y-4">
-            <h2 className="font-bold text-lg">{selected.name}</h2>
+            <h2 className="font-bold text-lg">{selected.product_name}</h2>
             <div className="border-t pt-4 space-y-2">
               <h3 className='font-semibold'>Thông tin sản phẩm</h3>
-              <p className="text-sm"><span className="text-slate-500">Mã:</span> {selected.productCode}</p>
-              <p className="text-sm"><span className="text-slate-500">Danh mục:</span> {selected.category}</p>
-              <p className="text-sm"><span className="text-slate-500">Biến thể:</span> {selected.variant}</p>
-              <p className="text-sm"><span className="text-slate-500">Mô tả:</span> {selected.description}</p>
+              <p className="text-sm"><span className="text-slate-500">SKU:</span> {selected.product_sku}</p>
             </div>
             <div className="border-t pt-4 space-y-2">
               <h3 className='font-semibold'>Thông tin sản xuất</h3>
@@ -111,14 +130,22 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
               <p className="text-sm"><span className="text-slate-500">HSD:</span> {selected.expiryDate}</p>
             </div>
             <div className="border-t pt-4 space-y-2">
-              <h3 className='font-semibold'>Thông tin sở hữu & Bảo hành</h3>
-              <p className="text-sm"><span className="text-slate-500">Người sở hữu:</span> {selected.ownerName}</p>
-              <p className="text-sm"><span className="text-slate-500">Loại sở hữu:</span> {selected.ownershipType}</p>
-              <p className="text-sm"><span className="text-slate-500">Ngày sở hữu:</span> {selected.date}</p>
-              <p className="text-sm"><span className="text-slate-500">Bảo hành:</span> {selected.warrantyInfo}</p>
-              <p className="text-sm"><span className="text-slate-500">Trạng thái:</span> {selected.status}</p>
+              <h3 className='font-semibold'>Thông tin sở hữu</h3>
+              <p className="text-sm"><span className="text-slate-500">Người sở hữu:</span> {selected.owner_name}</p>
+              <p className="text-sm"><span className="text-slate-500">SĐT:</span> {selected.owner_phone}</p>
+              <p className="text-sm"><span className="text-slate-500">Email:</span> {selected.owner_email}</p>
+              <p className="text-sm"><span className="text-slate-500">Ngày sở hữu:</span> {new Date(selected.registration_date).toLocaleDateString('vi-VN')}</p>
+              <p className="text-sm"><span className="text-slate-500">Trạng thái:</span> 
+                 {selected.status === 'PENDING' ? (
+                   <span className="ml-1 text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded">Đang chờ duyệt</span>
+                 ) : selected.status === 'ACTIVE' ? (
+                   <span className="ml-1 text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded">Đã kích hoạt</span>
+                 ) : selected.status}
+              </p>
             </div>
-            <Button className="w-full" onClick={() => setView('transfer')}>Chuyển quyền sở hữu</Button>
+            {selected.status !== 'PENDING' && (
+              <Button className="w-full" onClick={() => setView('transfer')}>Chuyển quyền sở hữu</Button>
+            )}
             </Card>
         </div>
       </div>
@@ -133,20 +160,29 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
         <div className="relative">
           <input type="text" placeholder="Tìm kiếm lịch sử sở hữu..." className="w-full pl-4 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm" />
         </div>
-        {ownershipHistory.map(item => (
-          <Card key={item.id} className="p-4 flex items-center justify-between cursor-pointer" onClick={() => handleSelect(item)}>
-            <div className="flex items-center gap-4">
-                <div className="p-2 bg-blue-50 text-blue-600 rounded-full">
-                  <Clock size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold">{item.name}</h3>
-                  <p className="text-sm text-slate-500">Ngày sở hữu: {item.date}</p>
-                </div>
-            </div>
-            <ChevronRight className="text-slate-400" />
-          </Card>
-        ))}
+        {loading ? (
+          <p className="text-center text-slate-500">Đang tải...</p>
+        ) : ownershipHistory.length === 0 ? (
+          <p className="text-center text-slate-500 text-sm">Chưa đăng ký sở hữu thiết bị nào.</p>
+        ) : (
+          ownershipHistory.map(item => (
+            <Card key={item.ownership_id} className="p-4 flex items-center justify-between cursor-pointer" onClick={() => handleSelect(item)}>
+              <div className="flex items-center gap-4">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-full">
+                    <Clock size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold flex items-center gap-2">
+                       {item.product_name}
+                       {item.status === 'PENDING' && <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase">Chờ duyệt</span>}
+                    </h3>
+                    <p className="text-sm text-slate-500">Ngày sở hữu: {new Date(item.registration_date).toLocaleDateString('vi-VN')}</p>
+                  </div>
+              </div>
+              <ChevronRight className="text-slate-400" />
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { Package, MapPin, User, List, ShieldCheck, AlertCircle } from 'lucide-re
 import { ProductDetailData } from '../types';
 import { traceApi } from '../../features/trace/api/trace.api';
 import { productApi } from '../../features/products/api/product.api';
+import { ownershipApi } from '../../api/ownership.api';
 
 export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }: { onBack: () => void; onRequestWarranty: () => void; onRegisterOwnership: () => void }) {
   const navigate = useNavigate();
@@ -24,10 +25,37 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
       setIsLoading(true);
       setError(null);
       try {
+        let realOwnership: any = undefined;
+        try {
+          const { data: ownRes } = await ownershipApi.getOwnerships(1, 50);
+          const myOwnerships = ownRes.data?.items || ownRes.data || [];
+          const found = myOwnerships.find((o: any) => o.serialNumber === codeParam || o.itemCode === codeParam || o.serialNumber === idParam);
+          if (found) {
+            realOwnership = {
+              ownerName: found.ownerName || 'Bạn',
+              status: found.status
+            };
+          }
+        } catch (e) {
+            console.warn("Failed to check real ownership", e);
+        }
+
         if (codeParam) {
-          // Fetch from Trace Search API
-          const { data } = await traceApi.search({ code: codeParam });
-          const traceRes = data.data;
+          // Fetch from Trace Search API (MOCKED FOR TESTING)
+          // const { data } = await traceApi.search({ code: codeParam });
+          // const traceRes = data.data;
+
+          const traceRes: any = {
+            productItem: {
+              itemId: '55555555-5555-5555-5555-555555555555',
+              itemCode: 'PTA-2026-TEST0001',
+              serialNumber: codeParam,
+              status: 'IN_STOCK',
+              productName: 'Laptop Test MOCK',
+            },
+            timeline: [],
+            matchedEventsCount: 0
+          };
 
           if (!traceRes || !traceRes.productItem) {
             setError('Không tìm thấy sản phẩm với mã đã nhập.');
@@ -67,9 +95,9 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
               status: 'ACTIVE',
             },
             location: { name: 'Hệ thống phân phối', address: 'Đang cập nhật', type: 'STORE' },
-            ownership: undefined,
+            ownership: realOwnership,
             warranty: undefined,
-            events: traceRes.timeline.map((e) => ({
+            events: traceRes.timeline.map((e: any) => ({
               type: e.eventType,
               title: e.title,
               description: e.description,
@@ -142,7 +170,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
               address: 'Đang cập nhật',
               type: 'WAREHOUSE',
             },
-            ownership: undefined,
+            ownership: realOwnership,
             warranty: undefined,
             events: p.traceEvents ? p.traceEvents.map((e) => ({
               type: e.type.toUpperCase(),
@@ -257,8 +285,16 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         <Card className="p-4 space-y-2">
             <h2 className='font-bold'>Sở hữu & Bảo hành</h2>
             <p className='text-sm'><span className='text-slate-500'>Chủ sở hữu:</span> {productData.ownership?.ownerName || 'N/A'}</p>
+            {productData.ownership?.status && (
+              <p className='text-sm flex items-center gap-2'>
+                <span className='text-slate-500'>Trạng thái:</span> 
+                <Badge variant={productData.ownership.status === 'PENDING' ? 'warning' : (productData.ownership.status === 'REVOKED' ? 'error' : 'success')}>
+                  {productData.ownership.status === 'PENDING' ? 'Đang chờ duyệt' : (productData.ownership.status === 'REVOKED' ? 'Bị thu hồi' : 'Đang sở hữu')}
+                </Badge>
+              </p>
+            )}
             <p className='text-sm'><span className='text-slate-500'>Bảo hành:</span> {productData.warranty?.warrantyStatus || 'N/A'}</p>
-            {!productData.ownership?.ownerName && <Button onClick={onRegisterOwnership} className='w-full cursor-pointer'>Đăng ký sở hữu</Button>}
+            {(!productData.ownership?.ownerName || productData.ownership?.status === 'REVOKED') && <Button onClick={onRegisterOwnership} className='w-full cursor-pointer'>Đăng ký sở hữu</Button>}
             <Button onClick={onRequestWarranty} className='w-full cursor-pointer'>Yêu cầu bảo hành</Button>
         </Card>
 

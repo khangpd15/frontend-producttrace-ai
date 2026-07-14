@@ -1,83 +1,20 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Search, Plus, RotateCw, Eye, Edit3, X, AlertCircle, 
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  Search, Plus, RotateCw, Eye, Edit3, X, AlertCircle,
   User, Calendar, MapPin, Receipt, ArrowLeftRight, HelpCircle, Inbox, Layers, ClipboardList, Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import { ownershipApi } from '../../../api/ownership.api';
 
 import { AdminOwnership as Ownership } from '@shared/types/domain';
 
 export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
-  const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'TRANSFERRED' | 'REVOKED'>('ALL');
+  const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'TRANSFERRED' | 'REVOKED' | 'PENDING'>('ALL');
 
-  const [ownerships, setOwnerships] = useState<Ownership[]>([
-    {
-      id: 'o-1',
-      itemCode: 'ITEM-RO-KNG00125',
-      itemName: 'Máy lọc nước RO Kangaroo VT3',
-      serialNumber: 'SN-KG-889021',
-      ownerName: 'Nguyễn Văn A',
-      ownerEmail: 'nguyenvana@gmail.com',
-      status: 'ACTIVE',
-      ownershipType: 'PRIMARY',
-      ownedAt: '2026-02-15 14:30',
-      purchaseDate: '2026-02-15',
-      purchaseLocation: 'Điện Máy Xanh Cầu Giấy',
-      invoiceNumber: 'INV-2026-00918',
-      createdAt: '2026-02-15',
-      updatedAt: '2026-02-15 14:30'
-    },
-    {
-      id: 'o-2',
-      itemCode: 'ITEM-SP-JA450-0988',
-      itemName: 'Tấm pin mặt trời JA Solar 450W',
-      serialNumber: 'SN-JA-321104',
-      ownerName: 'Trần Thị B',
-      ownerEmail: 'tranthib@hotmail.com',
-      status: 'ACTIVE',
-      ownershipType: 'PRIMARY',
-      ownedAt: '2026-03-10 09:15',
-      purchaseDate: '2026-03-08',
-      purchaseLocation: 'SolarPower Dealer Thanh Xuân',
-      invoiceNumber: 'INV-2026-01254',
-      createdAt: '2026-03-10',
-      updatedAt: '2026-03-10 09:15'
-    },
-    {
-      id: 'o-3',
-      itemCode: 'ITEM-SN-SPEC-77312',
-      itemName: 'Sơn chống thấm Spec Damp-proof 5L',
-      serialNumber: 'SN-SP-400981',
-      ownerName: 'Lê Hoàng C',
-      ownerEmail: 'lehoangc@yahoo.com',
-      status: 'TRANSFERRED',
-      ownershipType: 'TRANSFERRED',
-      ownedAt: '2026-04-20 16:00',
-      purchaseDate: '2025-12-15',
-      purchaseLocation: 'Đại lý Vật liệu xây dựng Hùng Cường',
-      invoiceNumber: 'INV-2025-10492',
-      createdAt: '2025-12-15',
-      updatedAt: '2026-04-20 16:00'
-    },
-    {
-      id: 'o-4',
-      itemCode: 'ITEM-OM-PRE-882190',
-      itemName: 'Omega-3 Premium Nordic',
-      serialNumber: 'SN-OM-771120',
-      ownerName: 'Phạm Minh D',
-      ownerEmail: 'phamminhd@gmail.com',
-      status: 'REVOKED',
-      ownershipType: 'PRIMARY',
-      ownedAt: '2026-01-05 11:20',
-      purchaseDate: '2026-01-05',
-      purchaseLocation: 'Pharmacity Nguyễn Trãi',
-      invoiceNumber: 'INV-2026-00041',
-      createdAt: '2026-01-05',
-      updatedAt: '2026-05-18 10:00'
-    }
-  ]);
+  const [ownerships, setOwnerships] = useState<Ownership[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,6 +28,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
   // Form states
   const [formData, setFormData] = useState({
+    id: '',
     itemCode: '',
     itemName: 'Máy lọc nước RO Kangaroo VT3',
     serialNumber: '',
@@ -103,6 +41,9 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     status: 'ACTIVE' as any
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [otpStep, setOtpStep] = useState(false);
+  const [adminOtp, setAdminOtp] = useState('');
+  const [resolvedProductId, setResolvedProductId] = useState('');
 
   // Transfer Form state
   const [transferData, setTransferData] = useState({
@@ -111,14 +52,89 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     transferNote: ''
   });
 
+  const loadOwnerships = async () => {
+    try {
+      setLoading(true);
+      const res = await ownershipApi.getOwnerships();
+      // res.data is ApiResponse, res.data.data is PaginatedOwnershipsRes which contains .data and .total_items
+      
+      let rawData = [];
+      if (res.data?.data?.data && Array.isArray(res.data.data.data)) {
+        rawData = res.data.data.data;
+      } else if (Array.isArray(res.data?.data)) {
+        rawData = res.data.data;
+      }
+      
+      const mappedOwnerships = rawData.map((item: any) => ({
+        id: item.ownership_id || item.id || `temp-${Math.random()}`,
+        itemCode: item.product_id || item.itemCode || '',
+        itemName: item.product_name || item.itemName || 'Unknown Product',
+        serialNumber: item.product_sku || item.serialNumber || '',
+        ownerName: item.owner_name || item.ownerName || 'Unknown Owner',
+        ownerEmail: item.owner_email || item.ownerEmail || '',
+        status: item.status || 'ACTIVE',
+        ownershipType: item.ownership_type || item.ownershipType || 'PRIMARY',
+        ownedAt: item.registration_date || item.ownedAt || new Date().toISOString(),
+        purchaseDate: item.purchase_date || item.purchaseDate || '',
+        purchaseLocation: item.purchase_location || item.purchaseLocation || '',
+        invoiceNumber: item.invoice_number || item.invoiceNumber || '',
+        createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+        updatedAt: item.updated_at || item.updatedAt || new Date().toISOString(),
+      }));
+      setOwnerships(mappedOwnerships as Ownership[]);
+      
+    } catch (err) {
+      console.error(err);
+      setOwnerships([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOwnerships();
+  }, []);
+
   // Stats
   const stats = useMemo(() => {
-    const total = ownerships.length + 1242;
-    const active = ownerships.filter(o => o.status === 'ACTIVE').length + 1150;
-    const transferred = ownerships.filter(o => o.status === 'TRANSFERRED').length + 80;
-    const revoked = ownerships.filter(o => o.status === 'REVOKED').length + 12;
-    return { total, active, transferred, revoked };
+    const total = ownerships.length;
+    const active = ownerships.filter(o => o.status === 'ACTIVE').length;
+    const transferred = ownerships.filter(o => o.status === 'TRANSFERRED').length;
+    const pending = ownerships.filter(o => o.status === 'PENDING').length;
+    const revoked = ownerships.filter(o => o.status === 'REVOKED').length;
+    return { total, active, transferred, pending, revoked };
   }, [ownerships]);
+
+  // Real-time EventSource Setup
+  useEffect(() => {
+    const token = localStorage.getItem('producttrace_access_token');
+    if (!token) return;
+
+    let sse: EventSource;
+    try {
+      // Connect to SSE stream and pass token via query URL
+      sse = new EventSource(`http://localhost:8080/api/ownership/admin/stream?token=${token}`);
+      
+      sse.onmessage = (event) => {
+        if (event.data === 'NEW_OWNERSHIP_REQUEST') {
+          // Play a native sound, toast, or just reload the list
+          alert('CÓ YÊU CẦU ĐĂNG KÝ SỞ HỮU MỚI TỪ KHÁCH HÀNG!');
+          loadOwnerships();
+        }
+      };
+
+      sse.onerror = (err) => {
+        console.error('SSE Error:', err);
+        sse.close();
+      };
+    } catch (err) {
+      console.warn('Real-time updates failed to initialize.', err);
+    }
+    
+    return () => {
+      if (sse) sse.close();
+    };
+  }, []);
 
   // Filtered ownerships
   const filteredOwnerships = useMemo(() => {
@@ -152,6 +168,9 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
       status: 'ACTIVE'
     });
     setFormError(null);
+    setOtpStep(false);
+    setAdminOtp('');
+    setResolvedProductId('');
     setIsDrawerOpen(true);
   };
 
@@ -171,10 +190,23 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
   const handleOpenView = (ownership: Ownership) => {
     setDrawerMode('VIEW');
     setSelectedOwnership(ownership);
+    setFormData({
+      id: ownership.id,
+      itemCode: ownership.itemCode,
+      itemName: ownership.itemName,
+      serialNumber: ownership.serialNumber,
+      ownerName: ownership.ownerName,
+      ownerEmail: ownership.ownerEmail,
+      ownershipType: ownership.ownershipType,
+      purchaseDate: ownership.purchaseDate,
+      purchaseLocation: ownership.purchaseLocation,
+      invoiceNumber: ownership.invoiceNumber,
+      status: ownership.status
+    });
     setIsDrawerOpen(true);
   };
 
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (drawerMode === 'TRANSFER' && selectedOwnership) {
@@ -183,74 +215,79 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
         return;
       }
 
-      // Transfer logic: Update selected ownership status to TRANSFERRED
-      // And create a new ownership record with the new owner
-      const updatedList = ownerships.map(o => {
-        if (o.id === selectedOwnership.id) {
-          return {
-            ...o,
-            status: 'TRANSFERRED' as const,
-            updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-          };
-        }
-        return o;
-      });
-
-      const newRecord: Ownership = {
-        id: 'o-' + Date.now(),
-        itemCode: selectedOwnership.itemCode,
-        itemName: selectedOwnership.itemName,
-        serialNumber: selectedOwnership.serialNumber,
-        ownerName: transferData.newOwnerName.trim(),
-        ownerEmail: transferData.newOwnerEmail.trim(),
-        status: 'ACTIVE',
-        ownershipType: 'TRANSFERRED',
-        ownedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        purchaseDate: selectedOwnership.purchaseDate,
-        purchaseLocation: selectedOwnership.purchaseLocation,
-        invoiceNumber: selectedOwnership.invoiceNumber,
-        createdAt: new Date().toISOString().substring(0, 10),
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      };
-
-      setOwnerships([newRecord, ...updatedList]);
-      setIsDrawerOpen(false);
+      try {
+        setFormError(null);
+        await ownershipApi.transferOwnership(selectedOwnership.id, {
+          new_owner_name: transferData.newOwnerName.trim(),
+          new_owner_email: transferData.newOwnerEmail.trim(),
+        });
+        
+        alert('Chuyển nhượng quyền sở hữu thành công');
+        setIsDrawerOpen(false);
+        loadOwnerships();
+      } catch (err: any) {
+        const msg = err.response?.data?.message || err.response?.data?.error || 'Lỗi khi chuyển nhượng quyền sở hữu';
+        setFormError(msg);
+      }
       return;
     }
 
-    // Create logic
+    // Create logic for Admin Registration
     if (!formData.ownerName.trim() || !formData.ownerEmail.trim()) {
       setFormError('Thông tin khách hàng sở hữu là bắt buộc');
       return;
     }
+    
+    if (!formData.itemCode.trim()) {
+      setFormError('Mã sản phẩm / QR Code là bắt buộc');
+      return;
+    }
 
     if (drawerMode === 'CREATE') {
-      const newOwnership: Ownership = {
-        id: 'o-' + Date.now(),
-        itemCode: formData.itemCode.toUpperCase(),
-        itemName: formData.itemName,
-        serialNumber: formData.serialNumber.toUpperCase(),
-        ownerName: formData.ownerName.trim(),
-        ownerEmail: formData.ownerEmail.trim(),
-        status: formData.status,
-        ownershipType: formData.ownershipType,
-        ownedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        purchaseDate: formData.purchaseDate,
-        purchaseLocation: formData.purchaseLocation,
-        invoiceNumber: formData.invoiceNumber.toUpperCase(),
-        createdAt: new Date().toISOString().substring(0, 10),
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      };
-      setOwnerships([newOwnership, ...ownerships]);
+      try {
+        setFormError(null);
+        if (!otpStep) {
+          // Giai đoạn 1: Gửi OTP
+          const res = await ownershipApi.adminRequestOTP({
+            qr_code: formData.itemCode, // Dùng itemCode tạm như mã QR
+            owner_name: formData.ownerName.trim(),
+            owner_email: formData.ownerEmail.trim(),
+          });
+          if (res.data?.data?.product_id) {
+            setResolvedProductId(res.data.data.product_id);
+          }
+          setOtpStep(true);
+          return; // Dừng lại ở otpStep
+        } else {
+          // Giai đoạn 2: Verify OTP 
+          if (!adminOtp || adminOtp.length < 6) {
+            setFormError('Vui lòng nhập đúng 6 số OTP');
+            return;
+          }
+          await ownershipApi.adminVerifyAndRegister({
+            otp: adminOtp,
+            product_id: resolvedProductId || formData.itemCode, // Use resolved UUID
+            owner_name: formData.ownerName.trim(),
+            owner_email: formData.ownerEmail.trim(),
+          });
+          
+          alert('Đăng ký sở hữu thành công!');
+          setIsDrawerOpen(false);
+          loadOwnerships(); // Tải lại danh sách từ server backend
+        }
+      } catch (err: any) {
+        const msg = err.response?.data?.message || err.response?.data?.error || 'Có lỗi xảy ra kết nối Server';
+        setFormError(msg);
+      }
     }
-    setIsDrawerOpen(false);
   };
 
-  const renderStatusBadge = (status: 'ACTIVE' | 'TRANSFERRED' | 'REVOKED') => {
-    const config = {
+  const renderStatusBadge = (status: 'ACTIVE' | 'TRANSFERRED' | 'REVOKED' | 'PENDING' | string) => {
+    const config: any = {
       ACTIVE: { bg: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500', label: 'Đang sở hữu' },
-      TRANSFERRED: { bg: 'bg-slate-50 text-slate-500 border-slate-200', dot: 'bg-slate-400', label: 'Đã chuyển nhượng' },
-      REVOKED: { bg: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500', label: 'Bị thu hồi' }
+      TRANSFERRED: { bg: 'bg-slate-50 text-slate-500 border-slate-200', dot: 'bg-slate-400', label: 'Đã chuyển nhrượng' },
+      REVOKED: { bg: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500', label: 'Bị thu hồi' },
+      PENDING: { bg: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: 'Chờ duyệt' }
     };
     const c = config[status] || config.ACTIVE;
     return (
@@ -274,7 +311,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      
+
       {/* Demo Controls */}
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -286,9 +323,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
             <button
               key={st}
               onClick={() => setDemoState(st as any)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                demoState === st ? 'bg-blue-600 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
-              }`}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${demoState === st ? 'bg-blue-600 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
+                }`}
             >
               {st === 'NORMAL' ? 'Bình thường' : st === 'LOADING' ? 'Đang tải' : st === 'EMPTY' ? 'Trống' : 'Lỗi'}
             </button>
@@ -309,8 +345,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
             Quản lý quyền sở hữu sản phẩm của khách hàng, lịch sử chuyển nhượng và thông tin mua hàng.
           </p>
         </div>
-        <Button 
-          onClick={handleOpenCreate} 
+        <Button
+          onClick={handleOpenCreate}
           className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
         >
           <Plus size={16} /> Đăng ký sở hữu
@@ -331,19 +367,19 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
       ) : (
         <>
           {/* KPI Cards */}
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-5 gap-6">
             {[
-              { id: 'ALL', label: 'Tổng lượt sở hữu', value: stats.total, color: 'text-slate-900' },
-              { id: 'ACTIVE', label: 'Đang kích hoạt', value: stats.active, color: 'text-green-600' },
-              { id: 'TRANSFERRED', label: 'Đã chuyển nhượng', value: stats.transferred, color: 'text-slate-500' },
-              { id: 'REVOKED', label: 'Bị thu hồi', value: stats.revoked, color: 'text-red-500' }
+              { id: 'ALL', label: 'Tổng số lượt', value: stats.total, color: 'text-slate-900' },
+              { id: 'PENDING', label: 'Chờ duyệt', value: stats.pending, color: 'text-amber-500' },
+              { id: 'ACTIVE', label: 'Kích hoạt', value: stats.active, color: 'text-green-600' },
+              { id: 'TRANSFERRED', label: 'Đã chuyển', value: stats.transferred, color: 'text-slate-500' },
+              { id: 'REVOKED', label: 'Thu hồi', value: stats.revoked, color: 'text-red-500' }
             ].map(card => (
               <div
                 key={card.id}
                 onClick={() => setActiveKpiFilter(activeKpiFilter === card.id ? 'ALL' : card.id as any)}
-                className={`p-5 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${
-                  activeKpiFilter === card.id ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200'
-                }`}
+                className={`p-5 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${activeKpiFilter === card.id ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200'
+                  }`}
               >
                 <div className="flex justify-between items-center text-xs text-slate-500 font-semibold uppercase">
                   <span>{card.label}</span>
@@ -361,11 +397,11 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
             <div className="flex items-center gap-4 flex-1 min-w-[280px]">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tìm theo Serial, mã SP hoặc tên chủ sở hữu..." 
+                  placeholder="Tìm theo Serial, mã SP hoặc tên chủ sở hữu..."
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                 />
                 {searchTerm && (
@@ -376,7 +412,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
               {/* Ownership Type */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Loại sở hữu:</span>
-                <select 
+                <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
@@ -390,7 +426,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
               {/* Status */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Trạng thái:</span>
-                <select 
+                <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
@@ -404,7 +440,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
             </div>
 
             {(searchTerm || filterType !== 'ALL' || filterStatus !== 'ALL' || activeKpiFilter !== 'ALL') && (
-              <button 
+              <button
                 onClick={() => {
                   setSearchTerm('');
                   setFilterType('ALL');
@@ -443,8 +479,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredOwnerships.map(o => (
-                      <tr 
-                        key={o.id} 
+                      <tr
+                        key={o.id}
                         onClick={() => handleOpenView(o)}
                         className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
                       >
@@ -468,8 +504,44 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>{renderStatusBadge(o.status)}</td>
                         <td className="p-3.5 pr-5 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
+                            {/* Approve / Reject Buttons (FR-037 ext) */}
+                            {o.status === 'PENDING' && (
+                              <>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await ownershipApi.adminApproveOwnership({ ownership_id: o.id });
+                                      loadOwnerships();
+                                    } catch (err: any) {
+                                      alert(err.response?.data?.message || 'Có lỗi duyệt');
+                                    }
+                                  }}
+                                  className="p-1 px-2 text-xs font-semibold text-green-600 hover:bg-green-50 border border-green-200 rounded-lg cursor-pointer bg-white"
+                                  title="Duyệt"
+                                >
+                                  Duyệt
+                                </button>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await ownershipApi.adminRejectOwnership({ ownership_id: o.id });
+                                      loadOwnerships();
+                                    } catch (err: any) {
+                                      alert(err.response?.data?.message || 'Có lỗi từ chối');
+                                    }
+                                  }}
+                                  className="p-1 px-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-lg cursor-pointer bg-white gap-1 flex items-center"
+                                  title="Từ chối"
+                                >
+                                  Từ chối
+                                </button>
+                              </>
+                            )}
+
                             {o.status === 'ACTIVE' && (
-                              <button 
+                              <button
                                 onClick={(e) => handleOpenTransfer(o, e)}
                                 className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
                                 title="Chuyển nhượng quyền sở hữu"
@@ -477,20 +549,28 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                                 <ArrowLeftRight size={15} />
                               </button>
                             )}
-                             {/* Delete Ownership */}
-                             <button 
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 if (confirm(`Bạn có chắc chắn muốn xóa bản ghi sở hữu ${o.itemName}?`)) {
-                                   setOwnerships(prev => prev.filter(item => item.id !== o.id));
-                                 }
-                               }}
-                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
-                               title="Xóa bản ghi"
-                             >
-                               <Trash2 size={15} />
-                             </button>
-                            <button 
+                            {/* Delete Ownership */}
+                            {o.status !== 'REVOKED' && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`Bạn có chắc chắn muốn thu hồi bản ghi sở hữu ${o.itemName}?`)) {
+                                    try {
+                                      await ownershipApi.deleteOwnership(o.id);
+                                      alert('Thu hồi quyền sở hữu thành công');
+                                      loadOwnerships();
+                                    } catch (err: any) {
+                                      alert(err.response?.data?.message || 'Có lỗi xảy ra khi xóa dữ liệu');
+                                    }
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
+                                title="Thu hồi (Soft Delete) bản ghi"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                            <button
                               onClick={() => handleOpenView(o)}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Xem chi tiết & Timeline"
@@ -514,7 +594,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setIsDrawerOpen(false)} />
           <div className="relative bg-white w-[500px] max-h-[90vh] rounded-2xl shadow-2xl flex flex-col justify-between z-10 overflow-hidden">
-            
+
             {/* Header */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
@@ -545,8 +625,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                   <div className="space-y-3.5">
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Tên người sở hữu mới *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={transferData.newOwnerName}
                         onChange={e => setTransferData({ ...transferData, newOwnerName: e.target.value })}
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
@@ -555,8 +635,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Email người sở hữu mới *</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         value={transferData.newOwnerEmail}
                         onChange={e => setTransferData({ ...transferData, newOwnerEmail: e.target.value })}
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
@@ -565,7 +645,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Lý do / Ghi chú chuyển nhượng</label>
-                      <textarea 
+                      <textarea
                         value={transferData.transferNote}
                         onChange={e => setTransferData({ ...transferData, transferNote: e.target.value })}
                         rows={3}
@@ -581,8 +661,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                   <div className="space-y-3.5">
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Mã Sản phẩm (Item Code) *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={formData.itemCode}
                         onChange={e => setFormData({ ...formData, itemCode: e.target.value.toUpperCase() })}
                         disabled={drawerMode === 'VIEW'}
@@ -592,8 +672,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Số Serial (Serial Number) *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={formData.serialNumber}
                         onChange={e => setFormData({ ...formData, serialNumber: e.target.value.toUpperCase() })}
                         disabled={drawerMode === 'VIEW'}
@@ -623,8 +703,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                   <div className="space-y-3.5">
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Tên khách hàng sở hữu *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={formData.ownerName}
                         onChange={e => setFormData({ ...formData, ownerName: e.target.value })}
                         disabled={drawerMode === 'VIEW'}
@@ -634,8 +714,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1">Email liên lạc *</label>
-                      <input 
-                        type="email" 
+                      <input
+                        type="email"
                         value={formData.ownerEmail}
                         onChange={e => setFormData({ ...formData, ownerEmail: e.target.value })}
                         disabled={drawerMode === 'VIEW'}
@@ -652,8 +732,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Calendar size={12} /> Ngày mua</label>
-                        <input 
-                          type="date" 
+                        <input
+                          type="date"
                           value={formData.purchaseDate}
                           onChange={e => setFormData({ ...formData, purchaseDate: e.target.value })}
                           disabled={drawerMode === 'VIEW'}
@@ -662,8 +742,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                       </div>
                       <div>
                         <label className="text-xs font-semibold text-slate-700 block mb-1">Số Hóa Đơn</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={formData.invoiceNumber}
                           onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })}
                           disabled={drawerMode === 'VIEW'}
@@ -675,8 +755,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
                     <div>
                       <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><MapPin size={12} /> Đại lý / Cửa hàng giao dịch</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={formData.purchaseLocation}
                         onChange={e => setFormData({ ...formData, purchaseLocation: e.target.value })}
                         disabled={drawerMode === 'VIEW'}
@@ -685,6 +765,25 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                       />
                     </div>
                   </div>
+
+                  {otpStep && drawerMode === 'CREATE' && (
+                    <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
+                      <h4 className="text-sm font-bold text-orange-800">Xác thực OTP</h4>
+                      <p className="text-xs text-orange-700">Mã OTP đã được gửi đến email của khách hàng ({formData.ownerEmail}). Vui lòng nhập mã để hoàn tất.</p>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={adminOtp}
+                        onChange={e => setAdminOtp(e.target.value.replace(/\D/g, ''))}
+                        className="w-full px-3 py-2 border border-orange-300 rounded-lg text-sm text-center tracking-[0.5em] font-bold"
+                        placeholder="000000"
+                      />
+                      <div className="flex justify-end pt-2">
+                         <span onClick={() => setOtpStep(false)} className="text-xs text-orange-600 font-semibold cursor-pointer underline">Sửa lại thông tin khách hàng</span>
+                      </div>
+                    </div>
+                  )}
+
 
                   {drawerMode === 'VIEW' && selectedOwnership && (
                     <div className="mt-6 pt-4 border-t border-slate-100 space-y-4">
@@ -719,7 +818,11 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
               </Button>
               {drawerMode !== 'VIEW' && (
                 <Button onClick={handleSubmitForm} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer">
-                  {drawerMode === 'CREATE' ? 'Đăng ký sở hữu' : drawerMode === 'TRANSFER' ? 'Xác nhận chuyển nhượng' : 'Lưu'}
+                  {drawerMode === 'CREATE' 
+                    ? (otpStep ? 'Xác nhận OTP & Đăng ký' : 'Lấy mã OTP') 
+                    : drawerMode === 'TRANSFER' 
+                      ? 'Xác nhận chuyển nhượng' 
+                      : 'Lưu'}
                 </Button>
               )}
             </div>

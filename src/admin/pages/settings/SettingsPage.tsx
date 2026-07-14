@@ -1,22 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, Shield, Building, Settings, HelpCircle, Save, Bell, 
   Globe, AlertCircle, RefreshCw, CheckCircle, Info, Lock
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import { authApi } from '../../../features/auth/api/auth.api';
 
 export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'ERROR'>('NORMAL');
   const [activeTab, setActiveTab] = useState<'PROFILE' | 'SECURITY' | 'ORGANIZATION' | 'SYSTEM'>('PROFILE');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState('');
 
   // Profile Form States
   const [profile, setProfile] = useState({
-    fullName: 'Admin User',
-    email: 'admin@producttrace.vn',
-    phone: '0988.123.456',
-    role: 'ADMIN',
+    fullName: '',
+    email: '',
+    phone: '',
+    role: '',
     avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=128&h=128'
   });
 
@@ -43,10 +47,77 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
     auditRetentionDays: 90
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  const showSuccess = (msg: string) => {
+    setSuccessMessage(msg);
+    setErrorMessage(null);
+    setTimeout(() => setSuccessMessage(null), 3500);
+  };
+
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setSuccessMessage(null);
+    setTimeout(() => setErrorMessage(null), 4000);
+  };
+
+  // Load profile on mount
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await authApi.getProfile();
+        const p = res.data?.data;
+        if (p) {
+          setUserId(p.id || '');
+          setProfile(prev => ({
+            ...prev,
+            fullName: p.full_name || '',
+            email: p.email || '',
+            phone: p.phone || '',
+            role: p.role || '',
+          }));
+        }
+      } catch {
+        console.error('Failed to load admin profile');
+      }
+    };
+    load();
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccessMessage('Đã lưu các thiết lập cấu hình thành công!');
-    setTimeout(() => setSuccessMessage(null), 3000);
+    setSaving(true);
+    try {
+      if (activeTab === 'PROFILE') {
+        await authApi.updateProfile(userId, { full_name: profile.fullName, phone: profile.phone });
+        showSuccess('Cập nhật hồ sơ thành công!');
+      } else if (activeTab === 'SECURITY') {
+        if (!passwords.oldPassword || !passwords.newPassword) {
+          showError('Vui lòng nhập đủ thông tin mật khẩu.');
+          return;
+        }
+        if (passwords.newPassword !== passwords.confirmPassword) {
+          showError('Mật khẩu xác nhận không khớp!');
+          return;
+        }
+        if (passwords.newPassword.length < 8) {
+          showError('Mật khẩu mới phải có ít nhất 8 ký tự.');
+          return;
+        }
+        await authApi.changePassword({
+          current_password: passwords.oldPassword,
+          new_password: passwords.newPassword,
+          confirm_password: passwords.confirmPassword,
+        });
+        setPasswords({ oldPassword: '', newPassword: '', confirmPassword: '' });
+        showSuccess('Đổi mật khẩu thành công!');
+      } else {
+        showSuccess('Đã lưu các thiết lập cấu hình thành công!');
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại!';
+      showError(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderSkeleton = () => (
@@ -89,6 +160,12 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
         <div className="p-4 bg-green-50 border border-green-200 text-green-800 text-sm rounded-xl flex items-center gap-2.5 animate-fade-in shadow-xs">
           <CheckCircle size={18} className="text-green-500" />
           <span className="font-semibold">{successMessage}</span>
+        </div>
+      )}
+      {errorMessage && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-sm rounded-xl flex items-center gap-2.5">
+          <AlertCircle size={18} className="text-red-500" />
+          <span className="font-semibold">{errorMessage}</span>
         </div>
       )}
 
@@ -368,11 +445,12 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
               {/* Form Save Button */}
               <div className="border-t border-slate-100 mt-6 pt-5 flex justify-end">
                 <Button 
-                  type="submit"
-                  className="rounded-xl px-4 py-2 text-xs flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
-                >
-                  <Save size={14} /> Lưu thiết lập
-                </Button>
+                type="submit"
+                disabled={saving}
+                className="rounded-xl px-4 py-2 text-xs flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer disabled:opacity-60"
+              >
+                <Save size={14} /> {saving ? 'Đang lưu...' : 'Lưu thiết lập'}
+              </Button>
               </div>
             </form>
           </Card>

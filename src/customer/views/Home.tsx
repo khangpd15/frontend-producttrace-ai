@@ -82,7 +82,10 @@ export function Home({ onScan, onNavigate }: { onScan?: () => void; onNavigate?:
         <span className="font-bold text-xl text-blue-600">ProductTrace</span>
         <div className="flex items-center gap-2">
             <button className="p-2 text-slate-600"><Bell size={20} /></button>
-            <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center">
+            <div 
+              onClick={() => navigate('/customer/profile')}
+              className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-blue-300 transition-all"
+            >
               {user?.avatar_url ? (
                 <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
               ) : (

@@ -64,6 +64,18 @@ export interface UserProfile {
   status: 'ACTIVE' | 'PENDING' | 'BANNED' | 'SUSPENDED';
 }
 
+export interface UpdateProfileRequest {
+  full_name?: string;
+  phone?: string;
+  avatar?: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password?: string;
+  new_password?: string;
+  confirm_password?: string;
+}
+
 // ─── Auth API Functions ───────────────────────────────────────────────────────
 
 export const authApi = {
@@ -93,4 +105,10 @@ export const authApi = {
 
   getProfile: () =>
     apiClient.get<ApiResponse<UserProfile>>('/users/profile'),
+
+  updateProfile: (id: string, payload: UpdateProfileRequest) =>
+    apiClient.put<ApiResponse<UserProfile>>(`/users/profile/${id}`, payload),
+
+  changePassword: (payload: ChangePasswordRequest) =>
+    apiClient.put<ApiResponse<null>>('/users/change-password', payload),
 };
