@@ -265,7 +265,7 @@ export default function AuditListPage({ onNavigate: _onNavigate }: { onNavigate:
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
-                {logs.map(log => (
+                {logs.map((log: AuditLog) => (
                   <tr
                     key={log.id}
                     className="hover:bg-slate-50/50 transition-colors cursor-pointer"

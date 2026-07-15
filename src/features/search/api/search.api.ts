@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from '../../../api/axios';
+import { aiApiClient, ApiResponse } from '../../../api/axios';
 
 export interface SearchFilters {
   category?: string;
@@ -37,5 +37,5 @@ export const searchApi = {
    * Nest AI hybrid search
    */
   hybridSearch: (payload: HybridSearchRequest) =>
-    apiClient.post<ApiResponse<HybridSearchResponse>>('/search/hybrid', payload),
+    aiApiClient.post<ApiResponse<HybridSearchResponse>>('/search/hybrid', payload),
 };

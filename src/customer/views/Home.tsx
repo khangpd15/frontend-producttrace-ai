@@ -1,10 +1,11 @@
-import { QrCode, Search, MapPin, Bell, Package, ShieldCheck, Clock, Tag, Smartphone, Tv, Zap, Flame, Wind } from 'lucide-react';
+import { QrCode, Search, MapPin, Bell, Package, ShieldCheck, Clock, Tag, Smartphone, Tv, Zap, Flame, Wind, ExternalLink } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { productApi } from '../../features/products/api/product.api';
 import { ownershipApi, OwnershipSummaryRes } from '../../features/ownership/api/ownership.api';
+import { locationApi } from '../../features/locations/api/location.api';
 
 type Status = 'ACTIVE' | 'DRAFT' | 'DISCONTINUED';
 
@@ -16,6 +17,18 @@ interface Product {
   status: Status;
   imageUrl: string;
   isHot?: boolean;
+}
+
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 }
 
 export function Home({ onScan, onNavigate, onBellClick }: { onScan?: () => void; onNavigate?: (tabId: string, id?: string) => void; onBellClick?: () => void }) {
@@ -30,6 +43,51 @@ export function Home({ onScan, onNavigate, onBellClick }: { onScan?: () => void;
   const [statActive, setStatActive] = useState<number | null>(null);
   const [statExpiringSoon, setStatExpiringSoon] = useState<number | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  // Nearby Stores States
+  const [nearbyStores, setNearbyStores] = useState<Array<any>>([]);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserCoords({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.warn('Geolocation access denied or unavailable:', error);
+        }
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    async function fetchNearby() {
+      try {
+        const { data } = await locationApi.list({ limit: 50, status: 'ACTIVE' });
+        const list = data.data?.data || [];
+        const storesOnly = list.filter(l => l.type === 'STORE' || l.type === 'DEALER' || l.type === 'WARRANTY_CENTER');
+        
+        if (userCoords) {
+          const mapped = storesOnly.map(s => {
+            const dist = getDistance(userCoords.lat, userCoords.lng, s.latitude, s.longitude);
+            return { ...s, distance: dist };
+          });
+          mapped.sort((a, b) => a.distance - b.distance);
+          setNearbyStores(mapped.slice(0, 3));
+        } else {
+          const mapped = storesOnly.map(s => ({ ...s, distance: null }));
+          setNearbyStores(mapped.slice(0, 3));
+        }
+      } catch (err) {
+        console.error('Failed to fetch stores for nearby section', err);
+      }
+    }
+    fetchNearby();
+  }, [userCoords]);
 
   useEffect(() => {
     async function fetchStats() {
@@ -56,7 +114,6 @@ export function Home({ onScan, onNavigate, onBellClick }: { onScan?: () => void;
         setStatExpiringSoon(expiringSoon.length);
       } catch (err) {
         console.error('Failed to fetch ownership stats', err);
-        // On error, keep null to show '--'
       } finally {
         setIsLoadingStats(false);
       }
@@ -242,16 +299,45 @@ export function Home({ onScan, onNavigate, onBellClick }: { onScan?: () => void;
         <section>
           <div className="flex justify-between items-center mb-4">
               <h2 className="font-bold text-slate-800">Gần bạn</h2>
-              <button className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer">Xem bản đồ</button>
+              <button 
+                onClick={() => navigate('/store')} 
+                className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer"
+              >
+                Xem mạng lưới
+              </button>
           </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
-            <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center">
-               <MapPin className="text-blue-500" />
-            </div>
-            <div>
-              <p className="font-medium text-sm">Cửa hàng ủy quyền A</p>
-              <p className="text-xs text-slate-500">123 Nguyễn Huệ - 500m</p>
-            </div>
+          <div className="space-y-3">
+            {nearbyStores.length === 0 ? (
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 text-center">
+                <p className="text-xs text-slate-400">Không tìm thấy địa điểm nào</p>
+              </div>
+            ) : (
+              nearbyStores.map((store) => (
+                <div key={store.id} className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                     <MapPin className="text-blue-500" size={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-900 text-sm truncate">{store.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{store.address}</p>
+                    <p className="text-[10px] text-slate-400 mt-1 font-semibold">
+                      {store.distance !== null && store.distance !== undefined
+                        ? `Cách đây ${store.distance.toFixed(1)} km` 
+                        : 'Khoảng cách: N/A'}
+                      {store.openingHoursJson?.open && ` • Mở cửa: ${store.openingHoursJson.open} - ${store.openingHoursJson.close}`}
+                    </p>
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2 text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-100 rounded-full transition-colors flex-shrink-0"
+                  >
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              ))
+            )}
           </div>
         </section>
       </div>
