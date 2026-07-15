@@ -94,7 +94,7 @@ export function RegisterOwnership({ onBack }: { onBack: () => void }) {
 
     try {
       await registerMutation.mutateAsync({ otp: otpString, product_id: productId || qrCode });
-      alert('Đăng ký sở hữu thành công!');
+      alert('Đăng ký sở hữu thành công! Yêu cầu của bạn đang chờ Admin phê duyệt.');
       onBack();
     } catch (err: any) {
       setErrorMsg(parseApiError(err));
