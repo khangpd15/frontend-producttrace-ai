@@ -13,6 +13,39 @@ import {
 } from '../../../features/dashboard/hooks/useDashboardStats';
 import { parseApiError } from '../../../api/axios';
 
+const cleanVietnameseEncoding = (text: string): string => {
+  if (!text) return '';
+  return text
+    .replace(/M\?\?y t\?\?nh b\?\?ng/g, 'Máy tính bảng')
+    .replace(/Kho Trung T\?\?m Th\?\?/g, 'Kho Trung Tâm Thủ Đức')
+    .replace(/Kho Trung T\?\?m/g, 'Kho Trung Tâm')
+    .replace(/Kho H\?\? N\?\?i/g, 'Kho Hà Nội')
+    .replace(/Trung T\?\?m Th\?\?/g, 'Trung Tâm Thủ Đức')
+    .replace(/Trung T\?\?m/g, 'Trung Tâm')
+    .replace(/c\?\?nh b\?\?o t\?\?n kho d\?\?\?\?i m\?\?\?\?c an to\?\?n/gi, 'cảnh báo tồn kho dưới mức an toàn')
+    .replace(/c\?\?nh b\?\?o/gi, 'cảnh báo')
+    .replace(/t\?\?n kho d\?\?\?\?i m\?\?\?\?c an to\?\?n/gi, 'tồn kho dưới mức an toàn')
+    .replace(/hi\?\?n c\?\?n d\?\?\?\?i 15 chi\?\?c/g, 'hiện còn dưới 15 chiếc')
+    .replace(/T\?\?n th\?\?c t\?\?:/g, 'Tồn thực tế:')
+    .replace(/chi\?\?c\)/g, 'chiếc)')
+    .replace(/L\?\? h\?\?ng/g, 'Lô hàng')
+    .replace(/đ\?\? h\?\?t h\?\?n/g, 'đã hết hạn')
+    .replace(/s\?\? d\?\?ng/g, 'sử dụng')
+    .replace(/Y\?\?u c\?\?u kh\?\?a m\?\? QR/g, 'Yêu cầu khóa mã QR')
+    .replace(/đ\?\?ng g\?\?i/g, 'đóng gói')
+    .replace(/s\?\?n xu\?\?t/g, 'sản xuất')
+    .replace(/nh\?\?p kho/g, 'nhập kho')
+    .replace(/th\?\?nh c\?\?ng/g, 'thành công')
+    .replace(/b\?\?i kh\?\?ch h\?\?ng/g, 'bởi khách hàng')
+    .replace(/b\?\?i/g, 'bởi')
+    .replace(/thi\?\?t b\?\?/g, 'thiết bị')
+    .replace(/K\?\?ch ho\?\?t b\?\?o h\?\?nh/g, 'Kích hoạt bảo hành')
+    .replace(/đi\?\?n t\?\? ch\?\?nh h\?\?ng/g, 'điện tử chính hãng')
+    .replace(/Ph\?\?t hi\?\?n l\?\? s\?\?n ph\?\?m h\?\?t h\?\?n/g, 'Phát hiện lô sản phẩm hết hạn')
+    .replace(/T\?\?\.HCM/g, 'TP.HCM')
+    .replace(/đ\?\?/g, 'đã');
+};
+
 interface DashboardProps {
   onNavigate: (tab: string) => void;
 }
@@ -155,54 +188,60 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         {/* Drawing area */}
         <div
-          className="flex-1 border-b border-l border-slate-200/60 relative overflow-visible"
-          style={{ height: CHART_H + 24 }}
+          className="flex-1 border-b border-l border-slate-200/60 relative overflow-x-auto scrollbar-thin pb-4"
+          style={{ height: CHART_H + 40 }}
         >
-          {/* Grid lines */}
-          {Array.from({ length: yTicks + 1 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute left-0 right-0 border-t border-dashed border-slate-100 pointer-events-none"
-              style={{ bottom: `${((yTicks - i) / yTicks) * CHART_H}px` }}
-            />
-          ))}
-
-          {/* Bars */}
-          <div
-            className="absolute inset-0 pb-6 grid items-end gap-4 px-4"
-            style={{ gridTemplateColumns: `repeat(${chartData.length}, 1fr)` }}
+          {/* Scrollable Container with dynamic minWidth */}
+          <div 
+            className="relative h-full"
+            style={{ minWidth: `${Math.max(500, chartData.length * 45)}px` }}
           >
-            {chartData.map((item, idx) => {
-              const prodH = Math.max(((item.production_volume || 0) / maxVal) * (CHART_H - 24), 0);
-              const salesH = Math.max(((item.sales_volume || 0) / maxVal) * (CHART_H - 24), 0);
-              return (
-                <div key={idx} className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="flex gap-1.5 items-end justify-center w-full max-w-[60px] mx-auto">
-                    {/* Production bar (blue) */}
-                    {prodH > 0 ? (
-                      <div className="relative group/prod flex-1" style={{ height: `${prodH}px` }}>
-                        <div className="w-full h-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-md cursor-pointer hover:from-blue-500 hover:to-blue-350 transition-all duration-250 shadow-3xs" />
-                        <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-2.5 py-1 rounded shadow-md opacity-0 group-hover/prod:opacity-100 transition-opacity duration-150 whitespace-nowrap z-25 pointer-events-none font-bold">
-                          NSX: {item.production_volume.toLocaleString()}
+            {/* Grid lines */}
+            {Array.from({ length: yTicks + 1 }).map((_, i) => (
+              <div
+                key={i}
+                className="absolute left-0 right-0 border-t border-dashed border-slate-100 pointer-events-none"
+                style={{ bottom: `${((yTicks - i) / yTicks) * CHART_H}px` }}
+              />
+            ))}
+
+            {/* Bars */}
+            <div
+              className="absolute inset-0 pb-6 grid items-end gap-4 px-4"
+              style={{ gridTemplateColumns: `repeat(${chartData.length}, 1fr)` }}
+            >
+              {chartData.map((item, idx) => {
+                const prodH = Math.max(((item.production_volume || 0) / maxVal) * (CHART_H - 24), 0);
+                const salesH = Math.max(((item.sales_volume || 0) / maxVal) * (CHART_H - 24), 0);
+                return (
+                  <div key={idx} className="flex flex-col items-center gap-2 h-full justify-end">
+                    <div className="flex gap-1.5 items-end justify-center w-full max-w-[60px] mx-auto">
+                      {/* Production bar (blue) */}
+                      {prodH > 0 ? (
+                        <div className="relative group/prod flex-1" style={{ height: `${prodH}px` }}>
+                          <div className="w-full h-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-md cursor-pointer hover:from-blue-500 hover:to-blue-350 transition-all duration-250 shadow-3xs" />
+                          <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-2.5 py-1 rounded shadow-md opacity-0 group-hover/prod:opacity-100 transition-opacity duration-150 whitespace-nowrap z-25 pointer-events-none font-bold">
+                            NSX: {item.production_volume.toLocaleString()}
+                          </div>
                         </div>
-                      </div>
-                    ) : <div className="flex-1" />}
-                    {/* Sales bar (green) */}
-                    {salesH > 0 ? (
-                      <div className="relative group/sales flex-1" style={{ height: `${salesH}px` }}>
-                        <div className="w-full h-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-md cursor-pointer hover:from-emerald-500 hover:to-emerald-350 transition-all duration-250 shadow-3xs" />
-                        <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-2.5 py-1 rounded shadow-md opacity-0 group-hover/sales:opacity-100 transition-opacity duration-150 whitespace-nowrap z-25 pointer-events-none font-bold">
-                          Bán: {item.sales_volume.toLocaleString()}
+                      ) : <div className="flex-1" />}
+                      {/* Sales bar (green) */}
+                      {salesH > 0 ? (
+                        <div className="relative group/sales flex-1" style={{ height: `${salesH}px` }}>
+                          <div className="w-full h-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-md cursor-pointer hover:from-emerald-500 hover:to-emerald-350 transition-all duration-250 shadow-3xs" />
+                          <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-2.5 py-1 rounded shadow-md opacity-0 group-hover/sales:opacity-100 transition-opacity duration-150 whitespace-nowrap z-25 pointer-events-none font-bold">
+                            Bán: {item.sales_volume.toLocaleString()}
+                          </div>
                         </div>
-                      </div>
-                    ) : <div className="flex-1" />}
+                      ) : <div className="flex-1" />}
+                    </div>
+                    <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap leading-none mt-1">
+                      {formatPeriod(item.time_period)}
+                    </span>
                   </div>
-                  <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap leading-none mt-1">
-                    {formatPeriod(item.time_period)}
-                  </span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -373,9 +412,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     
                     <span className="leading-relaxed text-slate-650">
                       {act?.title && (
-                        <span className="font-bold text-slate-800">{act.title} — </span>
+                        <span className="font-bold text-slate-800">{cleanVietnameseEncoding(act.title)} — </span>
                       )}
-                      {act?.description}
+                      {cleanVietnameseEncoding(act?.description)}
                     </span>
                     <span className="text-slate-400 flex-shrink-0 font-mono text-[10px] bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-md">
                       {act?.created_at ? formatTime(act.created_at) : ''}
@@ -451,9 +490,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                         {isDanger && <AlertCircle size={14} className="text-rose-550 flex-shrink-0" />}
                         {isWarning && <AlertTriangle size={14} className="text-amber-550 flex-shrink-0" />}
                         {!isDanger && !isWarning && <Info size={14} className="text-blue-550 flex-shrink-0" />}
-                        <span>{alert?.title}</span>
+                        <span>{cleanVietnameseEncoding(alert?.title)}</span>
                       </div>
-                      <p className={`text-[10px] leading-relaxed font-medium ${descClass}`}>{alert?.description}</p>
+                      <p className={`text-[10px] leading-relaxed font-medium ${descClass}`}>{cleanVietnameseEncoding(alert?.description)}</p>
                     </div>
                   );
                 })
