@@ -213,7 +213,7 @@ export default function AppRouter() {
                   onRegister={() => window.location.href = '/customer/ownership/register'}
                 />
               } />
-              <Route path="/customer/register-ownership" element={
+              <Route path="/customer/ownership/register" element={
                 <CustomerRegisterOwnership onBack={() => window.history.back()} />
               } />
               <Route path="/customer/warranty" element={
