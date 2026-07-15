@@ -14,7 +14,6 @@ import BatchListPage from './pages/batches/BatchListPage';
 import OwnershipListPage from './pages/ownership/OwnershipListPage';
 import WarrantyListPage from './pages/warranty/WarrantyListPage';
 import StoreListPage from './pages/store/StoreListPage';
-import ReportsPage from './pages/reports/ReportsPage';
 import AuditListPage from './pages/audit/AuditListPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import NotificationListPage from './pages/notifications/NotificationListPage';
@@ -79,8 +78,6 @@ export default function App() {
         return <WarrantyListPage onNavigate={handleNavigate} />;
       case '/store':
         return <StoreListPage onNavigate={handleNavigate} />;
-      case '/reports':
-        return <ReportsPage onNavigate={handleNavigate} />;
       case '/audit':
         return <AuditListPage onNavigate={handleNavigate} />;
       case '/settings':
@@ -130,9 +127,6 @@ export default function App() {
     }
     if (path === '/store') {
       return [{ label: 'Dashboard', href: '/' }, { label: 'Đại lý & Cửa hàng' }];
-    }
-    if (path === '/reports') {
-      return [{ label: 'Dashboard', href: '/' }, { label: 'Báo cáo hệ thống' }];
     }
     if (path === '/audit') {
       return [{ label: 'Dashboard', href: '/' }, { label: 'Nhật ký hệ thống' }];

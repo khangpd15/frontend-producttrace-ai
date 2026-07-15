@@ -35,7 +35,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      {currentView === 'home' && <Home onScan={() => navigateTo('productDetail')} onNavigate={(tab, id) => {
+      {currentView === 'home' && <Home onScan={() => navigateTo('productDetail')} onBellClick={() => navigateTo('notifications')} onNavigate={(tab, id) => {
           if (tab === 'product-detail') navigateTo('productDetail');
       }} />}
       {currentView === 'productDetail' && <ProductDetail onBack={navigateBack} onRequestWarranty={() => navigateTo('warrantyRequest')} onRegisterOwnership={() => navigateTo('registerOwnership')} />}

@@ -1,114 +1,137 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Search, Plus, RotateCw, Eye, Edit3, X, AlertCircle, 
-  MapPin, Phone, Mail, Clock, ShieldCheck, HelpCircle, Inbox, Tag, AlertTriangle, ExternalLink, Trash2
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import {
+  Search, Plus, Eye, Edit3, X, AlertCircle,
+  MapPin, Phone, Mail, Clock, HelpCircle, Inbox, ExternalLink, Trash2, ChevronDown
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-
-import { AdminStoreListPageLocationPoint as LocationPoint } from '@shared/types/domain';
+import { useAuthStore } from '../../../features/auth/store/auth.store';
+import {
+  useLocationList,
+  useCreateLocation,
+  useUpdateLocation,
+  useDeleteLocation
+} from '../../../features/locations/hooks/useLocation';
+import { LocationResponse as LocationPoint } from '../../../features/locations/api/location.api';
+import { addressService, Province, District, Ward } from '../../services/addressService';
+import { parseApiError } from '../../../api/axios';
 
 export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
-  const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
+  const { user } = useAuthStore();
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'WAREHOUSE' | 'STORE' | 'DEALER' | 'WARRANTY_CENTER'>('ALL');
-
-  const [locations, setLocations] = useState<LocationPoint[]>([
-    {
-      id: 'l-1',
-      code: 'WH-HN-01',
-      name: 'Kho tổng miền Bắc - Gia Lâm',
-      type: 'WAREHOUSE',
-      phone: '024.3876.9901',
-      email: 'warehouse.gialam@producttrace.vn',
-      address: 'Số 15 Cổ Bi, Gia Lâm',
-      city: 'Hà Nội',
-      country: 'Việt Nam',
-      latitude: 21.0285,
-      longitude: 105.9405,
-      isActive: true,
-      openingHours: '08:00 - 18:00',
-      createdAt: '2026-01-02',
-      updatedAt: '2026-06-20 09:00'
-    },
-    {
-      id: 'l-2',
-      code: 'ST-CG-02',
-      name: 'Showroom Điện Máy Cầu Giấy',
-      type: 'STORE',
-      phone: '024.7731.8890',
-      email: 'showroom.caugiay@producttrace.vn',
-      address: '210 Xuân Thủy, Cầu Giấy',
-      city: 'Hà Nội',
-      country: 'Việt Nam',
-      latitude: 21.0362,
-      longitude: 105.7836,
-      isActive: true,
-      openingHours: '08:00 - 22:00',
-      createdAt: '2026-01-10',
-      updatedAt: '2026-06-25 08:30'
-    },
-    {
-      id: 'l-3',
-      code: 'DL-HCM-05',
-      name: 'Đại lý phân phối Solar Sài Gòn',
-      type: 'DEALER',
-      phone: '028.9902.1234',
-      email: 'dealer.solarsaigon@gmail.com',
-      address: '45 Nguyễn Thị Minh Khai, Quận 1',
-      city: 'TP. Hồ Chí Minh',
-      country: 'Việt Nam',
-      latitude: 10.7812,
-      longitude: 106.7011,
-      isActive: true,
-      openingHours: '08:30 - 20:30',
-      createdAt: '2026-02-15',
-      updatedAt: '2026-06-22 11:00'
-    },
-    {
-      id: 'l-4',
-      code: 'WC-DN-01',
-      name: 'Trung tâm bảo hành miền Trung',
-      type: 'WARRANTY_CENTER',
-      phone: '0236.3888.125',
-      email: 'warranty.danang@producttrace.vn',
-      address: '112 Hàm Nghi, Thanh Khê',
-      city: 'Đà Nẵng',
-      country: 'Việt Nam',
-      latitude: 16.0612,
-      longitude: 108.2125,
-      isActive: true,
-      openingHours: '08:00 - 17:30',
-      createdAt: '2026-03-01',
-      updatedAt: '2026-06-24 16:00'
-    },
-    {
-      id: 'l-5',
-      code: 'WH-BD-02',
-      name: 'Kho Bình Dương - KCN Sóng Thần',
-      type: 'WAREHOUSE',
-      phone: '0274.3732.112',
-      email: 'warehouse.songthan@producttrace.vn',
-      address: 'Đường số 3, KCN Sóng Thần 1',
-      city: 'Bình Dương',
-      country: 'Việt Nam',
-      latitude: 10.8904,
-      longitude: 106.7452,
-      isActive: false,
-      openingHours: '08:00 - 18:00',
-      createdAt: '2026-01-15',
-      updatedAt: '2026-05-30 17:00'
-    }
-  ]);
-
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
   const [filterCity, setFilterCity] = useState<string>('ALL');
+
+  // Administrative divisions states
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | null>(null);
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState<number | null>(null);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+  const [loadingGeocode, setLoadingGeocode] = useState(false); // true khi đang gọi Nominatim
+
+  // Load provinces on mount
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      setLoadingProvinces(true);
+      try {
+        const data = await addressService.getProvinces();
+        setProvinces(data);
+      } catch (err) {
+        console.error('Error loading provinces:', err);
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+    fetchProvinces();
+  }, []);
+
+  const handleProvinceChange = async (provinceCode: number, provinceName: string) => {
+    setSelectedProvinceCode(provinceCode || null);
+    setSelectedDistrictCode(null);
+    setDistricts([]);
+    setWards([]);
+    setFormData(prev => ({
+      ...prev,
+      city: provinceName,
+      district: '',
+      ward: ''
+    }));
+
+    if (!provinceCode) return;
+
+    setLoadingDistricts(true);
+    try {
+      const data = await addressService.getDistricts(provinceCode);
+      setDistricts(data);
+    } catch (err) {
+      console.error('Error loading districts:', err);
+    } finally {
+      setLoadingDistricts(false);
+    }
+  };
+
+  const handleDistrictChange = async (districtCode: number, districtName: string) => {
+    setSelectedDistrictCode(districtCode || null);
+    setWards([]);
+    setFormData(prev => ({
+      ...prev,
+      district: districtName,
+      ward: ''
+    }));
+
+    if (!districtCode) return;
+
+    setLoadingWards(true);
+    try {
+      const data = await addressService.getWards(districtCode);
+      setWards(data);
+    } catch (err) {
+      console.error('Error loading wards:', err);
+    } finally {
+      setLoadingWards(false);
+    }
+  };
+
+  /**
+   * Khi chọn Phường/Xã → cập nhật formData, sau đó tự động geocode bằng Nominatim.
+   * Fallback: nếu Nominatim không tìm thấy → giữ nguyên lat/lng cũ (user tự sửa).
+   */
+  const handleWardChange = useCallback(async (wardName: string, district: string, city: string) => {
+    setFormData(prev => ({ ...prev, ward: wardName }));
+    if (!wardName || !district || !city) return;
+
+    setLoadingGeocode(true);
+    try {
+      const coords = await addressService.geocodeAddress(wardName, district, city);
+      if (coords) {
+        setFormData(prev => ({
+          ...prev,
+          ward: wardName,
+          latitude:  parseFloat(coords.lat.toFixed(6)),
+          longitude: parseFloat(coords.lng.toFixed(6)),
+        }));
+      }
+      // Nếu null: Nominatim không tìm thấy → giữ nguyên, user sửa tay
+    } catch (e) {
+      console.error('[Geocode] Nominatim error:', e);
+    } finally {
+      setLoadingGeocode(false);
+    }
+  }, []);
 
   // Drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<'CREATE' | 'EDIT' | 'VIEW'>('CREATE');
   const [selectedLocation, setSelectedLocation] = useState<LocationPoint | null>(null);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -118,33 +141,50 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     phone: '',
     email: '',
     address: '',
-    city: 'Hà Nội',
+    ward: '',
+    district: '',
+    city: '',
     country: 'Việt Nam',
-    latitude: 21.0,
-    longitude: 105.0,
+    latitude: 0,
+    longitude: 0,
     isActive: true,
-    openingHours: '08:00 - 22:00'
+    openTime: '',
+    closeTime: ''
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Stats
+  // Load locations from API (server-side pagination)
+  const { data: locationsRes, isLoading, isError, refetch } = useLocationList({ page, limit });
+
+  const locations = useMemo(() => locationsRes?.data || [], [locationsRes]);
+  const total      = locationsRes?.total      ?? 0;
+  const totalPages = locationsRes?.totalPages ?? 1;
+
+  // Mutations
+  const createMutation = useCreateLocation();
+  const updateMutation = useUpdateLocation();
+  const deleteMutation = useDeleteLocation();
+
+  // Stats — dùng safe array, tính trên toàn bộ dữ liệu trang hiện tại
   const stats = useMemo(() => {
-    const total = locations.length + 32;
-    const warehouse = locations.filter(l => l.type === 'WAREHOUSE').length + 8;
-    const store = locations.filter(l => l.type === 'STORE').length + 15;
-    const dealer = locations.filter(l => l.type === 'DEALER').length + 6;
-    const warranty = locations.filter(l => l.type === 'WARRANTY_CENTER').length + 3;
+    const safeList = Array.isArray(locations) ? locations : [];
+    const warehouse = safeList.filter(l => l.type === 'WAREHOUSE').length;
+    const store     = safeList.filter(l => l.type === 'STORE').length;
+    const dealer    = safeList.filter(l => l.type === 'DEALER').length;
+    const warranty  = safeList.filter(l => l.type === 'WARRANTY_CENTER').length;
     return { total, warehouse, store, dealer, warranty };
-  }, [locations]);
+  }, [locations, total]);
 
-  // Filtered locations
+  // Client-side filter trong trang hiện tại
   const filteredLocations = useMemo(() => {
-    return locations.filter(l => {
+    const safeList = Array.isArray(locations) ? locations : [];
+    return safeList.filter(l => {
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase();
-        const matchCode = l.code.toLowerCase().includes(query);
-        const matchName = l.name.toLowerCase().includes(query);
-        const matchAddress = l.address.toLowerCase().includes(query);
+        const matchCode    = l.code?.toLowerCase().includes(query);
+        const matchName    = l.name?.toLowerCase().includes(query);
+        const matchAddress = l.address?.toLowerCase().includes(query);
         if (!matchCode && !matchName && !matchAddress) return false;
       }
       if (filterType !== 'ALL' && l.type !== filterType) return false;
@@ -155,24 +195,31 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
   }, [locations, searchTerm, filterType, filterCity, activeKpiFilter]);
 
   const cities = useMemo(() => {
-    return Array.from(new Set(locations.map(l => l.city)));
+    return Array.from(new Set(locations.map(l => l.city))).filter(Boolean);
   }, [locations]);
 
   const handleOpenCreate = () => {
     setDrawerMode('CREATE');
+    setSelectedProvinceCode(null);
+    setSelectedDistrictCode(null);
+    setDistricts([]);
+    setWards([]);
     setFormData({
-      code: 'LOC-NEW-' + Math.floor(100 + Math.random() * 900),
+      code: '',
       name: '',
       type: 'STORE',
       phone: '',
       email: '',
       address: '',
-      city: 'Hà Nội',
+      ward: '',
+      district: '',
+      city: '',
       country: 'Việt Nam',
-      latitude: 21.0285,
-      longitude: 105.8542,
+      latitude: 0,
+      longitude: 0,
       isActive: true,
-      openingHours: '08:00 - 21:00'
+      openTime: '08:00',
+      closeTime: '22:00'
     });
     setFormError(null);
     setIsDrawerOpen(true);
@@ -182,19 +229,50 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     if (e) e.stopPropagation();
     setDrawerMode('EDIT');
     setSelectedLocation(loc);
+    // Reset dropdown state
+    setSelectedProvinceCode(null);
+    setSelectedDistrictCode(null);
+    setDistricts([]);
+    setWards([]);
+
+    // Parse giờ mở/đóng cửa
+    let open = '08:00';
+    let close = '22:00';
+    const hoursMap = loc.openingHoursJson;
+    if (hoursMap && typeof hoursMap === 'object') {
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const firstDay = days.find(d => (hoursMap as any)[d]);
+      if (firstDay) {
+        const entry = (hoursMap as any)[firstDay];
+        if (entry && entry.open && entry.close) {
+          open = entry.open;
+          close = entry.close;
+        }
+      } else if ((hoursMap as any).hours) {
+        const parts = (hoursMap as any).hours.split('-');
+        if (parts.length === 2) {
+          open = parts[0].trim();
+          close = parts[1].trim();
+        }
+      }
+    }
+
     setFormData({
       code: loc.code,
       name: loc.name,
       type: loc.type,
-      phone: loc.phone,
-      email: loc.email,
-      address: loc.address,
-      city: loc.city,
-      country: loc.country,
+      phone: loc.phone || '',
+      email: loc.email || '',
+      address: loc.address || '',
+      ward: loc.ward || '',
+      district: loc.district || '',
+      city: loc.city || '',
+      country: loc.country || 'Việt Nam',
       latitude: loc.latitude,
       longitude: loc.longitude,
       isActive: loc.isActive,
-      openingHours: loc.openingHours
+      openTime: open,
+      closeTime: close
     });
     setFormError(null);
     setIsDrawerOpen(true);
@@ -206,57 +284,107 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
     setIsDrawerOpen(true);
   };
 
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleDelete = async (id: string, name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Bạn có chắc chắn muốn xóa địa điểm ${name}?`)) {
+      try {
+        await deleteMutation.mutateAsync(id);
+        alert('Xóa địa điểm thành công!');
+        refetch();
+      } catch (err: any) {
+        alert(parseApiError(err));
+      }
+    }
+  };
+
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.code.trim()) {
       setFormError('Mã và Tên địa điểm là bắt buộc');
       return;
     }
 
-    if (drawerMode === 'CREATE') {
-      const isDuplicate = locations.some(l => l.code.toUpperCase() === formData.code.toUpperCase());
-      if (isDuplicate) {
-        setFormError('Mã địa điểm đã tồn tại');
-        return;
-      }
+    setFormError(null);
+    setIsSubmitting(true);
 
-      const newLoc: LocationPoint = {
-        id: 'l-' + Date.now(),
-        code: formData.code.toUpperCase(),
-        name: formData.name.trim(),
-        type: formData.type,
-        phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        address: formData.address.trim(),
-        city: formData.city,
-        country: formData.country,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        isActive: formData.isActive,
-        openingHours: formData.openingHours,
-        createdAt: new Date().toISOString().substring(0, 10),
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      };
-      setLocations([newLoc, ...locations]);
-    } else if (drawerMode === 'EDIT' && selectedLocation) {
-      setLocations(locations.map(l => l.id === selectedLocation.id ? {
-        ...l,
-        code: formData.code.toUpperCase(),
-        name: formData.name.trim(),
-        type: formData.type,
-        phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        address: formData.address.trim(),
-        city: formData.city,
-        country: formData.country,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        isActive: formData.isActive,
-        openingHours: formData.openingHours,
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      } : l));
+    try {
+      if (drawerMode === 'CREATE') {
+        const isDuplicate = locations.some(l => l.code.toUpperCase() === formData.code.toUpperCase());
+        if (isDuplicate) {
+          setFormError('Mã địa điểm đã tồn tại');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const openingHours = {
+          open: formData.openTime || '08:00',
+          close: formData.closeTime || '22:00'
+        };
+        const openingHoursJson = {
+          monday: openingHours,
+          tuesday: openingHours,
+          wednesday: openingHours,
+          thursday: openingHours,
+          friday: openingHours,
+          saturday: openingHours,
+          sunday: openingHours
+        };
+
+        await createMutation.mutateAsync({
+          ownerUserId: user?.id || '',
+          code: formData.code.toUpperCase(),
+          name: formData.name.trim(),
+          type: formData.type,
+          phone: formData.phone.trim(),
+          email: formData.email.trim(),
+          address: formData.address.trim(),
+          ward: formData.ward.trim() || 'N/A',
+          district: formData.district.trim() || 'N/A',
+          city: formData.city.trim(),
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          openingHoursJson
+        });
+      } else if (drawerMode === 'EDIT' && selectedLocation) {
+        const openingHours = {
+          open: formData.openTime || '08:00',
+          close: formData.closeTime || '22:00'
+        };
+        const openingHoursJson = {
+          monday: openingHours,
+          tuesday: openingHours,
+          wednesday: openingHours,
+          thursday: openingHours,
+          friday: openingHours,
+          saturday: openingHours,
+          sunday: openingHours
+        };
+
+        await updateMutation.mutateAsync({
+          id: selectedLocation.id,
+          payload: {
+            name: formData.name.trim(),
+            type: formData.type,
+            phone: formData.phone.trim(),
+            email: formData.email.trim(),
+            address: formData.address.trim(),
+            ward: formData.ward.trim() || 'N/A',
+            district: formData.district.trim() || 'N/A',
+            city: formData.city.trim(),
+            latitude: formData.latitude,
+            longitude: formData.longitude,
+            isActive: formData.isActive,
+            openingHoursJson
+          }
+        });
+      }
+      setIsDrawerOpen(false);
+      refetch();
+    } catch (err: any) {
+      setFormError(parseApiError(err));
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsDrawerOpen(false);
   };
 
   const renderTypeLabel = (type: 'WAREHOUSE' | 'STORE' | 'DEALER' | 'WARRANTY_CENTER') => {
@@ -287,28 +415,6 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      
-      {/* Demo Controls */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Demo Controls</span>
-          <span className="text-xs text-blue-600 font-medium">Bấm để kiểm tra hiển thị:</span>
-        </div>
-        <div className="flex gap-2">
-          {['NORMAL', 'LOADING', 'EMPTY', 'ERROR'].map(st => (
-            <button
-              key={st}
-              onClick={() => setDemoState(st as any)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                demoState === st ? 'bg-blue-600 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
-              }`}
-            >
-              {st === 'NORMAL' ? 'Bình thường' : st === 'LOADING' ? 'Đang tải' : st === 'EMPTY' ? 'Trống' : 'Lỗi'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -322,24 +428,24 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
             Quản lý mạng lưới kho hàng, cửa hàng bán lẻ, đại lý ủy quyền và các trung tâm bảo hành toàn quốc.
           </p>
         </div>
-        <Button 
-          onClick={handleOpenCreate} 
+        <Button
+          onClick={handleOpenCreate}
           className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
         >
           <Plus size={16} /> Thêm địa điểm
         </Button>
       </div>
 
-      {demoState === 'ERROR' ? (
+      {isError ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
           <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
             <AlertCircle size={24} />
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu địa điểm</h3>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">Đã xảy ra lỗi kết nối khi tải danh sách kho/cửa hàng.</p>
-          <Button onClick={() => setDemoState('NORMAL')} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
+          <Button onClick={() => refetch()} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
         </Card>
-      ) : demoState === 'LOADING' ? (
+      ) : isLoading ? (
         renderSkeleton()
       ) : (
         <>
@@ -355,9 +461,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
               <div
                 key={card.id}
                 onClick={() => setActiveKpiFilter(activeKpiFilter === card.id ? 'ALL' : card.id as any)}
-                className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${
-                  activeKpiFilter === card.id ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200'
-                }`}
+                className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${activeKpiFilter === card.id ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200'
+                  }`}
               >
                 <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold uppercase">
                   <span>{card.label}</span>
@@ -375,11 +480,11 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
             <div className="flex items-center gap-4 flex-1 min-w-[280px]">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tìm kiếm theo mã, tên showroom, địa chỉ..." 
+                  placeholder="Tìm kiếm theo mã, tên showroom, địa chỉ..."
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-sm focus:outline-none"
                 />
                 {searchTerm && (
@@ -390,7 +495,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
               {/* Type */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Loại hình:</span>
-                <select 
+                <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
@@ -406,7 +511,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
               {/* City */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Thành phố:</span>
-                <select 
+                <select
                   value={filterCity}
                   onChange={(e) => setFilterCity(e.target.value)}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
@@ -420,7 +525,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
             </div>
 
             {(searchTerm || filterType !== 'ALL' || filterCity !== 'ALL' || activeKpiFilter !== 'ALL') && (
-              <button 
+              <button
                 onClick={() => {
                   setSearchTerm('');
                   setFilterType('ALL');
@@ -436,7 +541,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
           {/* Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            {demoState === 'EMPTY' || filteredLocations.length === 0 ? (
+            {filteredLocations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Chưa có địa điểm nào</h3>
@@ -444,48 +549,50 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <Button onClick={handleOpenCreate} className="mt-6 bg-blue-600 text-white rounded-xl px-4 py-2 font-semibold hover:bg-blue-700 cursor-pointer">Thêm địa điểm</Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm table-fixed border-collapse">
                   <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
                     <tr>
-                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[12%]">Mã</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[24%]">Tên địa điểm</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[16%]">Loại</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[20%]">Địa chỉ</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[18%]">Thông tin liên hệ</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[12%] text-center">Hoạt động</th>
-                      <th className="p-3.5 pr-5 font-bold tracking-wider w-[10%] text-right">Thao tác</th>
+                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[10%]">Mã</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[20%]">Tên địa điểm</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[12%]">Loại</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[26%]">Địa chỉ</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[16%]">Thông tin liên hệ</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">Hoạt động</th>
+                      <th className="p-3.5 pr-5 font-bold tracking-wider w-[6%] text-right">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredLocations.map(loc => (
-                      <tr 
-                        key={loc.id} 
+                      <tr
+                        key={loc.id}
                         onClick={() => handleOpenView(loc)}
                         className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
                       >
                         <td className="p-3.5 pl-5 font-mono text-xs font-semibold text-slate-500 truncate">{loc.code}</td>
                         <td className="p-3.5 font-semibold text-slate-900 truncate">{loc.name}</td>
                         <td className="p-3.5">{renderTypeLabel(loc.type)}</td>
-                        <td className="p-3.5 truncate">
+                        <td className="p-3.5">
                           <div className="font-medium text-slate-800 text-xs truncate">{loc.address}</div>
-                          <div className="text-[10px] text-slate-400 font-semibold">{loc.city}</div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {[loc.ward, loc.district, loc.city].filter(Boolean).join(', ')}
+                          </div>
                         </td>
                         <td className="p-3.5 truncate">
-                          <div className="text-xs text-slate-700 flex items-center gap-1"><Phone size={10} className="text-slate-400" /> {loc.phone}</div>
+                          <div className="text-xs text-slate-700 flex items-center gap-1"><Phone size={10} className="text-slate-400 animate-pulse" /> {loc.phone}</div>
                           <div className="text-[10px] text-slate-400 flex items-center gap-1 truncate"><Mail size={10} className="text-slate-400 flex-shrink-0" /> <span className="truncate">{loc.email}</span></div>
                         </td>
                         <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                            loc.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border border-slate-200'
-                          }`}>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${loc.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border border-slate-200'
+                            }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${loc.isActive ? 'bg-green-500' : 'bg-slate-400'}`}></span>
                             {loc.isActive ? 'Hoạt động' : 'Tạm ngưng'}
                           </span>
                         </td>
                         <td className="p-3.5 pr-5 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
-                            <a 
+                            <a
                               href={`https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`}
                               target="_blank"
                               rel="noreferrer"
@@ -494,27 +601,22 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                             >
                               <ExternalLink size={15} />
                             </a>
-                            <button 
+                            <button
                               onClick={() => handleOpenEdit(loc)}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Sửa địa điểm"
                             >
                               <Edit3 size={15} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleOpenView(loc)}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Xem chi tiết"
                             >
                               <Eye size={15} />
                             </button>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm(`Bạn có chắc chắn muốn xóa địa điểm ${loc.name}?`)) {
-                                  setLocations(locations.filter(item => item.id !== loc.id));
-                                }
-                              }}
+                            <button
+                              onClick={(e) => handleDelete(loc.id, loc.name, e)}
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
                               title="Xóa địa điểm"
                             >
@@ -527,6 +629,83 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination footer */}
+              {totalPages > 0 && (() => {
+                const getPageNumbers = () => {
+                  const pages: (number | '...')[] = [];
+                  if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    pages.push(1);
+                    let start = Math.max(2, page - 1);
+                    let end   = Math.min(totalPages - 1, page + 1);
+                    if (page <= 2) end = 4;
+                    else if (page >= totalPages - 1) start = totalPages - 3;
+                    if (start > 2) pages.push('...');
+                    for (let i = start; i <= end; i++) pages.push(i);
+                    if (end < totalPages - 1) pages.push('...');
+                    pages.push(totalPages);
+                  }
+                  return pages;
+                };
+                return (
+                  <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
+                    <div className="text-xs text-slate-500 font-medium">
+                      Hiển thị từ{' '}
+                      <span className="font-bold text-slate-800">{total === 0 ? 0 : (page - 1) * limit + 1}</span>{' '}
+                      đến{' '}
+                      <span className="font-bold text-slate-800">{Math.min(page * limit, total)}</span>{' '}
+                      trong tổng số{' '}
+                      <span className="font-bold text-slate-800">{total}</span> địa điểm
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                      {/* Page size selector */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 font-medium">Hiển thị</span>
+                        <select
+                          value={limit}
+                          onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                          className="bg-white border border-slate-200 rounded-lg text-xs py-1 px-2 focus:outline-none focus:border-blue-500 cursor-pointer font-bold text-slate-700"
+                        >
+                          {[5, 10, 20, 50].map(s => (
+                            <option key={s} value={s}>{s} / trang</option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Page nav */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setPage(p => Math.max(p - 1, 1))}
+                          disabled={page <= 1}
+                          className="px-2.5 py-1.5 border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-semibold text-slate-700 bg-white cursor-pointer transition-colors"
+                        >Trước</button>
+                        {getPageNumbers().map((num, i) =>
+                          num === '...' ? (
+                            <span key={`e${i}`} className="px-2 text-slate-400 text-xs">...</span>
+                          ) : (
+                            <button
+                              key={num}
+                              onClick={() => setPage(num)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                                page === num
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
+                              }`}
+                            >{num}</button>
+                          )
+                        )}
+                        <button
+                          onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+                          disabled={page >= totalPages}
+                          className="px-2.5 py-1.5 border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-semibold text-slate-700 bg-white cursor-pointer transition-colors"
+                        >Sau</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              </>
             )}
           </div>
         </>
@@ -537,7 +716,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setIsDrawerOpen(false)}></div>
           <div className="relative bg-white w-[500px] max-h-[90vh] shadow-2xl rounded-2xl flex flex-col justify-between z-10 overflow-hidden">
-            
+
             {/* Header */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
@@ -559,11 +738,11 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1">Mã địa điểm *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={formData.code}
                       onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                      disabled={drawerMode === 'VIEW'}
+                      disabled={drawerMode === 'VIEW' || drawerMode === 'EDIT'}
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono"
                       placeholder="WH-HN-01"
                     />
@@ -586,8 +765,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">Tên địa điểm *</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                     disabled={drawerMode === 'VIEW'}
@@ -599,8 +778,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Phone size={12} /> Điện thoại liên hệ</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={formData.phone}
                       onChange={e => setFormData({ ...formData, phone: e.target.value })}
                       disabled={drawerMode === 'VIEW'}
@@ -609,8 +788,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Mail size={12} /> Email nhận thông báo</label>
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       value={formData.email}
                       onChange={e => setFormData({ ...formData, email: e.target.value })}
                       disabled={drawerMode === 'VIEW'}
@@ -621,93 +800,252 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
 
                 <hr className="border-slate-100 my-1" />
 
+                {/* Địa chỉ chi tiết */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><MapPin size={12} /> Địa chỉ chi tiết *</label>
-                  <input 
-                    type="text" 
+                  <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><MapPin size={12} /> Địa chỉ chi tiết</label>
+                  <input
+                    type="text"
                     value={formData.address}
                     onChange={e => setFormData({ ...formData, address: e.target.value })}
                     disabled={drawerMode === 'VIEW'}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                    placeholder="210 Xuân Thủy"
+                    placeholder="Số nhà, tên đường..."
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Tỉnh / Thành phố</label>
-                    <input 
-                      type="text" 
-                      value={formData.city}
-                      onChange={e => setFormData({ ...formData, city: e.target.value })}
-                      disabled={drawerMode === 'VIEW'}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Quốc gia</label>
-                    <input 
-                      type="text" 
-                      value={formData.country}
-                      onChange={e => setFormData({ ...formData, country: e.target.value })}
-                      disabled={drawerMode === 'VIEW'}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                    />
-                  </div>
+                {/* === Cascading dropdown hành chính Việt Nam === */}
+
+                {/* 1. Quốc gia */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Quốc gia</label>
+                  <input
+                    type="text"
+                    value={formData.country}
+                    onChange={e => setFormData({ ...formData, country: e.target.value })}
+                    disabled={drawerMode === 'VIEW'}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    placeholder="Việt Nam"
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                {/* 2. Tỉnh / Thành phố */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Tỉnh / Thành phố *</label>
+                  {drawerMode === 'VIEW' ? (
+                    <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700">
+                      {formData.city || <span className="text-slate-400 italic">Không có</span>}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <select
+                        value={selectedProvinceCode ?? ''}
+                        onChange={e => {
+                          const code = Number(e.target.value);
+                          const name = provinces.find(p => p.code === code)?.name ?? '';
+                          handleProvinceChange(code, name);
+                        }}
+                        disabled={loadingProvinces}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm appearance-none bg-white cursor-pointer pr-8"
+                      >
+                        <option value="">
+                          {loadingProvinces ? 'Đang tải...' : (formData.city ? `— ${formData.city} (chọn lại) —` : 'Chọn tỉnh / thành phố')}
+                        </option>
+                        {provinces.map(p => (
+                          <option key={p.code} value={p.code}>{p.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Quận / Huyện */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Quận / Huyện *</label>
+                  {drawerMode === 'VIEW' ? (
+                    <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700">
+                      {formData.district || <span className="text-slate-400 italic">Không có</span>}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <select
+                        value={selectedDistrictCode ?? ''}
+                        onChange={e => {
+                          const code = Number(e.target.value);
+                          const name = districts.find(d => d.code === code)?.name ?? '';
+                          handleDistrictChange(code, name);
+                        }}
+                        disabled={!selectedProvinceCode || loadingDistricts}
+                        className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-sm appearance-none bg-white pr-8 ${!selectedProvinceCode ? 'text-slate-400 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}`}
+                      >
+                        <option value="">
+                          {loadingDistricts ? 'Đang tải...' : !selectedProvinceCode ? (formData.district ? `— ${formData.district} (chọn tỉnh để lọc lại) —` : 'Chọn tỉnh trước') : 'Chọn quận / huyện'}
+                        </option>
+                        {districts.map(d => (
+                          <option key={d.code} value={d.code}>{d.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Phường / Xã */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Phường / Xã *</label>
+                  {drawerMode === 'VIEW' ? (
+                    <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700">
+                      {formData.ward || <span className="text-slate-400 italic">Không có</span>}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <select
+                        value={formData.ward}
+                        onChange={e => {
+                          const wardName = e.target.value;
+                          handleWardChange(wardName, formData.district, formData.city);
+                        }}
+                        disabled={!selectedDistrictCode || loadingWards}
+                        className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-sm appearance-none bg-white pr-8 ${!selectedDistrictCode ? 'text-slate-400 cursor-not-allowed bg-slate-50' : 'cursor-pointer'}`}
+                      >
+                        <option value="">
+                          {loadingWards ? 'Đang tải...' : !selectedDistrictCode ? (formData.ward ? `— ${formData.ward} (chọn quận để lọc lại) —` : 'Chọn quận/huyện trước') : 'Chọn phường / xã'}
+                        </option>
+                        {wards.map(w => (
+                          <option key={w.code} value={w.name}>{w.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Kinh độ / Vĩ độ — tự động điền khi chọn Phường/Xã */}
+                <div className={`grid grid-cols-2 gap-4 p-3 rounded-lg border transition-colors ${loadingGeocode ? 'bg-blue-50 border-blue-200' : formData.latitude !== 0 && formData.longitude !== 0 ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'}`}>
+                  {/* Header row */}
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                      <MapPin size={10} />
+                      Tọa độ địa lý
+                    </span>
+                    {loadingGeocode ? (
+                      <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1 animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 inline-block animate-ping" />
+                        Đang tìm tọa độ...
+                      </span>
+                    ) : formData.latitude !== 0 && formData.longitude !== 0 ? (
+                      <span className="text-[10px] text-green-600 font-semibold flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                        Tự động điền — có thể sửa tay
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">
+                        Tự điền khi chọn Phường/Xã
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Latitude */}
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Vĩ độ (Latitude)</label>
-                    <input 
-                      type="number" 
+                    <label className="text-[10px] font-semibold text-slate-500 block mb-1">Vĩ độ (Latitude)</label>
+                    <input
+                      type="number"
                       step="any"
                       value={formData.latitude}
                       onChange={e => setFormData({ ...formData, latitude: parseFloat(e.target.value) || 0 })}
-                      disabled={drawerMode === 'VIEW'}
-                      className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                      disabled={drawerMode === 'VIEW' || loadingGeocode}
+                      className={`w-full px-2 py-1.5 border rounded text-xs transition-colors ${
+                        loadingGeocode
+                          ? 'bg-blue-50 border-blue-200 text-blue-500 cursor-wait'
+                          : formData.latitude !== 0
+                          ? 'bg-white border-green-300 text-slate-800'
+                          : 'bg-white border-slate-200 text-slate-800'
+                      }`}
+                      placeholder="VD: 10.762622"
                     />
                   </div>
+
+                  {/* Longitude */}
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">Kinh độ (Longitude)</label>
-                    <input 
-                      type="number" 
+                    <label className="text-[10px] font-semibold text-slate-500 block mb-1">Kinh độ (Longitude)</label>
+                    <input
+                      type="number"
                       step="any"
                       value={formData.longitude}
                       onChange={e => setFormData({ ...formData, longitude: parseFloat(e.target.value) || 0 })}
+                      disabled={drawerMode === 'VIEW' || loadingGeocode}
+                      className={`w-full px-2 py-1.5 border rounded text-xs transition-colors ${
+                        loadingGeocode
+                          ? 'bg-blue-50 border-blue-200 text-blue-500 cursor-wait'
+                          : formData.longitude !== 0
+                          ? 'bg-white border-green-300 text-slate-800'
+                          : 'bg-white border-slate-200 text-slate-800'
+                      }`}
+                      placeholder="VD: 106.660172"
+                    />
+                  </div>
+
+                  {/* Link kiểm tra nhanh trên Google Maps */}
+                  {formData.latitude !== 0 && formData.longitude !== 0 && !loadingGeocode && (
+                    <div className="col-span-2">
+                      <a
+                        href={`https://maps.google.com/?q=${formData.latitude},${formData.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700 hover:underline font-medium"
+                      >
+                        <ExternalLink size={10} />
+                        Kiểm tra trên Google Maps
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Giờ mở cửa & Giờ đóng cửa */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Clock size={12} /> Giờ mở cửa *</label>
+                    <input
+                      type="time"
+                      value={formData.openTime}
+                      onChange={e => setFormData({ ...formData, openTime: e.target.value })}
                       disabled={drawerMode === 'VIEW'}
-                      className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Clock size={12} /> Giờ đóng cửa *</label>
+                    <input
+                      type="time"
+                      value={formData.closeTime}
+                      onChange={e => setFormData({ ...formData, closeTime: e.target.value })}
+                      disabled={drawerMode === 'VIEW'}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white cursor-pointer"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1"><Clock size={12} /> Giờ mở cửa</label>
-                    <input 
-                      type="text" 
-                      value={formData.openingHours}
-                      onChange={e => setFormData({ ...formData, openingHours: e.target.value })}
-                      disabled={drawerMode === 'VIEW'}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                      placeholder="08:00 - 22:00"
+                <div className="flex items-center">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={drawerMode === 'CREATE' ? true : formData.isActive}
+                      onChange={e => {
+                        if (drawerMode === 'EDIT') setFormData({ ...formData, isActive: e.target.checked });
+                      }}
+                      disabled={drawerMode === 'VIEW' || drawerMode === 'CREATE'}
+                      className="sr-only peer"
                     />
-                  </div>
-                  <div className="flex items-center pt-5">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.isActive}
-                        onChange={e => {
-                          if (drawerMode !== 'VIEW') setFormData({ ...formData, isActive: e.target.checked });
-                        }}
-                        disabled={drawerMode === 'VIEW'}
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                      <span className="ml-2 text-xs font-semibold text-slate-700">Trạng thái hoạt động</span>
-                    </label>
-                  </div>
+                    <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                    <span className="ml-2 text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      Trạng thái hoạt động
+                      {drawerMode === 'CREATE' && (
+                        <span className="text-[10px] text-slate-400 font-normal italic">
+                          (Mặc định kích hoạt khi tạo mới)
+                        </span>
+                      )}
+                    </span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -718,8 +1056,8 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 {drawerMode === 'VIEW' ? 'Đóng' : 'Hủy'}
               </Button>
               {drawerMode !== 'VIEW' && (
-                <Button onClick={handleSubmitForm} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer">
-                  {drawerMode === 'CREATE' ? 'Thêm địa điểm' : 'Lưu thay đổi'}
+                <Button onClick={handleSubmitForm} disabled={isSubmitting} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer">
+                  {isSubmitting ? 'Đang lưu...' : (drawerMode === 'CREATE' ? 'Thêm địa điểm' : 'Lưu thay đổi')}
                 </Button>
               )}
             </div>

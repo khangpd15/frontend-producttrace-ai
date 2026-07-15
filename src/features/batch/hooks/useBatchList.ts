@@ -5,7 +5,7 @@
  * Trả về: items, pagination meta, stats, loading, error, và hàm refetch.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { batchApi } from '../api/batch.api';
 import {
   BatchListItem,
@@ -15,7 +15,7 @@ import {
   GetBatchListParams,
 } from '../api/batch.types';
 import { AxiosError } from 'axios';
-import { ApiError } from '../../../api/axios';
+import { ApiError, parseApiError } from '../../../api/axios';
 
 interface UseBatchListState {
   items: BatchListItem[];
@@ -43,16 +43,19 @@ export function useBatchList(params?: GetBatchListParams): UseBatchListReturn {
     error: null,
   });
 
-  // Dùng ref để tránh stale closure khi fetch
-  const paramsRef = useRef(params);
-  paramsRef.current = params;
-
+  const { page, limit, search, status, origin_country } = params || {};
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
   const fetchData = useCallback(async () => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     try {
-      const { data } = await batchApi.getList(paramsRef.current);
+      const { data } = await batchApi.getList({
+        page,
+        limit,
+        search,
+        status,
+        origin_country,
+      });
       const payload: BatchListResponse = data.data;
       setState({
         items: payload.items ?? [],
@@ -62,18 +65,13 @@ export function useBatchList(params?: GetBatchListParams): UseBatchListReturn {
         error: null,
       });
     } catch (err) {
-      const axiosError = err as AxiosError<ApiError>;
-      const message =
-        axiosError.response?.data?.message ??
-        axiosError.message ??
-        'Không thể tải danh sách lô hàng';
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: message,
+        error: parseApiError(err),
       }));
     }
-  }, [fetchTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [page, limit, search, status, origin_country, fetchTrigger]);
 
   useEffect(() => {
     fetchData();

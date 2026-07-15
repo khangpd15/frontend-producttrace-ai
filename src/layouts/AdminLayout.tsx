@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ShieldCheck, Bell, Settings, ChevronDown,
   Layers, Database, Tag, MapPin, ClipboardList, User, ChevronLeft, ChevronRight,
-  FileText, Activity, LogOut,
+  FileText, Activity, LogOut, Sparkles
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/auth.store';
 
@@ -16,9 +16,9 @@ const NAV_ITEMS = [
   { icon: Layers,          label: 'Sở hữu',           to: '/ownership' },
   { icon: ShieldCheck,     label: 'Bảo hành',         to: '/warranty' },
   { icon: MapPin,          label: 'Đại lý',           to: '/store' },
-  { icon: ClipboardList,   label: 'Báo cáo',          to: '/reports' },
   { icon: Bell,            label: 'Thông báo',        to: '/notifications' },
   { icon: Activity,        label: 'Audit Logs',       to: '/audit' },
+  { icon: Sparkles,        label: 'AI Search',        to: '/search' },
 ] as const;
 
 export default function AdminLayout() {
