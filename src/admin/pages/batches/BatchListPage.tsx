@@ -13,13 +13,10 @@ import Card from '../../components/ui/Card';
 import { useBatchList } from '../../../features/batch/hooks/useBatchList';
 import { useBatchDetail } from '../../../features/batch/hooks/useBatchDetail';
 import { useBatchHistory } from '../../../features/batch/hooks/useBatchHistory';
-import { useBatchProducts } from '../../../features/batch/hooks/useBatchProducts';
-import { useBatchEvents } from '../../../features/batch/hooks/useBatchEvents';
 import { useExportBatches } from '../../../features/batch/hooks/useExportBatches';
 import { useLocations } from '../../../features/location/hooks/useLocations';
 import { batchApi } from '../../../features/batch/api/batch.api';
 import { BatchListItem, BatchStatus, ExportBatchRequest } from '../../../features/batch/api/batch.types';
-import { useTraceSearch } from '../../../features/trace/hooks/useTraceSearch';
 import { productApi } from '../../../features/products/api/product.api';
 import type { AdminProduct, AdminProductDetailVariant } from '../../../shared/types/domain';
 import { useAuthStore } from '../../../features/auth/store/auth.store';
@@ -27,7 +24,7 @@ import { parseApiError } from '../../../api/axios';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type DrawerMode = 'CREATE' | 'VIEW' | 'EDIT_STATUS' | 'TRACE' | 'PRODUCTS' | 'HISTORY';
+type DrawerMode = 'CREATE' | 'VIEW' | 'EDIT_STATUS' | 'HISTORY';
 
 interface CreateFormData {
   variant_id: string;
@@ -216,141 +213,6 @@ function DrawerHistoryPanel({ batchId }: { batchId: string }) {
   );
 }
 
-// ─── DrawerProductsPanel ──────────────────────────────────────────────────────
-
-function DrawerProductsPanel({ batchId, batchCode }: { batchId: string; batchCode: string }) {
-  const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const { items, pagination, isLoading, error } = useBatchProducts(batchId, { page, limit: 10 });
-
-  if (isLoading) {
-    return (
-      <div className="space-y-2 animate-pulse">
-        {[1, 2, 3].map(i => <div key={i} className="h-12 bg-slate-100 rounded-lg" />)}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 bg-red-50 rounded-lg text-red-700 text-sm flex items-center gap-2">
-        <AlertCircle size={16} /> {error}
-      </div>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <div className="text-center py-10 text-slate-400">
-        <Package size={32} className="mx-auto mb-2 opacity-50" />
-        <p className="text-sm">Chưa có sản phẩm nào trong lô</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
-        <button
-          onClick={() => navigate(`/batches/${batchId}/products?code=${batchCode}`)}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-transparent border-none cursor-pointer"
-        >
-          Xem dạng toàn trang →
-        </button>
-      </div>
-
-      {items.map(item => (
-        <div key={item.itemId} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center">
-          <div>
-            <p className="text-xs font-bold text-slate-800 font-mono">{item.itemCode}</p>
-            <p className="text-[11px] text-slate-500">SN: {item.serialNumber}</p>
-            {item.currentLocation && (
-              <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                <MapPin size={10} /> {item.currentLocation.name}
-              </p>
-            )}
-          </div>
-          {renderStatusBadge(item.status)}
-        </div>
-      ))}
-
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex justify-between items-center pt-2">
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer border-none bg-transparent"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-xs text-slate-500">
-            {page} / {pagination.totalPages}
-          </span>
-          <button
-            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
-            disabled={page >= pagination.totalPages}
-            className="p-1.5 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer border-none bg-transparent"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DrawerTracePanel({ batch }: { batch: BatchListItem }) {
-  const navigate = useNavigate();
-  const { events, isLoading, error } = useBatchEvents(batch.id);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3 animate-pulse">
-        {[1, 2, 3].map(i => <div key={i} className="h-16 bg-slate-100 rounded-lg" />)}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 bg-red-50 rounded-lg text-red-700 text-sm flex items-center gap-2">
-        <AlertCircle size={16} /> {error}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <button
-          onClick={() => navigate(`/batches/${batch.id}/trace?code=${batch.batch_code}`)}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-transparent border-none cursor-pointer"
-        >
-          Xem dạng toàn trang →
-        </button>
-      </div>
-
-      {events.length > 0 ? (
-        <div className="border-l-2 border-slate-200 pl-4 space-y-4">
-          {events.map((event, idx) => (
-            <div key={idx} className="relative">
-              <div className="absolute -left-[21px] top-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white" />
-              <p className="text-sm font-semibold text-slate-900">{event.event_name}</p>
-              <p className="text-xs text-slate-500">{event.detail}</p>
-              <p className="text-[10px] text-slate-400 mt-1">{formatDateTime(event.created_at)}</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8 text-slate-400">
-          <Activity size={28} className="mx-auto mb-2 opacity-40" />
-          <p className="text-xs">Không có sự kiện nào</p>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── ExportBatchesModal ───────────────────────────────────────────────────────
 
@@ -732,19 +594,6 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
     setIsDrawerOpen(true);
   };
 
-  const openTrace = (batch: BatchListItem, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setSelectedBatch(batch);
-    setDrawerMode('TRACE');
-    setIsDrawerOpen(true);
-  };
-
-  const openProducts = (batch: BatchListItem, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setSelectedBatch(batch);
-    setDrawerMode('PRODUCTS');
-    setIsDrawerOpen(true);
-  };
 
   const openHistory = (batch: BatchListItem, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -881,8 +730,6 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
     CREATE: 'Nhập lô hàng mới',
     VIEW: 'Chi tiết lô hàng',
     EDIT_STATUS: 'Cập nhật trạng thái',
-    TRACE: 'Truy xuất nguồn gốc',
-    PRODUCTS: 'Danh sách sản phẩm',
     HISTORY: 'Lịch sử thay đổi',
   };
 
@@ -1144,10 +991,10 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
                             <button
                               onClick={e => {
                                 e.stopPropagation();
-                                navigate(`/batches/${batch.id}/trace?code=${batch.batch_code}`);
+                                navigate(`/batches/${batch.id}/products?code=${batch.batch_code}`);
                               }}
                               className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg cursor-pointer border-none bg-transparent"
-                              title="Truy xuất nguồn gốc"
+                              title="Truy vết sản phẩm"
                             >
                               <Activity size={15} />
                             </button>
@@ -1251,7 +1098,10 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
                     </button>
                   )}
                   <button
-                    onClick={() => setDrawerMode('PRODUCTS')}
+                    onClick={() => {
+                      setIsDrawerOpen(false);
+                      navigate(`/batches/${selectedBatch.id}/products?code=${selectedBatch.batch_code}`);
+                    }}
                     className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer border-none bg-transparent flex items-center gap-1"
                   >
                     <Package size={13} /> Sản phẩm
@@ -1286,15 +1136,6 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <DrawerHistoryPanel batchId={selectedBatch.id} />
               )}
 
-              {/* ── PRODUCTS: Sản phẩm trong lô ──────────────────────────── */}
-              {drawerMode === 'PRODUCTS' && selectedBatch && (
-                <DrawerProductsPanel batchId={selectedBatch.id} batchCode={selectedBatch.batch_code} />
-              )}
-
-              {/* ── TRACE: Truy xuất ──────────────────────────────────────── */}
-              {drawerMode === 'TRACE' && selectedBatch && (
-                <DrawerTracePanel batch={selectedBatch} />
-              )}
 
               {/* ── EDIT_STATUS: Cập nhật trạng thái ─────────────────────── */}
               {drawerMode === 'EDIT_STATUS' && (
@@ -1478,7 +1319,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate: (tabId: stri
                 </Button>
               )}
               <Button variant="secondary" onClick={() => setIsDrawerOpen(false)} className="rounded-xl px-4 text-xs font-semibold cursor-pointer">
-                {drawerMode === 'VIEW' || drawerMode === 'HISTORY' || drawerMode === 'PRODUCTS' || drawerMode === 'TRACE' ? 'Đóng' : 'Hủy'}
+                {drawerMode === 'VIEW' || drawerMode === 'HISTORY' ? 'Đóng' : 'Hủy'}
               </Button>
 
               {drawerMode === 'CREATE' && (
