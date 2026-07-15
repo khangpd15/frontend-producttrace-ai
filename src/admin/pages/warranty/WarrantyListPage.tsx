@@ -8,6 +8,25 @@ import Card from '../../components/ui/Card';
 
 import { AdminWarrantyListPageWarranty as Warranty } from '@shared/types/domain';
 
+/**
+ * TODO(warranty-backend): Backend is missing GET endpoints for warranty management.
+ *
+ * Required backend endpoints (currently unavailable):
+ *   - GET /api/warranty-claims          — List all warranty claims (Admin/Staff)
+ *   - GET /api/warranty-claims/:id      — Get single claim detail
+ *   - PATCH /api/warranty-claims/:id    — Update claim status (Resolve/Reject)
+ *   - DELETE /api/warranty-claims/:id   — Delete a claim record
+ *   - GET /api/warranty-stats           — Aggregated KPI stats for dashboard
+ *
+ * Available endpoints (backend implemented):
+ *   - POST /api/warranty-claims         — Customer submits a new claim (see WarrantyRequestForm)
+ *
+ * This page currently uses localStorage as a temporary substitute until the backend
+ * implements the missing endpoints. Do NOT refactor to real API until those endpoints exist.
+ * All CRUD actions here are purely local/demo until that point.
+ */
+
+
 export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'RESOLVED'>('ALL');

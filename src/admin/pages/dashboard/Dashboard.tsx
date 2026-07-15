@@ -182,14 +182,18 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 <div className="h-64 flex items-end justify-between pt-6 pb-2 pr-4 ml-12 border-b border-l border-slate-200 relative mt-4">
                   {/* Grid lines and Y-axis labels */}
                   {(() => {
-                    const displayedChartData = Array.isArray(chartData) && chartData.length > 0 ? chartData : [
-                      { time_period: '2025-01-01T00:00:00Z', production_volume: 45.2, sales_volume: 38.1 },
-                      { time_period: '2025-02-01T00:00:00Z', production_volume: 50.0, sales_volume: 42.5 },
-                      { time_period: '2025-03-01T00:00:00Z', production_volume: 55.4, sales_volume: 48.0 },
-                      { time_period: '2025-04-01T00:00:00Z', production_volume: 62.1, sales_volume: 54.3 },
-                      { time_period: '2025-05-01T00:00:00Z', production_volume: 68.5, sales_volume: 60.1 },
-                      { time_period: '2025-06-01T00:00:00Z', production_volume: 75.0, sales_volume: 66.8 }
-                    ];
+                    const displayedChartData = Array.isArray(chartData) && chartData.length > 0 ? chartData : [];
+
+                    // If no data returned, show empty state
+                    if (displayedChartData.length === 0) {
+                      return (
+                        <div className="h-64 flex flex-col items-center justify-center gap-2 text-center text-slate-400">
+                          <Activity size={32} className="opacity-30" />
+                          <p className="text-xs font-semibold">Chưa có dữ liệu biểu đồ</p>
+                          <p className="text-[10px]">Backend chưa trả về dữ liệu sản xuất / phân phối.</p>
+                        </div>
+                      );
+                    }
 
                     const maxVal = Math.max(
                       ...displayedChartData.map(d => Math.max(d.production_volume || 0, d.sales_volume || 0)),

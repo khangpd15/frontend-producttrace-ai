@@ -8,6 +8,22 @@ import Card from '../../components/ui/Card';
 
 import { AdminNotificationListPageNotificationItem as NotificationItem } from '@shared/types/domain';
 
+/**
+ * TODO(notifications-backend): No backend notification API exists yet.
+ *
+ * This entire page is currently UI-only with in-memory state (no persistence).
+ * Required backend endpoints before connecting to real API:
+ *   - GET    /api/notifications          — List notifications with filters
+ *   - POST   /api/notifications          — Create/send new notification
+ *   - PATCH  /api/notifications/:id      — Update notification content/status
+ *   - DELETE /api/notifications/:id      — Delete/archive notification
+ *   - GET    /api/notifications/stats    — KPI counts by type
+ *
+ * CRUD actions currently operate on local React state only.
+ * Do NOT attempt real API calls until the above endpoints are implemented.
+ */
+
+
 export default function NotificationListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'SYSTEM' | 'BUSINESS' | 'ALERT'>('ALL');

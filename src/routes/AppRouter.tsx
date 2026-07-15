@@ -32,6 +32,7 @@ const AuditListPage = lazy(() => import('../admin/pages/audit/AuditListPage'));
 const SettingsPage = lazy(() => import('../admin/pages/settings/SettingsPage'));
 const NotificationListPage = lazy(() => import('../admin/pages/notifications/NotificationListPage'));
 const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
+const AISearchPage = lazy(() => import('../admin/pages/search/AISearchPage'));
 
 // ─── Customer pages (lazy) ────────────────────────────────────────────────────
 const CustomerHome = lazy(() => import('../customer/views/Home'));
@@ -95,6 +96,7 @@ const StorePage = withNav(StoreListPage as React.ComponentType<{ onNavigate: (t:
 const AuditPage = withNav(AuditListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const SettingsWrapped = withNav(SettingsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const NotificationsPage = withNav(NotificationListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const AISearchPageWrapped = withNav(AISearchPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 
 // ─── ProductDetail reads id from URL query string ────────────────────────────
 function ProductDetailRoute() {
@@ -166,6 +168,7 @@ export default function AppRouter() {
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/settings" element={<SettingsWrapped />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/search" element={<AISearchPageWrapped />} />
 
               {/* Admin-only */}
               <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
