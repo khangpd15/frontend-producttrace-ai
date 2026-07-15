@@ -55,7 +55,7 @@ export function RegisterOwnership({ onBack }: { onBack: () => void }) {
       }
       setLoading(true);
       // product_id was captured from the step 1 response
-      await ownershipApi.verifyAndRegister({ otp: code, product_id: productId || qrCode });
+      await ownershipApi.register({ otp: code, product_id: productId || qrCode });
       alert('Đăng ký sở hữu thành công!');
       onBack();
     } catch (err: any) {

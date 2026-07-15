@@ -26,19 +26,6 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
       setError(null);
       try {
         let realOwnership: any = undefined;
-        try {
-          const { data: ownRes } = await ownershipApi.getOwnerships(1, 50);
-          const myOwnerships = ownRes.data?.items || ownRes.data || [];
-          const found = myOwnerships.find((o: any) => o.serialNumber === codeParam || o.itemCode === codeParam || o.serialNumber === idParam);
-          if (found) {
-            realOwnership = {
-              ownerName: found.ownerName || 'Bạn',
-              status: found.status
-            };
-          }
-        } catch (e) {
-            console.warn("Failed to check real ownership", e);
-        }
 
         if (codeParam) {
           // Fetch from Trace Search API (MOCKED FOR TESTING)
@@ -64,6 +51,19 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           }
 
           const item = traceRes.productItem;
+          
+          try {
+            const { data: ownRes } = await ownershipApi.getById(item.itemId);
+            if (ownRes.data) {
+                realOwnership = {
+                  ownerName: ownRes.data.owner_name,
+                  status: ownRes.data.status
+                };
+            }
+          } catch (e) {
+             console.warn("No ownership found or failed to fetch", e);
+          }
+
           // Map to ProductDetailData
           const mapped: ProductDetailData = {
             item: {
@@ -130,6 +130,21 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           const firstItem = p.items && p.items[0];
           const firstVariant = p.variants && p.variants[0];
           const firstBatch = p.batches && p.batches[0];
+
+          try {
+             // For generic products from catalog, we check if the user owns ANY instance of this product by name
+             // (Or by code if available in backend)
+             const { data: ownRes } = await ownershipApi.search({ product_name: p.name, limit: 1 });
+             if (ownRes.data && ownRes.data.data && ownRes.data.data.length > 0) {
+                const owned = ownRes.data.data[0];
+                realOwnership = {
+                  ownerName: owned.owner_name,
+                  status: owned.status
+                };
+             }
+          } catch (e) {
+             console.warn("No ownership found or failed to fetch", e);
+          }
 
           const mapped: ProductDetailData = {
             item: {

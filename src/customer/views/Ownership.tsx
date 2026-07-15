@@ -15,7 +15,7 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
     const fetchOwnerships = async () => {
       try {
         setLoading(true);
-        const { data } = await ownershipApi.getMyOwnerships(1, 20);
+        const { data } = await ownershipApi.search({ page: 1, limit: 20 });
         setOwnershipHistory(data.data?.data || []);
       } catch (err) {
         console.error('Lỗi khi tải danh sách quyền sở hữu', err);
@@ -46,7 +46,7 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
             const fetchOwnerships = async () => {
               try {
                 setLoading(true);
-                const { data } = await ownershipApi.getMyOwnerships(1, 20);
+                const { data } = await ownershipApi.search({ page: 1, limit: 20 });
                 setOwnershipHistory(data.data?.data || []);
               } catch (err) {} finally {
                 setLoading(false);

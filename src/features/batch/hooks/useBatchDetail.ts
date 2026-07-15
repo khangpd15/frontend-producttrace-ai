@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { batchApi } from '../api/batch.api';
 import { BatchDetailResponse } from '../api/batch.types';
 import { AxiosError } from 'axios';
-import { ApiError } from '../../../api/axios';
+import { ApiError, parseApiError } from '../../../api/axios';
 
 interface UseBatchDetailState {
   detail: BatchDetailResponse | null;
@@ -49,15 +49,10 @@ export function useBatchDetail(batchCode: string | null | undefined): UseBatchDe
         error: null,
       });
     } catch (err) {
-      const axiosError = err as AxiosError<ApiError>;
-      const message =
-        axiosError.response?.data?.message ??
-        axiosError.message ??
-        'Không thể tải thông tin lô hàng';
       setState({
         detail: null,
         isLoading: false,
-        error: message,
+        error: parseApiError(err),
       });
     }
   }, [batchCode, fetchTrigger]); // eslint-disable-line react-hooks/exhaustive-deps

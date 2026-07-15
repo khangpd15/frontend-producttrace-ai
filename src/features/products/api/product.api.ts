@@ -18,17 +18,47 @@ export interface PaginatedResponse<T> {
   limit: number;
 }
 
+export interface CreateVariantRequest {
+  sku: string;
+  name: string;
+  barcode?: string;
+  price?: number;
+  currency?: string;
+  images: string[];
+}
+
 export interface CreateProductRequest {
   name: string;
   slug: string;
   category_id: string;
-  description: string;
-  thumbnail_url: string;
-  tags: string[];
+  description?: string;
+  thumbnail_url?: string;
+  tags?: string[];
+  metadata?: Record<string, any>;
   status: 'ACTIVE' | 'DRAFT' | 'DISCONTINUED';
+  variants: CreateVariantRequest[];
 }
 
-export interface UpdateProductRequest extends Partial<CreateProductRequest> {}
+export interface UpdateProductRequest {
+  name?: string;
+  slug?: string;
+  category_id?: string;
+  description?: string;
+  thumbnail_url?: string;
+  tags?: string[];
+  metadata?: Record<string, any>;
+  status?: 'ACTIVE' | 'DRAFT' | 'DISCONTINUED';
+}
+
+export interface UpdateVariantRequest {
+  sku?: string;
+  name?: string;
+  barcode?: string;
+  price?: number;
+  currency?: string;
+  images?: string[];
+  status?: string;
+}
 
 // ─── Product API ──────────────────────────────────────────────────────────────
 
@@ -47,4 +77,11 @@ export const productApi = {
 
   delete: (id: string) =>
     apiClient.delete<ApiResponse<null>>(`/products/${id}`),
+
+  // Variant management endpoints
+  updateVariant: (id: string, payload: UpdateVariantRequest) =>
+    apiClient.put<ApiResponse<any>>(`/variants/${id}`, payload),
+
+  deleteVariant: (id: string) =>
+    apiClient.delete<ApiResponse<null>>(`/variants/${id}`),
 };

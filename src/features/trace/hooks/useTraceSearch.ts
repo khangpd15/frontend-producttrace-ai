@@ -12,7 +12,7 @@ import { useState, useCallback } from 'react';
 import { traceApi } from '../api/trace.api';
 import { TraceSearchParams, TraceSearchResponse } from '../api/trace.types';
 import { AxiosError } from 'axios';
-import { ApiError } from '../../../api/axios';
+import { ApiError, parseApiError } from '../../../api/axios';
 
 interface UseTraceSearchState {
   result: TraceSearchResponse | null;
@@ -54,15 +54,10 @@ export function useTraceSearch(): UseTraceSearchReturn {
         error: null,
       });
     } catch (err) {
-      const axiosError = err as AxiosError<ApiError>;
-      const message =
-        axiosError.response?.data?.message ??
-        axiosError.message ??
-        'Không thể tra cứu thông tin sản phẩm';
       setState({
         result: null,
         isLoading: false,
-        error: message,
+        error: parseApiError(err),
       });
     }
   }, []);

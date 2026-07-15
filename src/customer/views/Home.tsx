@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { productApi } from '../../features/products/api/product.api';
-import { AdminProduct } from '../../shared/types/domain';
+import { ownershipApi, OwnershipSummaryRes } from '../../features/ownership/api/ownership.api';
 
 type Status = 'ACTIVE' | 'DRAFT' | 'DISCONTINUED';
 
@@ -18,12 +18,51 @@ interface Product {
   isHot?: boolean;
 }
 
-export function Home({ onScan, onNavigate }: { onScan?: () => void; onNavigate?: (tabId: string, id?: string) => void }) {
+export function Home({ onScan, onNavigate, onBellClick }: { onScan?: () => void; onNavigate?: (tabId: string, id?: string) => void; onBellClick?: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [searchVal, setSearchVal] = useState('');
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
+  // ── Home Statistics — fetched from real ownership data ──────────────────────
+  const [statTotal, setStatTotal] = useState<number | null>(null);
+  const [statActive, setStatActive] = useState<number | null>(null);
+  const [statExpiringSoon, setStatExpiringSoon] = useState<number | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  useEffect(() => {
+    async function fetchStats() {
+      setIsLoadingStats(true);
+      try {
+        const { data } = await ownershipApi.search({ page: 1, limit: 200 });
+        const ownerships: OwnershipSummaryRes[] = data.data?.data || [];
+
+        const now = new Date();
+        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        const activeOwnerships = ownerships.filter((o) => o.status === 'ACTIVE');
+
+        // Compute expiring soon: registration_date + 2 years <= 30 days away
+        const expiringSoon = activeOwnerships.filter((o) => {
+          if (!o.registration_date) return false;
+          const expiryDate = new Date(o.registration_date);
+          expiryDate.setFullYear(expiryDate.getFullYear() + 2);
+          return expiryDate >= now && expiryDate <= thirtyDaysFromNow;
+        });
+
+        setStatTotal(ownerships.length);
+        setStatActive(activeOwnerships.length);
+        setStatExpiringSoon(expiringSoon.length);
+      } catch (err) {
+        console.error('Failed to fetch ownership stats', err);
+        // On error, keep null to show '--'
+      } finally {
+        setIsLoadingStats(false);
+      }
+    }
+    fetchStats();
+  }, []);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -81,11 +120,10 @@ export function Home({ onScan, onNavigate }: { onScan?: () => void; onNavigate?:
       <header className="sticky top-0 bg-white p-4 flex justify-between items-center shadow-sm z-10">
         <span className="font-bold text-xl text-blue-600">ProductTrace</span>
         <div className="flex items-center gap-2">
-            <button className="p-2 text-slate-600"><Bell size={20} /></button>
-            <div 
-              onClick={() => navigate('/customer/profile')}
-              className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-blue-300 transition-all"
-            >
+            <button onClick={onBellClick} className="p-2 text-slate-600 relative" aria-label="Thông báo">
+              <Bell size={20} />
+            </button>
+            <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center">
               {user?.avatar_url ? (
                 <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
               ) : (
@@ -103,9 +141,13 @@ export function Home({ onScan, onNavigate }: { onScan?: () => void; onNavigate?:
           <p className="text-sm text-slate-500 mt-1">Tất cả sản phẩm của bạn đều được bảo vệ và truy xuất</p>
         </section>
 
-        {/* Summary Card Section */}
+        {/* Summary Card Section — data from ownershipApi.search() */}
         <section className="grid grid-cols-3 gap-2">
-          {[ { label: 'Sản phẩm', value: '12', icon: <Package size={16} /> }, { label: 'Bảo hành', value: '5', icon: <ShieldCheck size={16} /> }, { label: 'Sắp hết hạn', value: '2', icon: <Clock size={16} /> } ].map((item, i) => (
+          {[
+            { label: 'Sản phẩm', value: isLoadingStats ? '…' : (statTotal !== null ? String(statTotal) : '--'), icon: <Package size={16} /> },
+            { label: 'Bảo hành', value: isLoadingStats ? '…' : (statActive !== null ? String(statActive) : '--'), icon: <ShieldCheck size={16} /> },
+            { label: 'Sắp hết hạn', value: isLoadingStats ? '…' : (statExpiringSoon !== null ? String(statExpiringSoon) : '--'), icon: <Clock size={16} /> },
+          ].map((item, i) => (
             <div key={i} className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center">
                 <div className="text-slate-400 mb-1">{item.icon}</div>
                 <span className="text-lg font-bold text-slate-900">{item.value}</span>

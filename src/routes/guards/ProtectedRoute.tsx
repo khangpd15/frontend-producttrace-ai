@@ -34,7 +34,10 @@ export default function ProtectedRoute({
   }
 
   // Role check (only if allowedRoles is specified)
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+    if (!role) {
+      return <Navigate to={redirectTo} replace />;
+    }
     // Redirect to appropriate home based on role
     const roleHome: Record<UserRole, string> = {
       ADMIN: '/dashboard',

@@ -6,21 +6,59 @@ import {
 } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import {
+  useDashboardStats,
+  useDashboardActivities,
+  useDashboardAlerts,
+  useDashboardCharts,
+} from '../../../features/dashboard/hooks/useDashboardStats';
+import { parseApiError } from '../../../api/axios';
 
 interface DashboardProps {
   onNavigate: (tab: string) => void;
 }
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
+  const { data: stats, isLoading, error, refetch } = useDashboardStats();
+  const { data: activities = [], isLoading: activitiesLoading } = useDashboardActivities(10);
+  const { data: alerts = [],     isLoading: alertsLoading }     = useDashboardAlerts();
+  const { data: chartData = [],  isLoading: chartLoading }      = useDashboardCharts();
+
+  const fetchStats = () => {
+    void refetch();
+  };
+
+  const formatTime = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  };
+
+  const formatPeriod = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      return `Tháng ${date.getMonth() + 1}`;
+    } catch {
+      return '';
+    }
+  };
+
   // Stat Card Component
-  const StatCard = ({ label, value, trend, color, bg, icon: Icon, tabId }: any) => (
+  const StatCard = ({ label, value, trend, color, bg, icon: Icon, tabId, loading }: any) => (
     <div 
       onClick={() => onNavigate(tabId)}
       className="bg-white p-5 rounded-xl border border-slate-200 hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer group flex justify-between items-start"
     >
-      <div className="space-y-2">
+      <div className="space-y-2 w-full">
         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{label}</p>
-        <div className="text-2xl font-bold text-slate-900">{value}</div>
+        {loading ? (
+          <div className="h-8 w-16 bg-slate-100 animate-pulse rounded"></div>
+        ) : (
+          <div className="text-2xl font-bold text-slate-900">{value}</div>
+        )}
         <div className="flex items-center gap-1.5">
           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${trend.startsWith('↑') || trend.startsWith('+') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
             {trend}
@@ -28,11 +66,33 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <span className="text-[9px] text-slate-400 font-medium">so với tháng trước</span>
         </div>
       </div>
-      <div className={`p-2.5 rounded-lg ${color} ${bg} group-hover:scale-105 transition-transform`}>
+      <div className={`p-2.5 rounded-lg ${color} ${bg} group-hover:scale-105 transition-transform flex-shrink-0`}>
         <Icon size={18} />
       </div>
     </div>
   );
+
+  const SkeletonCard = () => (
+    <div className="bg-white p-5 rounded-xl border border-slate-200 animate-pulse flex justify-between items-start">
+      <div className="space-y-3 w-2/3">
+        <div className="h-2.5 bg-slate-200 rounded w-1/2"></div>
+        <div className="h-7 bg-slate-200 rounded w-3/4"></div>
+        <div className="h-2 bg-slate-200 rounded w-5/6"></div>
+      </div>
+      <div className="w-9 h-9 bg-slate-200 rounded-lg"></div>
+    </div>
+  );
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-center">
+        <AlertTriangle className="text-red-500 w-12 h-12" />
+        <h2 className="text-lg font-bold text-slate-800">Không thể tải dữ liệu Dashboard</h2>
+        <p className="text-slate-500 text-sm">{parseApiError(error)}</p>
+        <Button onClick={() => refetch()} className="bg-blue-600 text-white rounded-xl px-4 py-2 text-sm font-semibold hover:bg-blue-700">Thử lại</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -52,81 +112,151 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         </div>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="text-red-500" size={16} />
+            <span>Lỗi tải dữ liệu từ backend: <strong>{(error as any)?.message || String(error)}</strong>. Đang hiển thị số liệu mặc định.</span>
+          </div>
+          <button 
+            onClick={fetchStats} 
+            className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 font-semibold rounded-lg transition-colors border-none cursor-pointer"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
       {/* SECTION 1: KPI Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-        <StatCard label="Tổng sản phẩm" value="1,248" trend="↑ 12.4%" color="text-blue-600" bg="bg-blue-50" icon={Package} tabId="products" />
-        <StatCard label="Tổng số lô hàng" value="91" trend="↑ 8.2%" color="text-purple-600" bg="bg-purple-50" icon={Layers} tabId="batches" />
-        <StatCard label="Lượt sở hữu" value="1,246" trend="↑ 10.1%" color="text-green-600" bg="bg-green-50" icon={Users} tabId="ownership" />
-        <StatCard label="Đang bảo hành" value="844" trend="↑ 4.5%" color="text-blue-600" bg="bg-blue-50" icon={ShieldCheck} tabId="warranty" />
-        <StatCard label="Yêu cầu chờ duyệt" value="5" trend="↓ 18%" color="text-amber-600" bg="bg-amber-50" icon={ClipboardList} tabId="warranty" />
-        <StatCard label="Đại lý & Kho" value="37" trend="↑ 3%" color="text-slate-700" bg="bg-slate-50" icon={Building} tabId="store" />
-      </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <StatCard label="Tổng sản phẩm" value={stats?.total_products.toLocaleString() ?? "0"} trend="↑ 12.4%" color="text-blue-600" bg="bg-blue-50" icon={Package} tabId="products" />
+          <StatCard label="Tổng số lô hàng" value={stats?.total_batches.toLocaleString() ?? "0"} trend="↑ 8.2%" color="text-purple-600" bg="bg-purple-50" icon={Layers} tabId="batches" />
+          <StatCard label="Lượt sở hữu" value={stats?.total_ownerships.toLocaleString() ?? "0"} trend="↑ 10.1%" color="text-green-600" bg="bg-green-50" icon={Users} tabId="ownership" />
+          <StatCard label="Đang bảo hành" value={stats?.total_under_warranty.toLocaleString() ?? "0"} trend="↑ 4.5%" color="text-blue-600" bg="bg-blue-50" icon={ShieldCheck} tabId="warranty" />
+          <StatCard label="Yêu cầu chờ duyệt" value={stats?.total_pending_approval.toLocaleString() ?? "0"} trend="↓ 18%" color="text-amber-600" bg="bg-amber-50" icon={ClipboardList} tabId="warranty" />
+          <StatCard label="Đại lý & Kho" value={stats?.total_locations.toLocaleString() ?? "0"} trend="↑ 3%" color="text-slate-700" bg="bg-slate-50" icon={Building} tabId="store" />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Section 2: Health Overview & Circular indicator */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-1.5">
-              <Activity size={16} className="text-blue-500" /> Chỉ số vận hành hệ thống (Operational Health)
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-              <div className="flex items-center gap-4 col-span-2">
-                {/* Circular indicator simulation */}
-                <div className="relative w-20 h-20 flex-shrink-0 flex items-center justify-center">
-                  <div className="absolute inset-0 rounded-full border-8 border-slate-100"></div>
-                  <div className="absolute inset-0 rounded-full border-8 border-green-500 border-t-transparent border-r-transparent animate-spin-slow"></div>
-                  <span className="text-lg font-extrabold text-slate-800">92%</span>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    Hệ thống hoạt động Khỏe mạnh (Healthy)
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-normal">
-                    Quy trình truy xuất nguồn gốc QR và bảo hành điện tử vận hành chính xác. Không ghi nhận lỗi rò rỉ bảo mật dữ liệu hoặc giả mạo mã serial.
-                  </p>
-                </div>
-              </div>
-
-              <div className="border-l border-slate-100 pl-6 space-y-2.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">Tỷ lệ kích hoạt BH:</span>
-                  <span className="font-bold text-slate-800">84%</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">Tỷ lệ sản phẩm lỗi:</span>
-                  <span className="font-bold text-green-600">0.8% (An toàn)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Section 3: Product Lifecycle Funnel */}
+          {/* Production vs Sales Chart */}
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-800">Vòng đời và dòng chảy sản phẩm (Lifecycle Flow)</h3>
-            
-            <div className="grid grid-cols-5 gap-3 pt-2">
-              {[
-                { step: '1. Sản xuất', val: '15,842', desc: 'Đã hoàn tất NSX', color: 'bg-blue-500 text-blue-500 border-blue-200' },
-                { step: '2. Đóng gói', val: '15,200', desc: 'Sẵn sàng mã QR', color: 'bg-indigo-500 text-indigo-500 border-indigo-200' },
-                { step: '3. Nhập đại lý', val: '11,240', desc: 'Phân phối phân khu', color: 'bg-purple-500 text-purple-500 border-purple-200' },
-                { step: '4. Đã bán lẻ', val: '9,120', desc: 'Khách thanh toán', color: 'bg-green-600 text-green-600 border-green-200' },
-                { step: '5. Kích hoạt BH', val: '7,980', desc: 'Sở hữu hợp lệ', color: 'bg-emerald-600 text-emerald-600 border-emerald-200' }
-              ].map((funnel, idx) => (
-                <div 
-                  key={idx} 
-                  className={`p-3 rounded-lg border text-center space-y-1 bg-white hover:shadow-xs transition-shadow`}
-                >
-                  <div className="text-[9px] font-bold uppercase text-slate-400">{funnel.step}</div>
-                  <div className="text-sm font-bold text-slate-800">{funnel.val}</div>
-                  <div className="text-[9px] text-slate-500 leading-normal">{funnel.desc}</div>
-                </div>
-              ))}
+            <div className="flex justify-between items-center pb-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                  <Activity size={16} className="text-blue-500" /> Biểu đồ Lượng sản xuất & Doanh số phân phối
+                </h3>
+                <p className="text-[10px] text-slate-400">Đơn vị tính: Nghìn sản phẩm (K)</p>
+              </div>
+              <div className="flex gap-4 text-[9px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-blue-500 rounded-xs"></span> Sản xuất
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-green-500 rounded-xs"></span> Tiêu thụ
+                </span>
+              </div>
             </div>
+
+            {chartLoading ? (
+              <div className="h-64 bg-slate-50/50 rounded-xl flex flex-col items-center justify-center gap-2 border border-slate-100">
+                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-[10px] text-slate-400 font-semibold">Đang tải dữ liệu biểu đồ...</span>
+              </div>
+            ) : (
+              <div>
+                <div className="h-64 flex items-end justify-between pt-6 pb-2 pr-4 ml-12 border-b border-l border-slate-200 relative mt-4">
+                  {/* Grid lines and Y-axis labels */}
+                  {(() => {
+                    const displayedChartData = Array.isArray(chartData) && chartData.length > 0 ? chartData : [
+                      { time_period: '2025-01-01T00:00:00Z', production_volume: 45.2, sales_volume: 38.1 },
+                      { time_period: '2025-02-01T00:00:00Z', production_volume: 50.0, sales_volume: 42.5 },
+                      { time_period: '2025-03-01T00:00:00Z', production_volume: 55.4, sales_volume: 48.0 },
+                      { time_period: '2025-04-01T00:00:00Z', production_volume: 62.1, sales_volume: 54.3 },
+                      { time_period: '2025-05-01T00:00:00Z', production_volume: 68.5, sales_volume: 60.1 },
+                      { time_period: '2025-06-01T00:00:00Z', production_volume: 75.0, sales_volume: 66.8 }
+                    ];
+
+                    const maxVal = Math.max(
+                      ...displayedChartData.map(d => Math.max(d.production_volume || 0, d.sales_volume || 0)),
+                      10
+                    );
+
+                    return (
+                      <>
+                        {Array.from({ length: 4 }).map((_, idx) => {
+                          const val = Math.round((maxVal / 3) * (3 - idx));
+                          const bottomPercent = ((3 - idx) / 3) * 100;
+                          return (
+                            <React.Fragment key={idx}>
+                              {/* Grid line */}
+                              <div 
+                                className="absolute left-0 right-0 border-t border-slate-100 border-dashed pointer-events-none"
+                                style={{ bottom: `${bottomPercent}%` }}
+                              />
+                              {/* Y label */}
+                              <div 
+                                className="absolute -left-12 text-[8px] text-slate-400 font-mono font-bold w-10 text-right -translate-y-1/2"
+                                style={{ bottom: `${bottomPercent}%` }}
+                              >
+                                {val}K
+                              </div>
+                            </React.Fragment>
+                          );
+                        })}
+
+                        {/* Bars representing each period */}
+                        {displayedChartData.map((item, idx) => {
+                          const prodPercent = ((item.production_volume || 0) / maxVal) * 85;
+                          const salesPercent = ((item.sales_volume || 0) / maxVal) * 85;
+                          return (
+                            <div key={idx} className="flex flex-col items-center gap-2 flex-1 group z-10">
+                              <div className="flex gap-1 items-end w-full justify-center max-w-[64px] h-full relative">
+                                {/* Production Bar (Blue) */}
+                                <div 
+                                  className="w-3 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-xs hover:from-blue-500 hover:to-blue-300 transition-all relative group/bar cursor-pointer"
+                                  style={{ height: `${prodPercent}%` }}
+                                >
+                                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-1.5 py-0.5 rounded shadow-lg opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none font-bold">
+                                    NSX: {item.production_volume}K
+                                  </div>
+                                </div>
+                                {/* Sales Bar (Green) */}
+                                <div 
+                                  className="w-3 bg-gradient-to-t from-green-600 to-green-400 rounded-t-xs hover:from-green-500 hover:to-green-300 transition-all relative group/bar2 cursor-pointer"
+                                  style={{ height: `${salesPercent}%` }}
+                                >
+                                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] px-1.5 py-0.5 rounded shadow-lg opacity-0 group-hover/bar2:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none font-bold">
+                                    Bán: {item.sales_volume}K
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap">
+                                {formatPeriod(item.time_period)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 4: Recent Activity Stream */}
@@ -142,18 +272,32 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
 
             <div className="divide-y divide-slate-100 text-xs text-slate-700">
-              <div className="py-3 flex justify-between items-start gap-4">
-                <span className="leading-relaxed">Lô hàng <strong className="font-mono text-slate-900">BATCH-2026-KG01</strong> được nhập kho thành công bởi <strong>Nguyễn Kho</strong>. Số lượng: 500 chiếc.</span>
-                <span className="text-slate-400 flex-shrink-0">10:15 AM</span>
-              </div>
-              <div className="py-3 flex justify-between items-start gap-4">
-                <span className="leading-relaxed">Đăng ký quyền sở hữu mới thành công cho thiết bị <strong>Máy lọc nước RO Kangaroo VT3</strong> bởi khách hàng <strong>Nguyễn Văn A</strong>.</span>
-                <span className="text-slate-400 flex-shrink-0">09:45 AM</span>
-              </div>
-              <div className="py-3 flex justify-between items-start gap-4">
-                <span className="leading-relaxed">Kích hoạt bảo hành điện tử chính hãng <strong className="font-mono text-slate-900">WAR-JA-321104</strong> cho dự án hộ gia đình hòa lưới (Trần Thị B).</span>
-                <span className="text-slate-400 flex-shrink-0">09:15 AM</span>
-              </div>
+              {activitiesLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="py-3 flex justify-between items-start gap-4 animate-pulse">
+                    <div className="h-4 bg-slate-100 rounded w-3/4"></div>
+                    <div className="h-4 bg-slate-100 rounded w-12"></div>
+                  </div>
+                ))
+              ) : activities.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  Không có hoạt động nào ghi nhận trong hôm nay.
+                </div>
+              ) : (
+                activities.map((act) => (
+                  <div key={act?.id} className="py-3 flex justify-between items-start gap-4">
+                    <span className="leading-relaxed">
+                      {act?.title && (
+                        <span className="font-semibold text-slate-800">{act.title} — </span>
+                      )}
+                      {act?.description}
+                    </span>
+                    <span className="text-slate-400 flex-shrink-0">
+                      {act?.created_at ? formatTime(act.created_at) : ''}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -169,41 +313,37 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </h3>
 
             <div className="space-y-3">
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-800 space-y-1">
-                <div className="font-bold flex items-center gap-1">🔴 Phát hiện lô sản phẩm hết hạn</div>
-                <p className="text-[10px] text-red-600 leading-normal">Lô hàng BATCH-2026-SP12 (Sơn Spec) đã hết hạn sử dụng. Yêu cầu khóa mã QR.</p>
-              </div>
-
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-800 space-y-1">
-                <div className="font-bold flex items-center gap-1">🔴 Cảnh báo đăng nhập bất thường</div>
-                <p className="text-[10px] text-red-600 leading-normal">Nhận diện 3 lượt đăng nhập sai mật khẩu liên tiếp từ IP lạ ngoài lãnh thổ.</p>
-              </div>
-
-              <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-800 space-y-1">
-                <div className="font-bold flex items-center gap-1">🟠 Cảnh báo tồn kho dưới mức an toàn</div>
-                <p className="text-[10px] text-amber-700 leading-normal">Máy lọc nước tại Showroom Cầu Giấy hiện còn dưới 15 chiếc.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Warranty intelligence insights */}
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-3">
-            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-              <ShieldCheck size={16} className="text-blue-500" /> Insight & Tối ưu hóa
-            </h3>
-            
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">💡 Khuyến nghị thu hồi</p>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Tỷ lệ lỗi báo cáo của <strong>Thiết bị gia dụng</strong> đạt 1.4%. Khuyến nghị kiểm tra khâu đóng gói vận chuyển của lô hàng BATCH-2026-KG01.
-              </p>
-            </div>
-            
-            <div className="pt-2 border-t border-slate-100 space-y-2">
-              <p className="text-[10px] font-bold text-green-600 uppercase tracking-wider">📈 Thị phần sở hữu</p>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Số lượng đăng ký sở hữu mới tăng mạnh 10.1% ở khu vực TP. Hà Nội, tập trung tại Showroom Cầu Giấy.
-              </p>
+              {alertsLoading ? (
+                Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="p-3 bg-slate-50 border border-slate-100 rounded-lg animate-pulse space-y-2">
+                    <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+                    <div className="h-3 bg-slate-100 rounded w-5/6"></div>
+                  </div>
+                ))
+              ) : alerts.length === 0 ? (
+                <div className="py-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  🟢 Hệ thống an toàn, chưa ghi nhận cảnh báo.
+                </div>
+              ) : (
+                alerts.map((alert) => {
+                  const isDanger = alert?.type === 'DANGER';
+                  const isWarning = alert?.type === 'WARNING';
+                  const bgClass = isDanger ? 'bg-red-50 border-red-100' : isWarning ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100';
+                  const textClass = isDanger ? 'text-red-800' : isWarning ? 'text-amber-800' : 'text-blue-800';
+                  const descClass = isDanger ? 'text-red-600' : isWarning ? 'text-amber-700' : 'text-blue-700';
+                  const emoji = isDanger ? '🔴' : isWarning ? '🟠' : '🔵';
+                  return (
+                    <div key={alert?.id} className={`p-3 border rounded-lg text-xs space-y-1 ${bgClass} ${textClass}`}>
+                      <div className="font-bold flex items-center gap-1">
+                        {emoji} {alert?.title}
+                      </div>
+                      <p className={`text-[10px] leading-normal ${descClass}`}>
+                        {alert?.description}
+                      </p>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
