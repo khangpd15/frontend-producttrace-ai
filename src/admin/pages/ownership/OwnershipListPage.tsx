@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import { ownershipApi } from '../../../api/ownership.api';
+import { ownershipApi } from '../../../features/ownership/api/ownership.api';
 
 import { AdminOwnership as Ownership } from '@shared/types/domain';
 
@@ -58,10 +58,13 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
   const loadOwnerships = async () => {
     try {
       setLoading(true);
-      const res = await ownershipApi.getOwnerships();
+      const res = await ownershipApi.search({
+        page: 1,
+        limit: 100,
+      });
       // res.data is ApiResponse, res.data.data is PaginatedOwnershipsRes which contains .data and .total_items
       
-      let rawData = [];
+      let rawData: any[] = [];
       if (res.data?.data?.data && Array.isArray(res.data.data.data)) {
         rawData = res.data.data.data;
       } else if (Array.isArray(res.data?.data)) {
@@ -70,9 +73,10 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
       
       const mappedOwnerships = rawData.map((item: any) => ({
         id: item.ownership_id || item.id || `temp-${Math.random()}`,
-        itemCode: item.product_id || item.itemCode || '',
+        productId: item.product_id || '',
+        itemCode: item.product_sku || item.itemCode || '',
         itemName: item.product_name || item.itemName || 'Unknown Product',
-        serialNumber: item.product_sku || item.serialNumber || '',
+        serialNumber: item.serial_number || item.serialNumber || '',
         ownerName: item.owner_name || item.ownerName || 'Unknown Owner',
         ownerEmail: item.owner_email || item.ownerEmail || '',
         status: item.status || 'ACTIVE',
@@ -110,13 +114,14 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
   // Real-time EventSource Setup
   useEffect(() => {
-    const token = localStorage.getItem('producttrace_access_token');
+    const token = localStorage.getItem('pt_access_token');
     if (!token) return;
 
     let sse: EventSource;
     try {
       // Connect to SSE stream and pass token via query URL
-      sse = new EventSource(`http://localhost:8080/api/ownership/admin/stream?token=${token}`);
+      const streamBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
+      sse = new EventSource(`${streamBaseUrl}/ownership/admin/stream?token=${token}`);
       
       sse.onmessage = (event) => {
         if (event.data === 'NEW_OWNERSHIP_REQUEST') {
@@ -192,7 +197,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     setIsDrawerOpen(true);
   };
 
-  const handleOpenView = (ownership: any) => {
+  const handleOpenView = async (ownership: any) => {
     setDrawerMode('VIEW');
     setSelectedOwnership(ownership);
     setTimeline([]);
@@ -211,6 +216,23 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
       status: ownership.status || 'ACTIVE'
     });
     setIsDrawerOpen(true);
+
+    try {
+      setIsTimelineLoading(true);
+      const res = await ownershipApi.getById(ownership.productId || ownership.id);
+      if (res.data?.data?.ownership_history) {
+        const mappedHistory = res.data.data.ownership_history.map((h: any) => ({
+          title: h.status === 'ACTIVE' ? 'Đăng ký sở hữu thành công' : h.status === 'TRANSFERRED' ? 'Đã chuyển nhượng sở hữu' : 'Bị thu hồi / thay đổi',
+          description: `Chủ sở hữu: ${h.owner_name} (${h.owner_email})`,
+          timestamp: h.registration_date,
+        }));
+        setTimeline(mappedHistory);
+      }
+    } catch (err) {
+      console.error('Failed to load timeline:', err);
+    } finally {
+      setIsTimelineLoading(false);
+    }
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -228,7 +250,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
       try {
         setFormError(null);
-        await ownershipApi.transferOwnership(selectedOwnership.id, {
+        await ownershipApi.transfer(selectedOwnership.id, {
           new_owner_name: transferData.newOwnerName.trim(),
           new_owner_email: transferData.newOwnerEmail.trim(),
         });
@@ -275,7 +297,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
             setFormError('Vui lòng nhập đúng 6 số OTP');
             return;
           }
-          await ownershipApi.adminVerifyAndRegister({
+          await ownershipApi.adminRegister({
             otp: adminOtp,
             product_id: resolvedProductId || formData.itemCode, // Use resolved UUID
             owner_name: formData.ownerName.trim(),
@@ -553,7 +575,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                                   e.stopPropagation();
                                   if (confirm(`Bạn có chắc chắn muốn thu hồi bản ghi sở hữu ${o.itemName}?`)) {
                                     try {
-                                      await ownershipApi.deleteOwnership(o.id);
+                                      await ownershipApi.delete(o.id);
                                       alert('Thu hồi quyền sở hữu thành công');
                                       loadOwnerships();
                                     } catch (err: any) {

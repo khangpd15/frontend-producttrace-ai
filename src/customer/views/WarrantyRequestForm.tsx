@@ -39,12 +39,13 @@ export function WarrantyRequestForm({ onBack, productId }: Props) {
 
     setIsLoading(true);
     try {
-      await warrantyApi.createClaim({
-        product_id: productId,
-        issue_title: issueTitle.trim(),
-        issue_description: description.trim(),
-        contact_phone: contactPhone.trim(),
-        contact_email: contactEmail.trim() || undefined,
+      const note = `Tiêu đề sự cố: ${issueTitle.trim()}\nMô tả: ${description.trim()}\nSĐT liên hệ: ${contactPhone.trim()}`;
+      await warrantyApi.requestWarranty({
+        serialNumber: productId || 'SN-UNKNOWN',
+        itemCode: productId || 'ITEM-UNKNOWN',
+        ownerName: 'Customer',
+        ownerEmail: contactEmail.trim() || undefined,
+        note: note,
       });
       setSuccess(true);
     } catch (err: unknown) {

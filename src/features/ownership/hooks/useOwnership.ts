@@ -90,3 +90,23 @@ export function useDeleteOwnership() {
     },
   });
 }
+
+export function useAdminApproveOwnership() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { ownership_id: string }) => ownershipApi.adminApproveOwnership(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ownershipKeys.all });
+    },
+  });
+}
+
+export function useAdminRejectOwnership() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { ownership_id: string }) => ownershipApi.adminRejectOwnership(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ownershipKeys.all });
+    },
+  });
+}
