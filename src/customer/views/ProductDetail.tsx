@@ -35,7 +35,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           const found = myOwnerships.find((o: any) => o.serialNumber === codeParam || o.itemCode === codeParam || o.serialNumber === idParam);
           if (found) {
             realOwnership = {
-              ownerName: found.ownerName || 'Bạn',
+              ownerName: found.owner_name || 'Bạn',
               status: found.status
             };
           }

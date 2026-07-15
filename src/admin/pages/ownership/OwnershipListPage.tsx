@@ -25,6 +25,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<'CREATE' | 'EDIT' | 'VIEW' | 'TRANSFER'>('CREATE');
   const [selectedOwnership, setSelectedOwnership] = useState<any | null>(null);
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [isTimelineLoading, setIsTimelineLoading] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -184,6 +186,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     setTransferData({
       newOwnerName: '',
       newOwnerEmail: '',
+      transferNote: '',
     });
     setFormError(null);
     setIsDrawerOpen(true);
@@ -192,18 +195,20 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
   const handleOpenView = (ownership: any) => {
     setDrawerMode('VIEW');
     setSelectedOwnership(ownership);
+    setTimeline([]);
     setFormData({
       id: ownership.id,
-      itemCode: ownership.itemCode,
-      itemName: ownership.itemName,
-      serialNumber: ownership.serialNumber,
-      ownerName: ownership.ownerName,
-      ownerEmail: ownership.ownerEmail,
-      ownershipType: ownership.ownershipType,
-      purchaseDate: ownership.purchaseDate,
-      purchaseLocation: ownership.purchaseLocation,
-      invoiceNumber: ownership.invoiceNumber,
-      status: ownership.status
+      itemCode: ownership.itemCode || '',
+      itemName: ownership.itemName || '',
+      serialNumber: ownership.serialNumber || '',
+      ownerName: ownership.ownerName || '',
+      ownerEmail: ownership.ownerEmail || '',
+      ownerPhone: ownership.ownerPhone || '',
+      ownershipType: ownership.ownershipType || 'PRIMARY',
+      purchaseDate: ownership.purchaseDate || '',
+      purchaseLocation: ownership.purchaseLocation || '',
+      invoiceNumber: ownership.invoiceNumber || '',
+      status: ownership.status || 'ACTIVE'
     });
     setIsDrawerOpen(true);
   };
@@ -803,7 +808,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         <div className="text-center py-4 text-xs text-slate-400">Không có dữ liệu timeline.</div>
                       ) : (
                         <div className="relative pl-6 space-y-4 border-l-2 border-slate-100 ml-2 py-1">
-                          {timeline.map((ev, idx) => (
+                          {timeline.map((ev: any, idx: number) => (
                             <div key={idx} className="relative">
                               <span className="absolute -left-[31px] top-0 w-4 h-4 bg-blue-100 border border-blue-300 rounded-full flex items-center justify-center">
                                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>

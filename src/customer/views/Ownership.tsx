@@ -300,7 +300,7 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredOwnerships.map((item) => (
+            {filteredOwnerships.map((item: any) => (
               <Card
                 key={item.ownership_id}
                 className="p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow"

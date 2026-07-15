@@ -38,6 +38,37 @@ export interface TransferOwnershipReq {
   new_owner_phone?: string;
   new_owner_address?: string;
 }
+export type CustomerRegisterReq = CustomerVerifyAndRegisterReq;
+
+export interface SearchOwnershipsParams {
+  page?: number;
+  limit?: number;
+  product_item_id?: string;
+  ownership_status?: string;
+  [key: string]: any;
+}
+
+export interface AdminRequestOTPReq {
+  qr_code: string;
+  owner_name: string;
+  owner_email: string;
+  owner_phone?: string;
+}
+
+export interface AdminRegisterReq {
+  otp: string;
+  product_id: string;
+  owner_name: string;
+  owner_email: string;
+  owner_phone?: string;
+}
+
+export interface TransferOwnershipReq {
+  new_owner_name: string;
+  new_owner_email: string;
+  new_owner_phone?: string;
+  new_owner_address?: string;
+}
 
 export interface OwnershipSummaryRes {
   ownership_id: string;
@@ -122,6 +153,9 @@ export const ownershipApi = {
   // Search & List Ownerships
   search: (params?: SearchOwnershipsParams) =>
     apiClient.get<ApiResponse<PaginatedOwnershipsRes>>('/ownership', { params }),
+
+  getMyOwnerships: (page = 1, limit = 10) =>
+    apiClient.get<ApiResponse<PaginatedOwnershipsRes>>(`/ownership?page=${page}&limit=${limit}`),
 
   // Get Ownership Detail
   getById: (id: string) =>
