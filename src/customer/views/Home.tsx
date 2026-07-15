@@ -148,8 +148,18 @@ export function Home({ onScan, onNavigate, onBellClick }: { onScan?: () => void;
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (searchVal.trim()) {
-      navigate(`/customer/product?code=${encodeURIComponent(searchVal.trim())}`);
+    const query = searchVal.trim();
+    if (query) {
+      // Heuristic: If search query doesn't contain spaces and contains alphanumeric characters/hyphens,
+      // it is likely a serial number or product code to trace.
+      const isTraceCode = /^[a-zA-Z0-9\-_]+$/.test(query) && query.length >= 3;
+      if (isTraceCode) {
+        navigate(`/customer/product?code=${encodeURIComponent(query)}`);
+      } else {
+        navigate(`/customer/products?q=${encodeURIComponent(query)}`);
+      }
+    } else {
+      navigate('/customer/products');
     }
   };
 
@@ -248,7 +258,8 @@ export function Home({ onScan, onNavigate, onBellClick }: { onScan?: () => void;
               <motion.div 
                 key={i} 
                 whileHover={{ scale: 1.05 }}
-                className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2"
+                onClick={() => navigate(`/customer/products?q=${encodeURIComponent(cat.name)}`)}
+                className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2 cursor-pointer"
               >
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-full">{cat.icon}</div>
                 <p className="text-[11px] font-semibold text-slate-700 text-center">{cat.name}</p>

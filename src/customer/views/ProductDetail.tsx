@@ -228,6 +228,16 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           </div>
           <h3 className="text-lg font-bold text-slate-900">{isNotFound ? 'Thông báo' : 'Lỗi tải dữ liệu'}</h3>
           <p className="text-sm text-slate-500">{error || 'Không tìm thấy sản phẩm phù hợp.'}</p>
+          
+          {codeParam && (
+            <Button 
+              onClick={() => navigate(`/customer/products?q=${encodeURIComponent(codeParam)}`)}
+              className="w-full bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+            >
+              Tìm kiếm "{codeParam}" bằng AI
+            </Button>
+          )}
+          
           <Button onClick={handleBackClick} className="w-full">Quay lại</Button>
         </div>
       </div>

@@ -37,6 +37,7 @@ const AISearchPage = lazy(() => import('../admin/pages/search/AISearchPage'));
 // ─── Customer pages (lazy) ────────────────────────────────────────────────────
 const CustomerHome = lazy(() => import('../customer/views/Home'));
 const CustomerProductDetail = lazy(() => import('../customer/views/ProductDetail'));
+const CustomerProductList = lazy(() => import('../customer/views/ProductList'));
 const CustomerOwnership = lazy(() => import('../customer/views/Ownership'));
 const CustomerWarranty = lazy(() => import('../customer/views/Warranty'));
 const CustomerProfile = lazy(() => import('../customer/views/Profile'));
@@ -200,6 +201,11 @@ export default function AppRouter() {
                   onBack={() => window.history.back()}
                   onRequestWarranty={() => window.location.href = '/customer/warranty'}
                   onRegisterOwnership={() => window.location.href = '/customer/ownership/register'}
+                />
+              } />
+              <Route path="/customer/products" element={
+                <CustomerProductList
+                  onBack={() => window.history.back()}
                 />
               } />
               <Route path="/customer/ownership" element={
