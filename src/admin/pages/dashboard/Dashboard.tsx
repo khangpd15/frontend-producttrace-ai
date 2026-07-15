@@ -19,8 +19,8 @@ interface DashboardProps {
 export default function Dashboard({ onNavigate }: DashboardProps) {
   const { data: stats, isLoading, error, refetch } = useDashboardStats();
   const { data: activities = [], isLoading: activitiesLoading } = useDashboardActivities(10);
-  const { data: alerts = [],     isLoading: alertsLoading }     = useDashboardAlerts();
-  const { data: chartData = [],  isLoading: chartLoading }      = useDashboardCharts();
+  const { data: alerts = [], isLoading: alertsLoading } = useDashboardAlerts();
+  const { data: chartData = [], isLoading: chartLoading } = useDashboardCharts();
 
   const formatTime = (isoString: string) => {
     try {
@@ -149,7 +149,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             style={{ gridTemplateColumns: `repeat(${chartData.length}, 1fr)` }}
           >
             {chartData.map((item, idx) => {
-              const prodH  = Math.max(((item.production_volume || 0) / maxVal) * (CHART_H - 24), 0);
+              const prodH = Math.max(((item.production_volume || 0) / maxVal) * (CHART_H - 24), 0);
               const salesH = Math.max(((item.sales_volume || 0) / maxVal) * (CHART_H - 24), 0);
               return (
                 <div key={idx} className="flex flex-col items-center gap-1 h-full">
@@ -212,12 +212,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-          <StatCard label="Tổng sản phẩm"     value={stats?.total_products.toLocaleString()       ?? '0'} trend="↑ 12.4%" color="text-blue-600"   bg="bg-blue-50"   icon={Package}       tabId="products"  />
-          <StatCard label="Tổng số lô hàng"   value={stats?.total_batches.toLocaleString()         ?? '0'} trend="↑ 8.2%"  color="text-purple-600" bg="bg-purple-50" icon={Layers}        tabId="batches"   />
-          <StatCard label="Lượt sở hữu"       value={stats?.total_ownerships.toLocaleString()      ?? '0'} trend="↑ 10.1%" color="text-green-600"  bg="bg-green-50"  icon={Users}         tabId="ownership" />
-          <StatCard label="Đang bảo hành"     value={stats?.total_under_warranty.toLocaleString()  ?? '0'} trend="↑ 4.5%"  color="text-blue-600"   bg="bg-blue-50"   icon={ShieldCheck}   tabId="warranty"  />
-          <StatCard label="Yêu cầu chờ duyệt" value={stats?.total_pending_approval.toLocaleString()?? '0'} trend="↓ 18%"   color="text-amber-600"  bg="bg-amber-50"  icon={ClipboardList}  tabId="warranty"  />
-          <StatCard label="Đại lý &amp; Kho"  value={stats?.total_locations.toLocaleString()       ?? '0'} trend="↑ 3%"    color="text-slate-700"  bg="bg-slate-50"  icon={Building}      tabId="store"     />
+          <StatCard label="Tổng sản phẩm" value={stats?.total_products.toLocaleString() ?? '0'} trend="↑ 12.4%" color="text-blue-600" bg="bg-blue-50" icon={Package} tabId="products" />
+          <StatCard label="Tổng số lô hàng" value={stats?.total_batches.toLocaleString() ?? '0'} trend="↑ 8.2%" color="text-purple-600" bg="bg-purple-50" icon={Layers} tabId="batches" />
+          <StatCard label="Lượt sở hữu" value={stats?.total_ownerships.toLocaleString() ?? '0'} trend="↑ 10.1%" color="text-green-600" bg="bg-green-50" icon={Users} tabId="ownership" />
+          <StatCard label="Đang bảo hành" value={stats?.total_under_warranty.toLocaleString() ?? '0'} trend="↑ 4.5%" color="text-blue-600" bg="bg-blue-50" icon={ShieldCheck} tabId="warranty" />
+          <StatCard label="Yêu cầu chờ duyệt" value={stats?.total_pending_approval.toLocaleString() ?? '0'} trend="↓ 18%" color="text-amber-600" bg="bg-amber-50" icon={ClipboardList} tabId="warranty" />
+          <StatCard label="Đại lý &amp; Kho" value={stats?.total_locations.toLocaleString() ?? '0'} trend="↑ 3%" color="text-slate-700" bg="bg-slate-50" icon={Building} tabId="store" />
         </div>
       )}
 
@@ -241,7 +241,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-green-500 rounded-xs" /> Tiêu thụ</span>
               </div>
             </div>
-<<<<<<< HEAD
 
             {chartLoading ? (
               <div className="h-64 bg-slate-50/50 rounded-xl flex flex-col items-center justify-center gap-2 border border-slate-100">
@@ -279,12 +278,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           return (
                             <React.Fragment key={idx}>
                               {/* Grid line */}
-                              <div 
+                              <div
                                 className="absolute left-0 right-0 border-t border-slate-100 border-dashed pointer-events-none"
                                 style={{ bottom: `${bottomPercent}%` }}
                               />
                               {/* Y label */}
-                              <div 
+                              <div
                                 className="absolute -left-12 text-[8px] text-slate-400 font-mono font-bold w-10 text-right -translate-y-1/2"
                                 style={{ bottom: `${bottomPercent}%` }}
                               >
@@ -302,7 +301,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             <div key={idx} className="flex flex-col items-center gap-2 flex-1 group z-10">
                               <div className="flex gap-1 items-end w-full justify-center max-w-[64px] h-full relative">
                                 {/* Production Bar (Blue) */}
-                                <div 
+                                <div
                                   className="w-3 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-xs hover:from-blue-500 hover:to-blue-300 transition-all relative group/bar cursor-pointer"
                                   style={{ height: `${prodPercent}%` }}
                                 >
@@ -311,7 +310,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                   </div>
                                 </div>
                                 {/* Sales Bar (Green) */}
-                                <div 
+                                <div
                                   className="w-3 bg-gradient-to-t from-green-600 to-green-400 rounded-t-xs hover:from-green-500 hover:to-green-300 transition-all relative group/bar2 cursor-pointer"
                                   style={{ height: `${salesPercent}%` }}
                                 >
@@ -332,9 +331,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               </div>
             )}
-=======
             {renderChart()}
->>>>>>> ffe09625fb47b30b01a5378a81d0494025fe40a7
           </div>
 
           {/* Activities */}
@@ -400,12 +397,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 </div>
               ) : (
                 alerts.map((alert) => {
-                  const isDanger  = alert?.type === 'DANGER';
+                  const isDanger = alert?.type === 'DANGER';
                   const isWarning = alert?.type === 'WARNING';
-                  const bgClass   = isDanger ? 'bg-red-50 border-red-100'    : isWarning ? 'bg-amber-50 border-amber-100'   : 'bg-blue-50 border-blue-100';
-                  const textClass = isDanger ? 'text-red-800'                : isWarning ? 'text-amber-800'                 : 'text-blue-800';
-                  const descClass = isDanger ? 'text-red-600'                : isWarning ? 'text-amber-700'                 : 'text-blue-700';
-                  const emoji     = isDanger ? '🔴'                          : isWarning ? '🟠'                             : '🔵';
+                  const bgClass = isDanger ? 'bg-red-50 border-red-100' : isWarning ? 'bg-amber-50 border-amber-100' : 'bg-blue-50 border-blue-100';
+                  const textClass = isDanger ? 'text-red-800' : isWarning ? 'text-amber-800' : 'text-blue-800';
+                  const descClass = isDanger ? 'text-red-600' : isWarning ? 'text-amber-700' : 'text-blue-700';
+                  const emoji = isDanger ? '🔴' : isWarning ? '🟠' : '🔵';
                   return (
                     <div key={alert?.id} className={`p-3 border rounded-lg text-xs space-y-1 ${bgClass} ${textClass}`}>
                       <div className="font-bold flex items-center gap-1">{emoji} {alert?.title}</div>
