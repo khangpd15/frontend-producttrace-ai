@@ -20,6 +20,8 @@ import {
   BatchStatusResponse,
   CreateBatchRequest,
   ExportBatchRequest,
+  ExportBatchesRequest,
+  ExportBatchesResponse,
   GetBatchListParams,
   SearchBatchParams,
   GetBatchHistoryParams,
@@ -101,10 +103,19 @@ export const batchApi = {
   /**
    * POST /api/batches/:id/export
    * Auth: Bearer Token (ADMIN / MANAGER / WAREHOUSE)
-   * param :id là UUID của batch
+   * Legacy single-batch export. Giữ lại để backward compat.
    */
   export: (batchId: string, payload: ExportBatchRequest) =>
     apiClient.post<ApiResponse<null>>(`/batches/${batchId}/export`, payload),
+
+  /**
+   * POST /api/batches/export
+   * Auth: Bearer Token (ADMIN / MANAGER / WAREHOUSE)
+   * Bulk export: xuất toàn bộ ProductItems của nhiều batch trong 1 lần.
+   * All-or-nothing: nếu 1 batch lỗi → rollback toàn bộ.
+   */
+  exportBatches: (payload: ExportBatchesRequest) =>
+    apiClient.post<ApiResponse<ExportBatchesResponse>>('/batches/export', payload),
 
   /**
    * GET /api/batches/export-qr/:id

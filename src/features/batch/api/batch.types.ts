@@ -237,13 +237,39 @@ export interface BatchStatusResponse {
 
 // ─── Batch Export ────────────────────────────────────────────────────────────
 
-/** Từ ExportBatchRequest — body JSON gửi lên POST /batches/:id/export */
+/**
+ * ExportBatchRequest — legacy DTO cho POST /batches/:id/export (single batch).
+ * Giữ lại để backward compatibility.
+ */
 export interface ExportBatchRequest {
   destination_location: string;
   quantity: number;
   operator_name: string;
   notes?: string;
 }
+
+/**
+ * ExportBatchesRequest — DTO mới cho POST /batches/export (bulk export).
+ * Xuất toàn bộ ProductItems của các batch đã chọn.
+ * Không còn quantity và operator_name — Backend tự lấy từ JWT context.
+ */
+export interface ExportBatchesRequest {
+  /** Danh sách UUID của các batch cần xuất (ít nhất 1) */
+  batch_ids: string[];
+  /** UUID của Location đích */
+  destination_location_id: string;
+  /** Ghi chú tùy chọn */
+  note?: string;
+}
+
+/** Response từ POST /batches/export */
+export interface ExportBatchesResponse {
+  exported_batch_count: number;
+  exported_item_count: number;
+  batch_ids: string[];
+  destination_location_id: string;
+}
+
 
 // ─── Status Enum ─────────────────────────────────────────────────────────────
 

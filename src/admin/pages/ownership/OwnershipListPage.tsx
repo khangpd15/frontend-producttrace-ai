@@ -18,27 +18,28 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('ALL');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterType, setFilterType] = useState<string>('ALL');
 
   // Drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<'CREATE' | 'EDIT' | 'VIEW' | 'TRANSFER'>('CREATE');
-  const [selectedOwnership, setSelectedOwnership] = useState<Ownership | null>(null);
+  const [selectedOwnership, setSelectedOwnership] = useState<any | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
     id: '',
     itemCode: '',
     itemName: 'Máy lọc nước RO Kangaroo VT3',
-    serialNumber: '',
+    serialNumber: '', // will be used as the QR code search input
     ownerName: '',
     ownerEmail: '',
-    ownershipType: 'PRIMARY' as any,
-    purchaseDate: '',
-    purchaseLocation: '',
+    ownerPhone: '',
+    ownershipType: 'PRIMARY',
+    purchaseDate: new Date().toISOString().substring(0, 10),
+    purchaseLocation: 'Điện Máy Xanh Cầu Giấy',
     invoiceNumber: '',
-    status: 'ACTIVE' as any
+    status: 'ACTIVE'
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [otpStep, setOtpStep] = useState(false);
@@ -138,20 +139,20 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
   // Filtered ownerships
   const filteredOwnerships = useMemo(() => {
-    return ownerships.filter(o => {
+    const list = ownerships || [];
+    return list.filter(o => {
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase();
-        const matchCode = o.itemCode.toLowerCase().includes(query);
-        const matchSerial = o.serialNumber.toLowerCase().includes(query);
-        const matchOwner = o.ownerName.toLowerCase().includes(query) || o.ownerEmail.toLowerCase().includes(query);
+        const matchCode = (o.serialNumber || '').toLowerCase().includes(query);
+        const matchSerial = (o.itemCode || '').toLowerCase().includes(query);
+        const matchOwner = (o.ownerName || '').toLowerCase().includes(query) || (o.ownerEmail || '').toLowerCase().includes(query);
         if (!matchCode && !matchSerial && !matchOwner) return false;
       }
-      if (filterType !== 'ALL' && o.ownershipType !== filterType) return false;
       if (filterStatus !== 'ALL' && o.status !== filterStatus) return false;
       if (activeKpiFilter !== 'ALL' && o.status !== activeKpiFilter) return false;
       return true;
     });
-  }, [ownerships, searchTerm, filterType, filterStatus, activeKpiFilter]);
+  }, [ownerships, searchTerm, filterStatus, activeKpiFilter, filterType]);
 
   const handleOpenCreate = () => {
     setDrawerMode('CREATE');
@@ -159,9 +160,10 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
       id: '',
       itemCode: 'ITEM-RO-KG' + Math.floor(100000 + Math.random() * 900000),
       itemName: 'Máy lọc nước RO Kangaroo VT3',
-      serialNumber: 'SN-KG-' + Math.floor(100000 + Math.random() * 900000),
+      serialNumber: '',
       ownerName: '',
       ownerEmail: '',
+      ownerPhone: '',
       ownershipType: 'PRIMARY',
       purchaseDate: new Date().toISOString().substring(0, 10),
       purchaseLocation: 'Điện Máy Xanh Cầu Giấy',
@@ -175,20 +177,19 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     setIsDrawerOpen(true);
   };
 
-  const handleOpenTransfer = (ownership: Ownership, e?: React.MouseEvent) => {
+  const handleOpenTransfer = (ownership: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setDrawerMode('TRANSFER');
     setSelectedOwnership(ownership);
     setTransferData({
       newOwnerName: '',
       newOwnerEmail: '',
-      transferNote: ''
     });
     setFormError(null);
     setIsDrawerOpen(true);
   };
 
-  const handleOpenView = (ownership: Ownership) => {
+  const handleOpenView = (ownership: any) => {
     setDrawerMode('VIEW');
     setSelectedOwnership(ownership);
     setFormData({
@@ -211,8 +212,12 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     e.preventDefault();
 
     if (drawerMode === 'TRANSFER' && selectedOwnership) {
-      if (!transferData.newOwnerName.trim() || !transferData.newOwnerEmail.trim()) {
-        setFormError('Vui lòng nhập đầy đủ tên và email của người sở hữu mới');
+      if (!transferData.newOwnerName.trim()) {
+        setFormError('Vui lòng nhập tên của người sở hữu mới');
+        return;
+      }
+      if (!transferData.newOwnerEmail.trim()) {
+        setFormError('Vui lòng nhập email của người sở hữu mới');
         return;
       }
 
@@ -354,16 +359,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
         </Button>
       </div>
 
-      {demoState === 'ERROR' ? (
-        <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
-          <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
-            <AlertCircle size={24} />
-          </div>
-          <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu sở hữu</h3>
-          <p className="mt-2 text-sm text-slate-500 max-w-sm">Đã xảy ra lỗi hệ thống khi tải lịch sử sở hữu.</p>
-          <Button onClick={() => setDemoState('NORMAL')} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
-        </Card>
-      ) : demoState === 'LOADING' ? (
+      {loading ? (
         renderSkeleton()
       ) : (
         <>
@@ -444,7 +440,6 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
               <button
                 onClick={() => {
                   setSearchTerm('');
-                  setFilterType('ALL');
                   setFilterStatus('ALL');
                   setActiveKpiFilter('ALL');
                 }}
@@ -457,7 +452,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
           {/* Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            {demoState === 'EMPTY' || filteredOwnerships.length === 0 ? (
+            {filteredOwnerships.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Không tìm thấy bản ghi</h3>
@@ -469,12 +464,11 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                 <table className="w-full text-left text-sm table-fixed border-collapse">
                   <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
                     <tr>
-                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[18%]">Mã Sản Phẩm / Serial</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[22%]">Sản phẩm</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[20%]">Chủ sở hữu</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[12%]">Loại</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[12%]">Kích hoạt</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[16%] text-center">Trạng thái</th>
+                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[22%]">Mã SKU / ID Sản phẩm</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[22%]">Tên sản phẩm</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[24%]">Chủ sở hữu</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[14%]">Ngày Đăng ký</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[18%] text-center">Trạng thái</th>
                       <th className="p-3.5 pr-5 font-bold tracking-wider w-[12%] text-right">Thao tác</th>
                     </tr>
                   </thead>
@@ -486,22 +480,19 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
                       >
                         <td className="p-3.5 pl-5 truncate">
-                          <div className="font-mono text-xs text-slate-500 font-semibold">{o.itemCode}</div>
-                          <div className="font-mono text-[10px] text-slate-400">{o.serialNumber}</div>
+                          <div className="font-mono text-xs text-slate-500 font-semibold">{o.serialNumber}</div>
+                          <div className="font-mono text-[10px] text-slate-400 truncate">{o.itemCode}</div>
                         </td>
                         <td className="p-3.5 font-semibold text-slate-900 truncate">{o.itemName}</td>
                         <td className="p-3.5 truncate">
-                          <div className="font-semibold text-slate-800 text-xs flex items-center gap-1"><User size={12} className="text-slate-400" /> {o.ownerName}</div>
-                          <div className="text-[10px] text-slate-400">{o.ownerEmail}</div>
+                          <div className="font-semibold text-slate-800 text-xs flex items-center gap-1">
+                            <User size={12} className="text-slate-400 flex-shrink-0" /> {o.ownerName}
+                          </div>
+                          <div className="text-[10px] text-slate-400">{o.ownerEmail} {(o as any).ownerPhone ? `| ${(o as any).ownerPhone}` : ''}</div>
                         </td>
-                        <td className="p-3.5">
-                          {o.ownershipType === 'PRIMARY' ? (
-                            <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded font-semibold">Đầu tiên</span>
-                          ) : (
-                            <span className="text-[10px] bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded font-semibold">Chuyển nhượng</span>
-                          )}
+                        <td className="p-3.5 text-slate-500 text-xs">
+                          {new Date(o.ownedAt || new Date()).toLocaleDateString('vi-VN')}
                         </td>
-                        <td className="p-3.5 text-slate-500 text-xs">{o.ownedAt.split(' ')[0]}</td>
                         <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>{renderStatusBadge(o.status)}</td>
                         <td className="p-3.5 pr-5 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
@@ -618,9 +609,9 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                 <div className="space-y-4">
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                     <h4 className="text-xs font-bold text-slate-700">SẢN PHẨM HIỆN TẠI</h4>
-                    <div className="text-sm font-semibold text-slate-900">{selectedOwnership.itemName}</div>
-                    <div className="text-xs text-slate-500">Mã: {selectedOwnership.itemCode} | Serial: {selectedOwnership.serialNumber}</div>
-                    <div className="text-xs text-slate-500 mt-1">Chủ sở hữu hiện tại: <strong>{selectedOwnership.ownerName}</strong> ({selectedOwnership.ownerEmail})</div>
+                    <div className="text-sm font-semibold text-slate-900">{selectedOwnership.product_name}</div>
+                    <div className="text-xs text-slate-500 font-mono">SKU: {selectedOwnership.product_sku}</div>
+                    <div className="text-xs text-slate-500 font-mono">ID: {selectedOwnership.product_id}</div>
                   </div>
 
                   <div className="space-y-3.5">
@@ -630,8 +621,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         type="text"
                         value={transferData.newOwnerName}
                         onChange={e => setTransferData({ ...transferData, newOwnerName: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                        placeholder="Nhập tên đầy đủ của người nhận"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Họ và tên người nhận"
                       />
                     </div>
                     <div>
@@ -640,7 +631,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         type="email"
                         value={transferData.newOwnerEmail}
                         onChange={e => setTransferData({ ...transferData, newOwnerEmail: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         placeholder="email@example.com"
                       />
                     </div>
@@ -678,24 +669,41 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         value={formData.serialNumber}
                         onChange={e => setFormData({ ...formData, serialNumber: e.target.value.toUpperCase() })}
                         disabled={drawerMode === 'VIEW'}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono"
-                        placeholder="SN-XXXXXX"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Ví dụ: SN-987654321 hoặc QR code"
                       />
                     </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-700 block mb-1">Sản phẩm</label>
-                      <select
-                        value={formData.itemName}
-                        onChange={e => setFormData({ ...formData, itemName: e.target.value })}
-                        disabled={drawerMode === 'VIEW'}
-                        className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-sm"
-                      >
-                        <option value="Máy lọc nước RO Kangaroo VT3">Máy lọc nước RO Kangaroo VT3</option>
-                        <option value="Tấm pin mặt trời JA Solar 450W">Tấm pin mặt trời JA Solar 450W</option>
-                        <option value="Sơn chống thấm Spec Damp-proof 5L">Sơn chống thấm Spec Damp-proof 5L</option>
-                        <option value="Omega-3 Premium Nordic">Omega-3 Premium Nordic</option>
-                      </select>
-                    </div>
+                    {drawerMode === 'VIEW' && selectedOwnership && (
+                      <>
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1 font-mono text-slate-500">ID Sản phẩm</label>
+                          <input 
+                            type="text" 
+                            value={selectedOwnership.product_id}
+                            disabled
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">Tên sản phẩm</label>
+                          <input 
+                            type="text" 
+                            value={selectedOwnership.product_name}
+                            disabled
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">Mã SKU</label>
+                          <input 
+                            type="text" 
+                            value={selectedOwnership.product_sku}
+                            disabled
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <hr className="border-slate-100 my-2" />
@@ -709,7 +717,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         value={formData.ownerName}
                         onChange={e => setFormData({ ...formData, ownerName: e.target.value })}
                         disabled={drawerMode === 'VIEW'}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         placeholder="Nguyễn Văn A"
                       />
                     </div>
@@ -720,7 +728,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         value={formData.ownerEmail}
                         onChange={e => setFormData({ ...formData, ownerEmail: e.target.value })}
                         disabled={drawerMode === 'VIEW'}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         placeholder="email@example.com"
                       />
                     </div>
@@ -761,8 +769,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                         value={formData.purchaseLocation}
                         onChange={e => setFormData({ ...formData, purchaseLocation: e.target.value })}
                         disabled={drawerMode === 'VIEW'}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                        placeholder="Tên đại lý bán hàng"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="0987654321"
                       />
                     </div>
                   </div>
@@ -789,23 +797,25 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                   {drawerMode === 'VIEW' && selectedOwnership && (
                     <div className="mt-6 pt-4 border-t border-slate-100 space-y-4">
                       <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1"><ClipboardList size={14} /> Lịch sử vòng đời sản phẩm (Traceability Timeline)</h4>
-                      <div className="relative pl-6 space-y-4 border-l-2 border-slate-100 ml-2 py-1">
-                        <div className="relative">
-                          <span className="absolute -left-[31px] top-0 w-4 h-4 bg-green-100 border border-green-300 rounded-full flex items-center justify-center"><span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span></span>
-                          <div className="text-xs font-bold text-slate-800">Đã kích hoạt sở hữu và bảo hành</div>
-                          <div className="text-[10px] text-slate-400">{selectedOwnership.ownedAt}</div>
+                      {isTimelineLoading ? (
+                        <div className="text-center py-4 text-xs text-slate-400">Đang tải timeline...</div>
+                      ) : timeline.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-slate-400">Không có dữ liệu timeline.</div>
+                      ) : (
+                        <div className="relative pl-6 space-y-4 border-l-2 border-slate-100 ml-2 py-1">
+                          {timeline.map((ev, idx) => (
+                            <div key={idx} className="relative">
+                              <span className="absolute -left-[31px] top-0 w-4 h-4 bg-blue-100 border border-blue-300 rounded-full flex items-center justify-center">
+                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                              </span>
+                              <div className="text-xs font-bold text-slate-800">{ev.title}</div>
+                              <div className="text-[10px] text-slate-500">{ev.description}</div>
+                              {ev.location && <div className="text-[10px] text-slate-400 flex items-center gap-0.5"><MapPin size={10} /> {ev.location}</div>}
+                              <div className="text-[9px] text-slate-400">{new Date(ev.timestamp).toLocaleString('vi-VN')}</div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="relative">
-                          <span className="absolute -left-[31px] top-0 w-4 h-4 bg-blue-100 border border-blue-300 rounded-full flex items-center justify-center"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span></span>
-                          <div className="text-xs font-bold text-slate-800">Xuất kho đại lý bán hàng</div>
-                          <div className="text-[10px] text-slate-400">{selectedOwnership.purchaseDate} 10:00</div>
-                        </div>
-                        <div className="relative">
-                          <span className="absolute -left-[31px] top-0 w-4 h-4 bg-slate-100 border border-slate-300 rounded-full flex items-center justify-center"><span className="w-1.5 h-1.5 bg-slate-500 rounded-full"></span></span>
-                          <div className="text-xs font-bold text-slate-800">Sản xuất & Đóng gói hoàn tất</div>
-                          <div className="text-[10px] text-slate-400">{selectedOwnership.createdAt} 08:00</div>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -8,6 +8,22 @@ import Card from '../../components/ui/Card';
 
 import { AdminNotificationListPageNotificationItem as NotificationItem } from '@shared/types/domain';
 
+/**
+ * TODO(notifications-backend): No backend notification API exists yet.
+ *
+ * This entire page is currently UI-only with in-memory state (no persistence).
+ * Required backend endpoints before connecting to real API:
+ *   - GET    /api/notifications          — List notifications with filters
+ *   - POST   /api/notifications          — Create/send new notification
+ *   - PATCH  /api/notifications/:id      — Update notification content/status
+ *   - DELETE /api/notifications/:id      — Delete/archive notification
+ *   - GET    /api/notifications/stats    — KPI counts by type
+ *
+ * CRUD actions currently operate on local React state only.
+ * Do NOT attempt real API calls until the above endpoints are implemented.
+ */
+
+
 export default function NotificationListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'SYSTEM' | 'BUSINESS' | 'ALERT'>('ALL');
@@ -208,12 +224,12 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
 
   const renderSkeleton = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-6 animate-pulse">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
         {[1, 2, 3, 4].map(i => (
-          <div key={i} className="bg-white p-6 rounded-xl border border-slate-100 h-24"></div>
+          <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 h-28 shadow-xs"></div>
         ))}
       </div>
-      <div className="bg-white rounded-xl border border-slate-100 h-96 animate-pulse"></div>
+      <div className="bg-white rounded-2xl border border-slate-100 h-96 animate-pulse shadow-xs"></div>
     </div>
   );
 
@@ -221,18 +237,18 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       
       {/* Demo Controls */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between shadow-xs">
+      <div className="bg-blue-50/60 border border-blue-100/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Demo Controls</span>
-          <span className="text-xs text-blue-600 font-medium">Bấm để chuyển đổi nhanh các trạng thái hiển thị của UI/UX:</span>
+          <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md uppercase tracking-wider">Demo Controls</span>
+          <span className="text-xs text-blue-600 font-semibold">Bấm để chuyển đổi nhanh các trạng thái hiển thị của UI/UX:</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           {['NORMAL', 'LOADING', 'EMPTY', 'ERROR'].map(st => (
             <button
               key={st}
               onClick={() => setDemoState(st as any)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                demoState === st ? 'bg-blue-600 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
+              className={`flex-1 sm:flex-initial px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 cursor-pointer ${
+                demoState === st ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 shadow-2xs'
               }`}
             >
               {st === 'NORMAL' ? 'Bình thường' : st === 'LOADING' ? 'Đang tải' : st === 'EMPTY' ? 'Trống' : 'Lỗi'}
@@ -242,59 +258,59 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
       </div>
 
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            Notification Management
-            <span className="text-[10px] bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full text-slate-500 font-semibold uppercase">
-              Role: Admin
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            Quản lý thông báo
+            <span className="text-[9px] bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md text-slate-500 font-bold uppercase tracking-wider">
+              Admin Mode
             </span>
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-2xl">
             Quản lý thông báo hệ thống, thông báo nghiệp vụ và cảnh báo gửi tới các vai trò thành viên trong hệ thống.
           </p>
         </div>
         <Button 
           onClick={handleOpenCreate} 
-          className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
+          className="rounded-xl px-4 py-2.5 text-xs flex items-center gap-2 font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer transition-all duration-200"
         >
           <Plus size={16} /> Tạo thông báo
         </Button>
       </div>
 
       {demoState === 'ERROR' ? (
-        <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
+        <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12 rounded-2xl shadow-xs">
           <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
             <AlertCircle size={24} />
           </div>
-          <h3 className="text-lg font-bold text-slate-900">Không thể tải dữ liệu thông báo</h3>
-          <p className="mt-2 text-sm text-slate-500 max-w-sm">Đã xảy ra lỗi kết nối khi tải danh sách thông báo.</p>
-          <Button onClick={() => setDemoState('NORMAL')} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
+          <h3 className="text-base font-bold text-slate-900">Không thể tải dữ liệu thông báo</h3>
+          <p className="mt-2 text-xs text-slate-500 max-w-sm">Đã xảy ra lỗi kết nối khi tải danh sách thông báo.</p>
+          <Button onClick={() => setDemoState('NORMAL')} className="mt-6 rounded-xl px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs transition-colors">Thử lại</Button>
         </Card>
       ) : demoState === 'LOADING' ? (
         renderSkeleton()
       ) : (
         <>
           {/* KPI Cards */}
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { id: 'ALL', label: 'Tổng số thông báo', value: stats.total, color: 'text-slate-900' },
-              { id: 'BUSINESS', label: 'Thông báo nghiệp vụ', value: stats.business, color: 'text-green-600' },
-              { id: 'SYSTEM', label: 'Thông báo hệ thống', value: stats.system, color: 'text-blue-600' },
-              { id: 'ALERT', label: 'Cảnh báo rủi ro', value: stats.alertType, color: 'text-amber-500' }
+              { id: 'ALL', label: 'Tổng số thông báo', value: stats.total, color: 'text-slate-900', bg: 'bg-slate-50/50 hover:bg-slate-50' },
+              { id: 'BUSINESS', label: 'Thông báo nghiệp vụ', value: stats.business, color: 'text-green-600', bg: 'bg-green-50/20 hover:bg-green-50/40' },
+              { id: 'SYSTEM', label: 'Thông báo hệ thống', value: stats.system, color: 'text-blue-600', bg: 'bg-blue-50/20 hover:bg-blue-50/40' },
+              { id: 'ALERT', label: 'Cảnh báo rủi ro', value: stats.alertType, color: 'text-amber-600', bg: 'bg-amber-50/20 hover:bg-amber-50/40' }
             ].map(card => (
               <div
                 key={card.id}
                 onClick={() => setActiveKpiFilter(activeKpiFilter === card.id ? 'ALL' : card.id as any)}
-                className={`p-5 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${
-                  activeKpiFilter === card.id ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200'
+                className={`p-6 bg-white border rounded-2xl shadow-xs cursor-pointer transition-all duration-300 ${card.bg} ${
+                  activeKpiFilter === card.id ? 'border-blue-400 ring-4 ring-blue-50' : 'border-slate-200/85'
                 }`}
               >
-                <div className="flex justify-between items-center text-xs text-slate-500 font-semibold uppercase">
+                <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                   <span>{card.label}</span>
                   <HelpCircle size={14} className="text-slate-300" />
                 </div>
-                <div className={`text-3xl font-bold mt-2 ${card.color}`}>
+                <div className={`text-3xl font-extrabold mt-3 tracking-tight ${card.color}`}>
                   {card.value}
                 </div>
               </div>
@@ -302,47 +318,47 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
           </div>
 
           {/* Search & Filter */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex items-center gap-4 flex-1 min-w-[280px]">
-              <div className="relative flex-1">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-center gap-4 flex-1 w-full">
+              <div className="relative w-full sm:flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input 
                   type="text" 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Tìm thông báo theo tiêu đề, nội dung..." 
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-sm focus:outline-none"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200/80 focus:border-blue-500 focus:bg-white rounded-xl text-xs focus:outline-none transition-all duration-200"
                 />
                 {searchTerm && (
-                  <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 bg-transparent border-none cursor-pointer"><X size={14} /></button>
+                  <button onClick={() => setSearchTerm('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 bg-transparent border-none cursor-pointer"><X size={14} /></button>
                 )}
               </div>
 
               {/* Type Filter */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Loại:</span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">Loại:</span>
                 <select 
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
+                  className="w-full sm:w-auto bg-white border border-slate-200 rounded-xl text-xs py-2 pl-3 pr-8 cursor-pointer focus:outline-none focus:border-blue-500 transition-colors"
                 >
                   <option value="ALL">Tất cả</option>
                   <option value="SYSTEM">Hệ thống (SYSTEM)</option>
-                  <option value="BUSINESS">N nghiệp vụ (BUSINESS)</option>
+                  <option value="BUSINESS">Nhiệp vụ (BUSINESS)</option>
                   <option value="ALERT">Cảnh báo (ALERT)</option>
                 </select>
               </div>
 
               {/* Target Role Filter */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Đối tượng nhận:</span>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">Nhóm:</span>
                 <select 
                   value={filterRole}
                   onChange={(e) => setFilterRole(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
+                  className="w-full sm:w-auto bg-white border border-slate-200 rounded-xl text-xs py-2 pl-3 pr-8 cursor-pointer focus:outline-none focus:border-blue-500 transition-colors"
                 >
-                  <option value="ALL">Tất cả vai trò</option>
-                  <option value="STAFF">Nhân viên kho (STAFF)</option>
+                  <option value="ALL">Tất cả</option>
+                  <option value="STAFF">Staff Kho (STAFF)</option>
                   <option value="DEALER">Đại lý (DEALER)</option>
                   <option value="CUSTOMER">Khách hàng (CUSTOMER)</option>
                 </select>
@@ -357,7 +373,7 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
                   setFilterRole('ALL');
                   setActiveKpiFilter('ALL');
                 }}
-                className="text-xs font-semibold text-blue-600 hover:underline bg-transparent border-none cursor-pointer"
+                className="text-xs font-bold text-blue-600 hover:underline bg-transparent border-none cursor-pointer flex-shrink-0"
               >
                 Xóa bộ lọc
               </button>
@@ -365,26 +381,26 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
             {demoState === 'EMPTY' || filteredNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
-                <h3 className="text-lg font-bold text-slate-900">Không tìm thấy thông báo</h3>
-                <p className="text-slate-500 text-sm max-w-sm mt-1">Hệ thống chưa tạo thông báo nào gửi đi.</p>
-                <Button onClick={handleOpenCreate} className="mt-6 bg-blue-600 text-white rounded-xl px-4 py-2 font-semibold hover:bg-blue-700 cursor-pointer">Tạo thông báo</Button>
+                <h3 className="text-base font-bold text-slate-900">Không tìm thấy thông báo</h3>
+                <p className="text-slate-500 text-xs max-w-sm mt-1">Hệ thống chưa tạo thông báo nào gửi đi hoặc bộ lọc không khớp.</p>
+                <Button onClick={handleOpenCreate} className="mt-6 bg-blue-600 text-white rounded-xl px-4 py-2 text-xs font-bold hover:bg-blue-700 cursor-pointer shadow-xs transition-colors">Tạo thông báo</Button>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm table-fixed border-collapse">
-                  <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
+                  <thead className="text-[10px] text-slate-400 font-bold uppercase bg-slate-50/75 border-b border-slate-100">
                     <tr>
-                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[24%]">Tiêu đề thông báo</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[12%]">Loại</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[14%]">Nhóm người nhận</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[22%]">Nội dung tóm tắt</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[12%] text-center">Trạng thái</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">Ngày tạo</th>
-                      <th className="p-3.5 pr-5 font-bold tracking-wider w-[10%] text-right">Thao tác</th>
+                      <th className="p-4 pl-6 font-bold tracking-wider w-[24%]">Tiêu đề thông báo</th>
+                      <th className="p-4 font-bold tracking-wider w-[12%]">Loại</th>
+                      <th className="p-4 font-bold tracking-wider w-[14%]">Nhóm người nhận</th>
+                      <th className="p-4 font-bold tracking-wider w-[22%]">Nội dung tóm tắt</th>
+                      <th className="p-4 font-bold tracking-wider w-[12%] text-center">Trạng thái</th>
+                      <th className="p-4 font-bold tracking-wider w-[10%] text-center">Ngày tạo</th>
+                      <th className="p-4 pr-6 font-bold tracking-wider w-[10%] text-right">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -392,40 +408,40 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
                       <tr 
                         key={n.id} 
                         onClick={() => handleOpenView(n)}
-                        className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
+                        className="hover:bg-slate-50/30 cursor-pointer transition-all group"
                       >
-                        <td className="p-3.5 pl-5 font-semibold text-slate-950 truncate flex items-center gap-2">
-                          <div className="p-1 bg-slate-100 rounded text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 flex-shrink-0">
-                            <Bell size={14} />
+                        <td className="p-4 pl-6 font-bold text-slate-800 truncate flex items-center gap-2">
+                          <div className="p-1.5 bg-slate-100/80 rounded-lg text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 flex-shrink-0 transition-colors">
+                            <Bell size={13} />
                           </div>
-                          <span className="truncate">{n.title}</span>
+                          <span className="truncate group-hover:text-slate-950 transition-colors">{n.title}</span>
                         </td>
-                        <td className="p-3.5">{renderTypeBadge(n.type)}</td>
-                        <td className="p-3.5">
+                        <td className="p-4">{renderTypeBadge(n.type)}</td>
+                        <td className="p-4">
                           {n.targetRole === 'ALL' ? (
-                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">Tất cả mọi người</span>
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold border border-slate-200/50">Tất cả mọi người</span>
                           ) : (
-                            <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold border border-blue-100">{n.targetRole}</span>
+                            <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold border border-blue-100">{n.targetRole}</span>
                           )}
                         </td>
-                        <td className="p-3.5 text-xs text-slate-500 truncate" title={n.content}>{n.content}</td>
-                        <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>{renderStatusBadge(n.status)}</td>
-                        <td className="p-3.5 text-center text-xs text-slate-400 font-medium">{n.createdAt.split(' ')[0]}</td>
-                        <td className="p-3.5 pr-5 text-right" onClick={e => e.stopPropagation()}>
+                        <td className="p-4 text-xs text-slate-500 truncate" title={n.content}>{n.content}</td>
+                        <td className="p-4 text-center" onClick={e => e.stopPropagation()}>{renderStatusBadge(n.status)}</td>
+                        <td className="p-4 text-center text-xs text-slate-400 font-mono font-medium">{n.createdAt.split(' ')[0]}</td>
+                        <td className="p-4 pr-6 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
                             <button 
                               onClick={(e) => handleOpenEdit(n, e)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl cursor-pointer border-none bg-transparent transition-colors"
                               title="Sửa thông báo"
                             >
-                              <Edit3 size={15} />
+                              <Edit3 size={14} />
                             </button>
                             <button 
                               onClick={(e) => handleDelete(n.id, e)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl cursor-pointer border-none bg-transparent transition-colors"
                               title="Xóa thông báo"
                             >
-                              <Trash2 size={15} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </td>
@@ -443,46 +459,46 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
       {isDrawerOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0" onClick={() => setIsDrawerOpen(false)} />
-          <div className="relative bg-white w-[500px] max-h-[90vh] rounded-2xl shadow-2xl flex flex-col justify-between z-10 overflow-hidden">
+          <div className="relative bg-white w-[500px] max-h-[90vh] rounded-2xl shadow-2xl flex flex-col justify-between z-10 overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
             
             {/* Header */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
                   {drawerMode === 'CREATE' ? 'Tạo thông báo mới' : drawerMode === 'EDIT' ? 'Cập nhật thông báo' : 'Chi tiết thông báo'}
                 </h3>
-                <p className="text-xs text-slate-500 mt-1">Thông báo và tin nhắn quảng bá tới người dùng.</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Thông báo và tin nhắn quảng bá</p>
               </div>
-              <button onClick={() => setIsDrawerOpen(false)} className="p-1.5 hover:bg-slate-100 text-slate-400 rounded-lg border-none bg-transparent cursor-pointer"><X size={18} /></button>
+              <button onClick={() => setIsDrawerOpen(false)} className="p-1.5 hover:bg-slate-100 text-slate-400 rounded-lg border-none bg-transparent cursor-pointer transition-colors"><X size={18} /></button>
             </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {formError && (
-                <div className="p-3 bg-red-50 text-red-700 text-xs rounded-lg flex items-center gap-2"><AlertCircle size={16} />{formError}</div>
+                <div className="p-3.5 bg-red-50 text-red-700 text-xs rounded-xl flex items-center gap-2 font-bold"><AlertCircle size={16} />{formError}</div>
               )}
 
-              <div className="space-y-3.5">
+              <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Tiêu đề thông báo *</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Tiêu đề thông báo *</label>
                   <input 
                     type="text" 
                     value={formData.title}
                     onChange={e => setFormData({ ...formData, title: e.target.value })}
                     disabled={drawerMode === 'VIEW'}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 transition-colors"
                     placeholder="Ví dụ: Bảo trì hệ thống bảo hành"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Loại thông báo</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Loại thông báo</label>
                     <select
                       value={formData.type}
                       onChange={e => setFormData({ ...formData, type: e.target.value as any })}
                       disabled={drawerMode === 'VIEW'}
-                      className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-sm cursor-pointer"
+                      className="w-full px-3 py-2.5 border border-slate-200 bg-white rounded-xl text-xs cursor-pointer focus:outline-none focus:border-blue-500 transition-colors"
                     >
                       <option value="SYSTEM">Hệ thống (SYSTEM)</option>
                       <option value="BUSINESS">Nghiệp vụ (BUSINESS)</option>
@@ -490,12 +506,12 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Nhóm nhận</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">Nhóm nhận</label>
                     <select
                       value={formData.targetRole}
                       onChange={e => setFormData({ ...formData, targetRole: e.target.value as any })}
                       disabled={drawerMode === 'VIEW'}
-                      className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-sm cursor-pointer"
+                      className="w-full px-3 py-2.5 border border-slate-200 bg-white rounded-xl text-xs cursor-pointer focus:outline-none focus:border-blue-500 transition-colors"
                     >
                       <option value="ALL">Tất cả mọi người</option>
                       <option value="STAFF">Staff Kho (STAFF)</option>
@@ -506,12 +522,12 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Trạng thái</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Trạng thái</label>
                   <select
                     value={formData.status}
                     onChange={e => setFormData({ ...formData, status: e.target.value as any })}
                     disabled={drawerMode === 'VIEW'}
-                    className="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-sm cursor-pointer"
+                    className="w-full px-3 py-2.5 border border-slate-200 bg-white rounded-xl text-xs cursor-pointer focus:outline-none focus:border-blue-500 transition-colors"
                   >
                     <option value="ACTIVE">Hoạt động (Gửi ngay)</option>
                     <option value="ARCHIVED">Lưu trữ (Ẩn)</option>
@@ -519,13 +535,13 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Nội dung chi tiết thông báo *</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Nội dung chi tiết thông báo *</label>
                   <textarea 
                     value={formData.content}
                     onChange={e => setFormData({ ...formData, content: e.target.value })}
                     disabled={drawerMode === 'VIEW'}
-                    rows={6}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    rows={5}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 transition-colors resize-none"
                     placeholder="Nhập nội dung đầy đủ của thông báo..."
                   />
                 </div>
@@ -534,11 +550,11 @@ export default function NotificationListPage({ onNavigate }: { onNavigate: (tabI
 
             {/* Footer */}
             <div className="p-6 border-t border-slate-100 flex justify-end gap-2 bg-slate-50/50">
-              <Button variant="secondary" onClick={() => setIsDrawerOpen(false)} className="rounded-xl px-4 text-xs font-semibold cursor-pointer">
+              <Button variant="secondary" onClick={() => setIsDrawerOpen(false)} className="rounded-xl px-4 py-2 text-xs font-bold cursor-pointer transition-colors">
                 {drawerMode === 'VIEW' ? 'Đóng' : 'Hủy'}
               </Button>
               {drawerMode !== 'VIEW' && (
-                <Button onClick={handleSubmitForm} className="rounded-xl px-4 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer">
+                <Button onClick={handleSubmitForm} className="rounded-xl px-4 py-2 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer transition-all duration-200">
                   {drawerMode === 'CREATE' ? 'Gửi thông báo' : 'Lưu thay đổi'}
                 </Button>
               )}

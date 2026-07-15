@@ -43,6 +43,7 @@ export function useBatchProducts(
     error: null,
   });
 
+  const { page, limit, status, keyword } = params || {};
   const [fetchTrigger, setFetchTrigger] = useState(0);
 
   const fetchData = useCallback(async () => {
@@ -50,7 +51,12 @@ export function useBatchProducts(
 
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     try {
-      const { data } = await batchApi.getProducts(batchId, params);
+      const { data } = await batchApi.getProducts(batchId, {
+        page,
+        limit,
+        status,
+        keyword,
+      });
       setState({
         items: data.data.items ?? [],
         pagination: data.data.pagination ?? null,
@@ -64,7 +70,7 @@ export function useBatchProducts(
         error: parseApiError(err),
       }));
     }
-  }, [batchId, fetchTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [batchId, page, limit, status, keyword, fetchTrigger]);
 
   useEffect(() => {
     fetchData();

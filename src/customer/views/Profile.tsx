@@ -170,7 +170,7 @@ export function Profile({ onBack }: { onBack: () => void }) {
                   <label className="text-xs text-slate-500 font-semibold uppercase">Họ và tên</label>
                   {isEditing ? (
                     <input 
-                      value={fullName} 
+                      value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       className="w-full p-2 border rounded-lg mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />

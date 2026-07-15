@@ -23,12 +23,16 @@ const CreateProduct = lazy(() => import('../admin/pages/products/CreateProduct')
 const EditProductPage = lazy(() => import('../admin/pages/products/EditProductPage'));
 const CategoryListPage = lazy(() => import('../admin/pages/categories/CategoryListPage'));
 const BatchListPage = lazy(() => import('../admin/pages/batches/BatchListPage'));
+const BatchProductsPage = lazy(() => import('../admin/pages/batches/BatchProductsPage'));
+const BatchTracePage = lazy(() => import('../admin/pages/batches/BatchTracePage'));
 const OwnershipListPage = lazy(() => import('../admin/pages/ownership/OwnershipListPage'));
 const WarrantyListPage = lazy(() => import('../admin/pages/warranty/WarrantyListPage'));
 const StoreListPage = lazy(() => import('../admin/pages/store/StoreListPage'));
 const AuditListPage = lazy(() => import('../admin/pages/audit/AuditListPage'));
 const SettingsPage = lazy(() => import('../admin/pages/settings/SettingsPage'));
 const NotificationListPage = lazy(() => import('../admin/pages/notifications/NotificationListPage'));
+const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
+const AISearchPage = lazy(() => import('../admin/pages/search/AISearchPage'));
 
 // ─── Customer pages (lazy) ────────────────────────────────────────────────────
 const CustomerHome = lazy(() => import('../customer/views/Home'));
@@ -38,6 +42,7 @@ const CustomerRegisterOwnership = lazy(() => import('../customer/views/RegisterO
 const CustomerWarranty = lazy(() => import('../customer/views/Warranty'));
 const CustomerProfile = lazy(() => import('../customer/views/Profile'));
 const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
+const CustomerProductList = lazy(() => import('../customer/views/ProductList'));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -92,6 +97,7 @@ const StorePage = withNav(StoreListPage as React.ComponentType<{ onNavigate: (t:
 const AuditPage = withNav(AuditListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const SettingsWrapped = withNav(SettingsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const NotificationsPage = withNav(NotificationListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const AISearchPageWrapped = withNav(AISearchPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 
 // ─── ProductDetail reads id from URL query string ────────────────────────────
 function ProductDetailRoute() {
@@ -155,12 +161,15 @@ export default function AppRouter() {
               <Route path="/product-detail" element={<ProductDetailRoute />} />
               <Route path="/edit-product" element={<EditProductRoute />} />
               <Route path="/batches" element={<BatchesPage />} />
+              <Route path="/batches/:batchId/products" element={<BatchProductsPage />} />
+              <Route path="/batches/:batchId/trace" element={<BatchTracePage />} />
               <Route path="/ownership" element={<OwnershipPage />} />
               <Route path="/warranty" element={<WarrantyPage />} />
               <Route path="/store" element={<StorePage />} />
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/settings" element={<SettingsWrapped />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/search" element={<AISearchPageWrapped />} />
 
               {/* Admin-only */}
               <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
@@ -169,37 +178,40 @@ export default function AppRouter() {
             </Route>
           </Route>
 
+          {/* Protected: Customer */}
           <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
             <Route element={<CustomerLayout />}>
               <Route path="/customer/scan" element={
-                <CustomerHome 
+                <CustomerHome
                   onScan={() => {
                     const code = prompt('Quét mã QR sản phẩm (nhập Serial hoặc Mã sản phẩm):');
                     if (code && code.trim()) {
                       window.location.href = `/customer/product?code=${encodeURIComponent(code.trim())}`;
                     }
-                  }} 
+                  }}
                   onNavigate={(tabId, id) => {
                     if (tabId === 'product-detail' && id) {
                       window.location.href = `/customer/product?id=${id}`;
                     }
-                  }} 
+                  }}
                 />
               } />
               <Route path="/customer/product" element={
-                <CustomerProductDetail 
-                  onBack={() => window.history.back()} 
-                  onRequestWarranty={() => window.location.href = '/customer/warranty'} 
-                  onRegisterOwnership={() => {
-                    const code = new URLSearchParams(window.location.search).get('code');
-                    window.location.href = `/customer/register-ownership${code ? `?code=${encodeURIComponent(code)}` : ''}`;
-                  }} 
+                <CustomerProductDetail
+                  onBack={() => window.history.back()}
+                  onRequestWarranty={() => window.location.href = '/customer/warranty'}
+                  onRegisterOwnership={() => window.location.href = '/customer/ownership/register'}
+                />
+              } />
+              <Route path="/customer/products" element={
+                <CustomerProductList
+                  onBack={() => window.history.back()}
                 />
               } />
               <Route path="/customer/ownership" element={
-                <CustomerOwnership 
-                  onBack={() => window.history.back()} 
-                  onRegister={() => window.location.href = '/customer/register-ownership'} 
+                <CustomerOwnership
+                  onBack={() => window.history.back()}
+                  onRegister={() => window.location.href = '/customer/ownership/register'}
                 />
               } />
               <Route path="/customer/register-ownership" element={

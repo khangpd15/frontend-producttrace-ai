@@ -65,6 +65,13 @@ export interface UserProfile {
   status: 'ACTIVE' | 'PENDING' | 'BANNED' | 'SUSPENDED';
 }
 
+export interface UpdateProfileRequest {
+  full_name?: string;
+  phone?: string;
+  avatar?: string;
+  status: 'ACTIVE' | 'PENDING' | 'BANNED' | 'SUSPENDED';
+}
+
 // ─── Auth API Functions ───────────────────────────────────────────────────────
 
 export const authApi = {
