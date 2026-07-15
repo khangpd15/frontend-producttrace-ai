@@ -10,7 +10,7 @@ export interface AdminRequestOTPReq {
   qr_code: string;
   owner_name: string;
   owner_email: string;
-  owner_phone: string;
+  owner_phone?: string;
 }
 
 export interface OTPResponse {
@@ -22,37 +22,6 @@ export interface OTPResponse {
 export interface CustomerRegisterReq {
   otp: string;
   product_id: string; // matches product_item_id UUID
-}
-
-export interface AdminRegisterReq {
-  otp: string;
-  product_id: string;
-  owner_name: string;
-  owner_email: string;
-  owner_phone?: string;
-}
-
-export interface TransferOwnershipReq {
-  new_owner_name: string;
-  new_owner_email: string;
-  new_owner_phone?: string;
-  new_owner_address?: string;
-}
-export type CustomerRegisterReq = CustomerVerifyAndRegisterReq;
-
-export interface SearchOwnershipsParams {
-  page?: number;
-  limit?: number;
-  product_item_id?: string;
-  ownership_status?: string;
-  [key: string]: any;
-}
-
-export interface AdminRequestOTPReq {
-  qr_code: string;
-  owner_name: string;
-  owner_email: string;
-  owner_phone?: string;
 }
 
 export interface AdminRegisterReq {

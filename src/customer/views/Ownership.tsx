@@ -6,12 +6,27 @@ import { Clock, ChevronRight } from 'lucide-react';
 import { useOwnershipList, useOwnershipDetail, useTransferOwnership } from '../../features/ownership/hooks/useOwnership';
 import { traceApi } from '../../features/trace/api/trace.api';
 import { parseApiError } from '../../api/axios';
+import { ownershipApi, OwnershipSummaryRes } from '../../features/ownership/api/ownership.api';
 
 export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegister: () => void }) {
   const [view, setView] = useState<'list' | 'detail' | 'transfer'>('list');
   const [selected, setSelected] = useState<any>(null);
   const [ownershipHistory, setOwnershipHistory] = useState<OwnershipSummaryRes[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [newOwnerName, setNewOwnerName] = useState('');
+  const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [newOwnerPhone, setNewOwnerPhone] = useState('');
+  const [newOwnerAddress, setNewOwnerAddress] = useState('');
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [isTransferring, setIsTransferring] = useState(false);
+
+  const { data: ownershipsRes, isLoading: isListLoading, refetch: refetchList } = useOwnershipList();
+  const { data: detailData, isLoading: isDetailLoading } = useOwnershipDetail(selectedProductId || '');
+  const transferMutation = useTransferOwnership();
 
   useEffect(() => {
     const fetchOwnerships = async () => {
