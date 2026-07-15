@@ -19,8 +19,6 @@ export function Profile({ onBack }: { onBack: () => void }) {
   const [avatarPreview, setAvatarPreview] = useState('');
   const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' });
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-  const [loading, setLoading] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -124,13 +122,6 @@ export function Profile({ onBack }: { onBack: () => void }) {
   return (
     <div className="min-h-screen bg-slate-50 pt-20 pb-4">
       <TopAppBar title="Cá nhân" showBack={false} />
-      {feedback && (
-        <div className={`mx-4 mt-2 p-3 rounded-lg text-sm font-medium ${
-          feedback.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-        }`}>
-          {feedback.msg}
-        </div>
-      )}
       <div className="p-4 space-y-4">
         <Card className="p-4 space-y-4">
           <div className="flex flex-col items-center gap-3 border-b pb-6">
@@ -212,7 +203,6 @@ export function Profile({ onBack }: { onBack: () => void }) {
             {showPasswordForm && (
               <div className="space-y-4 pt-4 border-t">
                 <h3 className="font-semibold text-sm">Đổi mật khẩu</h3>
-                <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">⚠️ Nhập mật khẩu hiện tại thật của tài khoản. Mật khẩu mới cần tối thiểu 8 ký tự.</p>
                 <input 
                   type="password"
                   placeholder="Mật khẩu cũ"

@@ -157,7 +157,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
   const handleOpenCreate = () => {
     setDrawerMode('CREATE');
     setFormData({
-      itemCode: '',
+      id: '',
+      itemCode: 'ITEM-RO-KG' + Math.floor(100000 + Math.random() * 900000),
       itemName: 'Máy lọc nước RO Kangaroo VT3',
       serialNumber: '',
       ownerName: '',

@@ -419,7 +419,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            Store & Locations
+            Store &amp; Locations
             <span className="text-[10px] bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full text-slate-500 font-semibold uppercase">
               Role: Admin / Dealer / Shop
             </span>

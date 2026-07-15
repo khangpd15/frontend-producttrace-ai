@@ -37,11 +37,12 @@ const AISearchPage = lazy(() => import('../admin/pages/search/AISearchPage'));
 // ─── Customer pages (lazy) ────────────────────────────────────────────────────
 const CustomerHome = lazy(() => import('../customer/views/Home'));
 const CustomerProductDetail = lazy(() => import('../customer/views/ProductDetail'));
-const CustomerProductList = lazy(() => import('../customer/views/ProductList'));
 const CustomerOwnership = lazy(() => import('../customer/views/Ownership'));
+const CustomerRegisterOwnership = lazy(() => import('../customer/views/RegisterOwnership').then(m => ({ default: m.RegisterOwnership as any })));
 const CustomerWarranty = lazy(() => import('../customer/views/Warranty'));
 const CustomerProfile = lazy(() => import('../customer/views/Profile'));
-const CustomerRegisterOwnership = lazy(() => import('../customer/views/RegisterOwnership'));
+const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
+const CustomerProductList = lazy(() => import('../customer/views/ProductList'));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -213,8 +214,8 @@ export default function AppRouter() {
                   onRegister={() => window.location.href = '/customer/ownership/register'}
                 />
               } />
-              <Route path="/customer/ownership/register" element={
-                <CustomerRegisterOwnership onBack={() => window.history.back()} />
+              <Route path="/customer/register-ownership" element={
+                <CustomerRegisterOwnership />
               } />
               <Route path="/customer/warranty" element={
                 <CustomerWarranty onBack={() => window.history.back()} />

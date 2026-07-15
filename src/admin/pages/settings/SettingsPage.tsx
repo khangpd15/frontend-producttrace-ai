@@ -9,6 +9,29 @@ import { useAuthStore } from '../../../features/auth/store/auth.store';
 import { authApi } from '../../../features/auth/api/auth.api';
 import { parseApiError } from '../../../api/axios';
 
+// TODO(settings-backend): This page is currently fully static (all data is hardcoded).
+// The backend does not expose any settings-related API endpoints yet.
+// When backend implements the following routes, replace the corresponding useState values
+// with real API calls:
+//
+//   PROFILE tab:
+//     - GET /users/profile        → load current user profile (fullName, email, phone, avatarUrl, role)
+//     - PUT /users/profile/:id    → save profile changes (authApi.updateProfile already exists)
+//     - POST /users/upload-avatar → avatar upload CDN endpoint (does not exist yet)
+//
+//   SECURITY tab:
+//     - PUT /users/change-password → change password (authApi.changePassword already exists)
+//
+//   ORGANIZATION tab:
+//     - GET /organizations/me    → load current org settings (does not exist yet)
+//     - PUT /organizations/me    → save org settings (does not exist yet)
+//     Backend module to create: go-core-service/internal/modules/organization
+//
+//   SYSTEM tab:
+//     - GET  /settings/system    → user notification preferences (does not exist yet)
+//     - PUT  /settings/system    → save preferences (does not exist yet)
+//     Backend module to create: go-core-service/internal/modules/user_settings
+
 export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   const { user, fetchProfile } = useAuthStore();
   const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'ERROR'>('NORMAL');

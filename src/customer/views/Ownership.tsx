@@ -9,28 +9,71 @@ import { parseApiError } from '../../api/axios';
 
 export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegister: () => void }) {
   const [view, setView] = useState<'list' | 'detail' | 'transfer'>('list');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<any>(null);
+  const [ownershipHistory, setOwnershipHistory] = useState<OwnershipSummaryRes[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Search filter
-  const [searchQuery, setSearchQuery] = useState('');
+  useEffect(() => {
+    const fetchOwnerships = async () => {
+      try {
+        setLoading(true);
+        const { data } = await ownershipApi.search({ page: 1, limit: 20 });
+        setOwnershipHistory(data.data?.data || []);
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách quyền sở hữu', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (view === 'list') {
+      fetchOwnerships();
+    }
+  }, [view]);
 
-  // Transfer Form State
-  const [newOwnerName, setNewOwnerName] = useState('');
-  const [newOwnerEmail, setNewOwnerEmail] = useState('');
-  const [newOwnerPhone, setNewOwnerPhone] = useState('');
-  const [newOwnerAddress, setNewOwnerAddress] = useState('');
-  const [transferError, setTransferError] = useState<string | null>(null);
-  const [isTransferring, setIsTransferring] = useState(false);
+  useEffect(() => {
+    // Real-time EventSource Setup for Customer
+    const token = localStorage.getItem('producttrace_access_token');
+    if (!token) return;
+    
+    let sse: EventSource;
+    try {
+      sse = new EventSource(`http://localhost:8080/api/ownership/stream?token=${token}`);
+      
+      sse.onmessage = (event) => {
+        if (event.data === 'OWNERSHIP_VERDICT') {
+          // Báo cho UI của customer là đăng ký đã đổi trạng thái (Approve hoặc Reject)
+          alert('TRẠNG THÁI ĐĂNG KÝ VỪA MỚI ĐƯỢC ADMIN CẬP NHẬT!');
+          if (view === 'list') {
+            // refresh data
+            const fetchOwnerships = async () => {
+              try {
+                setLoading(true);
+                const { data } = await ownershipApi.search({ page: 1, limit: 20 });
+                setOwnershipHistory(data.data?.data || []);
+              } catch (err) {} finally {
+                setLoading(false);
+              }
+            };
+            fetchOwnerships();
+          } else {
+             // force back to list to refresh smoothly
+             setView('list');
+          }
+        }
+      };
 
-  // Fetch all customer ownerships
-  const { data: ownershipsRes, isLoading: isListLoading, refetch: refetchList } = useOwnershipList();
-
-  // Fetch ownership detail if selected (using selectedProductId because it represents product_item_id)
-  const { data: detailData, isLoading: isDetailLoading } = useOwnershipDetail(selectedProductId || '');
-
-  // Transfer mutation
-  const transferMutation = useTransferOwnership();
+      sse.onerror = (err) => {
+        console.error('SSE Error:', err);
+        sse.close();
+      };
+    } catch (err) {
+      console.warn('Real-time updates failed to initialize.', err);
+    }
+    
+    return () => {
+      if (sse) sse.close();
+    };
+  }, [view]);
 
   const handleSelect = (item: any) => {
     setSelectedId(item.ownership_id);
