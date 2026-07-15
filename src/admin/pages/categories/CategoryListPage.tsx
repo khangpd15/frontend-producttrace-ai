@@ -70,53 +70,6 @@ function buildCategoryOptionsTree(categories: Category[], excludeIds: Set<string
   return result;
 }
 
-type CategoryTreeItem = Category & { children: CategoryTreeItem[] };
-
-function buildCategoryTree(categories: Category[], excludeIds: Set<string> = new Set()): CategoryTreeItem[] {
-  const list = categories.filter(c => !excludeIds.has(c.id));
-  const byId = new Map(list.map(c => [c.id, c]));
-  const childrenMap = new Map<string, Category[]>();
-  const roots: Category[] = [];
-
-  for (const c of list) {
-    const parentOk = c.parentId && byId.has(c.parentId) && c.parentId !== c.id;
-    if (parentOk) {
-      const key = c.parentId as string;
-      if (!childrenMap.has(key)) childrenMap.set(key, []);
-      childrenMap.get(key)!.push(c);
-    } else {
-      roots.push(c);
-    }
-  }
-
-  const collator = new Intl.Collator('vi');
-  const sortByName = (l: Category[]) => [...l].sort((a, b) => collator.compare(a.name, b.name));
-
-  const visited = new Set<string>();
-  const build = (nodes: Category[]): CategoryTreeItem[] =>
-    sortByName(nodes)
-      .filter(n => {
-        if (visited.has(n.id)) return false; // chặn vòng lặp nếu data lỗi
-        visited.add(n.id);
-        return true;
-      })
-      .map(n => ({ ...n, children: build(childrenMap.get(n.id) || []) }));
-
-  return build(roots);
-}
-
-// Tìm đường đi từ 1 node lên tới gốc, dùng để tự expand cây tới danh mục đang chọn
-function getAncestorIds(categories: Category[], id: string): string[] {
-  const byId = new Map(categories.map(c => [c.id, c]));
-  const result: string[] = [];
-  let current = byId.get(id);
-  while (current?.parentId) {
-    result.push(current.parentId);
-    current = byId.get(current.parentId);
-  }
-  return result;
-}
-
 // Tìm toàn bộ id con/cháu/chắt... của 1 danh mục, để loại khỏi lựa chọn "Danh mục cha"
 // khi đang sửa chính danh mục đó (tránh vòng lặp cha tự trỏ vào con của mình).
 function collectDescendantIds(categories: Category[], rootId: string): Set<string> {
@@ -153,75 +106,16 @@ const ParentCategorySelect: React.FC<{
 }> = ({ categories, excludeIds, value, onChange, disabled }) => {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
 
-  const tree = useMemo(() => buildCategoryTree(categories, excludeIds), [categories, excludeIds]);
   const flatOptions = useMemo(() => buildCategoryOptionsTree(categories, excludeIds), [categories, excludeIds]);
 
   const selected = flatOptions.find(c => c.id === value);
   const query = q.trim().toLowerCase();
-  const flatVisible = query ? flatOptions.filter(c => c.name.toLowerCase().includes(query)) : [];
+  const flatVisible = query ? flatOptions.filter(c => c.name.toLowerCase().includes(query)) : flatOptions;
 
   const handleOpen = () => {
     if (disabled) return;
-    // Tự động mở rộng cây tới danh mục đang được chọn để dễ nhìn thấy vị trí hiện tại
-    if (value) {
-      const ancestorIds = getAncestorIds(categories, value);
-      if (ancestorIds.length) {
-        setExpandedNodes(prev => {
-          const next = { ...prev };
-          ancestorIds.forEach(id => { next[id] = true; });
-          return next;
-        });
-      }
-    }
     setOpen(o => !o);
-  };
-
-  const toggleExpand = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const renderNode = (node: CategoryTreeItem, depth: number) => {
-    const hasChildren = node.children.length > 0;
-    const isExpanded = !!expandedNodes[node.id];
-    const isSelected = node.id === value;
-
-    return (
-      <div key={node.id}>
-        <div
-          onClick={() => { onChange(node.id); setOpen(false); setQ(''); }}
-          style={{ paddingLeft: `${depth * 16 + 12}px` }}
-          className={`w-full flex items-center gap-1.5 py-2 pr-3 text-sm hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 text-blue-700 font-semibold' : depth === 0 ? 'text-slate-800 font-semibold' : 'text-slate-600'
-            }`}
-        >
-          <span className="w-4 h-4 flex items-center justify-center shrink-0">
-            {hasChildren ? (
-              <button
-                type="button"
-                onClick={(e) => toggleExpand(node.id, e)}
-                className="p-0.5 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer flex items-center justify-center"
-              >
-                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              </button>
-            ) : (
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-            )}
-          </span>
-          <Folder size={13} className={isSelected ? 'text-blue-500' : 'text-slate-400'} />
-          <span className="truncate">
-            {node.name} <span className="text-slate-400 font-normal">({node.code})</span>
-          </span>
-          {hasChildren && (
-            <span className="ml-auto text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md font-normal shrink-0">
-              {node.children.length}
-            </span>
-          )}
-        </div>
-        {hasChildren && isExpanded && node.children.map(child => renderNode(child, depth + 1))}
-      </div>
-    );
   };
 
   return (
@@ -260,29 +154,22 @@ const ParentCategorySelect: React.FC<{
               -- Không có (Danh mục gốc) --
             </button>
 
-            {query ? (
-              // Đang tìm kiếm: hiển thị list phẳng, thụt lề theo depth (không cần expand/collapse)
-              flatVisible.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-slate-400">Không tìm thấy danh mục</div>
-              ) : (
-                flatVisible.map(cat => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => { onChange(cat.id); setOpen(false); setQ(''); }}
-                    style={{ paddingLeft: `${cat.depth * 16 + 12}px` }}
-                    className={`w-full text-left py-2 pr-3 text-sm hover:bg-blue-50 cursor-pointer border-none bg-transparent flex items-center gap-1.5 ${cat.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : cat.depth === 0 ? 'text-slate-800 font-semibold' : 'text-slate-600'}`}
-                  >
-                    {cat.depth > 0 && <span className="text-slate-300">└</span>}
-                    <Folder size={13} className={cat.id === value ? 'text-blue-500' : 'text-slate-400'} />
-                    <span className="truncate">{cat.name} <span className="text-slate-400 font-normal">({cat.code})</span></span>
-                  </button>
-                ))
-              )
-            ) : tree.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-slate-400">Chưa có danh mục</div>
+            {flatVisible.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-400">Không tìm thấy danh mục</div>
             ) : (
-              tree.map(node => renderNode(node, 0))
+              flatVisible.map(cat => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => { onChange(cat.id); setOpen(false); setQ(''); }}
+                  style={{ paddingLeft: `${cat.depth * 16 + 12}px` }}
+                  className={`w-full text-left py-2 pr-3 text-sm hover:bg-blue-50 cursor-pointer border-none bg-transparent flex items-center gap-1.5 ${cat.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : cat.depth === 0 ? 'text-slate-800 font-semibold' : 'text-slate-600'}`}
+                >
+                  {cat.depth > 0 && <span className="text-slate-300">└</span>}
+                  <Folder size={13} className={cat.id === value ? 'text-blue-500' : 'text-slate-400'} />
+                  <span className="truncate">{cat.name} <span className="text-slate-400 font-normal">({cat.code})</span></span>
+                </button>
+              ))
             )}
           </div>
         </div>
