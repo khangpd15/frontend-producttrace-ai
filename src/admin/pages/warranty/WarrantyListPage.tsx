@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Search, Plus, X, AlertCircle, 
   Shield, ShieldCheck, ShieldAlert, Calendar, User, HelpCircle, Inbox, Trash2, Eye
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import Pagination from '../../components/ui/Pagination';
 import { 
   useWarrantyList, 
   useActivateWarranty, 
@@ -15,9 +16,15 @@ import {
 import { parseApiError } from '../../../api/axios';
 
 export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
+  const tableRef = useRef<HTMLDivElement>(null);
+
   const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED' | 'PENDING' | 'CANCELLED'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+
+  // ── Pagination state (client-side — backend returns full list) ──────────────
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   // Queries & Mutations
   const { data: warranties = [], isLoading, error, refetch } = useWarrantyList();
@@ -57,7 +64,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
     actionTaken: ''
   });
 
-  // Calculate statistics from real data
+  // Calculate statistics from real data (full list)
   const stats = useMemo(() => {
     const total = warranties.length;
     const active = warranties.filter(w => w.status === 'ACTIVE').length;
@@ -67,7 +74,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
     return { total, active, expired, pending, cancelled };
   }, [warranties]);
 
-  // Filtered list
+  // Filtered list (full, for stats)
   const filteredWarranties = useMemo(() => {
     return warranties.filter(w => {
       if (searchTerm.trim() !== '') {
@@ -83,6 +90,23 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
       return true;
     });
   }, [warranties, searchTerm, filterStatus, activeKpiFilter]);
+
+  // Pagination derived values
+  const totalItems = filteredWarranties.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+  const pagedWarranties = useMemo(() => {
+    const start = (page - 1) * limit;
+    return filteredWarranties.slice(start, start + limit);
+  }, [filteredWarranties, page, limit]);
+
+  // Reset to page 1 on any filter change
+  useEffect(() => { setPage(1); }, [searchTerm, filterStatus, activeKpiFilter, limit]);
+
+  // Scroll table into view on page change
+  useEffect(() => {
+    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [page]);
+
 
   const handleOpenCreate = () => {
     setDrawerMode('CREATE');
@@ -323,6 +347,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                   setSearchTerm('');
                   setFilterStatus('ALL');
                   setActiveKpiFilter('ALL');
+                  setPage(1);
                 }}
                 className="text-xs font-bold text-blue-600 hover:underline bg-transparent border-none cursor-pointer flex-shrink-0"
               >
@@ -332,7 +357,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div ref={tableRef} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
             {filteredWarranties.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
@@ -355,7 +380,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredWarranties.map(w => (
+                    {pagedWarranties.map(w => (
                       <tr 
                         key={w.id} 
                         onClick={() => handleOpenView(w)}
@@ -422,6 +447,14 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                 </table>
               </div>
             )}
+            <Pagination
+              page={page}
+              limit={limit}
+              totalItems={totalItems}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+            />
           </div>
         </>
       )}
