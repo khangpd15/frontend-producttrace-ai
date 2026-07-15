@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useCreateProduct } from '../../../features/products/hooks/useProducts';
 import { useCategoryList } from '../../../features/categories/hooks/useCategory';
+import { useAttributesByCategory } from '../../../features/attribute/hooks/useAttributes';
 import Button from '../../components/ui/Button';
 import { parseApiError } from '../../../api/axios';
 
@@ -35,6 +36,16 @@ const slugify = (s: string) =>
     .replace(/-+/g, '-');
 
 // Form Validation Schema
+const attributeValueSchema = z.object({
+  attribute_id: z.string(),
+  code: z.string(),
+  label: z.string(),
+  value_type: z.enum(['text', 'number', 'boolean']).default('text'),
+  value_text: z.string().optional(),
+  value_number: z.number().optional(),
+  value_boolean: z.boolean().optional(),
+});
+
 const variantSchema = z.object({
   sku: z.string().min(1, 'SKU không được để trống'),
   name: z.string().min(1, 'Tên biến thể không được để trống'),
@@ -43,6 +54,10 @@ const variantSchema = z.object({
   currency: z.string().default('VND'),
   images: z.array(z.string()).default([]),
   status: z.string().default('ACTIVE'),
+  // Tên field khớp với CreateVariantRequest.Attributes ở BE (json:"attributes"),
+  // gửi kèm luôn trong payload tạo product — BE tạo product/variant/attributes
+  // trong cùng 1 transaction (xem product_service.go -> CreateProduct).
+  attributes: z.array(attributeValueSchema).default([]),
 });
 
 const productFormSchema = z.object({
@@ -52,7 +67,7 @@ const productFormSchema = z.object({
   description: z.string().optional(),
   thumbnail_url: z.string().url('URL không hợp lệ').or(z.literal('')),
   tags: z.array(z.string()).default([]),
-  metadata_json: z.string().refine((val) => {
+  metadata: z.string().refine((val) => {
     if (!val.trim()) return true;
     try {
       const parsed = JSON.parse(val);
@@ -160,6 +175,13 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
   const [variantImages, setVariantImages] = useState<string[]>([]);
   const [imageDraft, setImageDraft] = useState('');
   const [variantError, setVariantError] = useState<string | null>(null);
+  // Giá trị attribute đang nhập cho biến thể trong form (map theo attribute_id)
+  const [attributeDraft, setAttributeDraft] = useState<Record<string, {
+    value_type: 'text' | 'number' | 'boolean';
+    value_text: string;
+    value_number: string;
+    value_boolean: boolean;
+  }>>({});
 
   const { register, control, handleSubmit, setValue, watch, formState: { errors } } = useForm<any>({
     resolver: zodResolver(productFormSchema),
@@ -170,7 +192,7 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
       description: '',
       thumbnail_url: '',
       tags: [],
-      metadata_json: '',
+      metadata: '',
       status: 'DRAFT',
       variants: [],
     }
@@ -183,11 +205,30 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
   const variants = variantsFields as any[];
 
   const productName = watch('name');
+  const selectedCategoryId = watch('category_id');
+
+  // Attribute definitions của category đang chọn — quyết định các field nhập
+  // cho attributes của mỗi biến thể. Đổi category sẽ đổi luôn bộ field này.
+  const { data: categoryAttributes = [], isLoading: isLoadingAttributes } = useAttributesByCategory(selectedCategoryId || undefined);
 
   // Sync slug
   React.useEffect(() => {
     setValue('slug', slugify(productName));
   }, [productName, setValue]);
+
+  // Reset draft nhập attribute mỗi khi đổi danh mục (attribute set đổi theo category)
+  React.useEffect(() => {
+    setAttributeDraft({});
+  }, [selectedCategoryId]);
+
+  // Khởi tạo draft nhập attributes rỗng, sẵn field cho từng attribute của category
+  const buildEmptyAttributeDraft = () => {
+    const draft: typeof attributeDraft = {};
+    categoryAttributes.forEach(attr => {
+      draft[attr.id] = { value_type: 'text', value_text: '', value_number: '', value_boolean: false };
+    });
+    return draft;
+  };
 
   const handleOpenNewVariant = () => {
     setVariantName('');
@@ -198,6 +239,7 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
     setVariantImages([]);
     setEditingVariantIndex(null);
     setVariantError(null);
+    setAttributeDraft(buildEmptyAttributeDraft());
     setShowVariantForm(true);
   };
 
@@ -211,6 +253,19 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
     setVariantImages(v.images || []);
     setEditingVariantIndex(index);
     setVariantError(null);
+
+    // Nạp lại attribute values đã nhập trước đó cho biến thể này (nếu có),
+    // field nào chưa có giá trị thì để trống theo bộ attribute hiện tại của category
+    const draft = buildEmptyAttributeDraft();
+    (v.attributes || []).forEach((av: any) => {
+      draft[av.attribute_id] = {
+        value_type: av.value_type || 'text',
+        value_text: av.value_text || '',
+        value_number: av.value_number !== undefined && av.value_number !== null ? String(av.value_number) : '',
+        value_boolean: !!av.value_boolean,
+      };
+    });
+    setAttributeDraft(draft);
     setShowVariantForm(true);
   };
 
@@ -224,6 +279,25 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
       return;
     }
 
+    // Chỉ giữ lại attribute nào người dùng thực sự có nhập giá trị
+    const attributes = categoryAttributes
+      .map(attr => {
+        const d = attributeDraft[attr.id];
+        if (!d) return null;
+        if (d.value_type === 'text' && !d.value_text.trim()) return null;
+        if (d.value_type === 'number' && d.value_number === '') return null;
+        return {
+          attribute_id: attr.id,
+          code: attr.code,
+          label: attr.label,
+          value_type: d.value_type,
+          value_text: d.value_type === 'text' ? d.value_text.trim() : undefined,
+          value_number: d.value_type === 'number' ? Number(d.value_number) : undefined,
+          value_boolean: d.value_type === 'boolean' ? d.value_boolean : undefined,
+        };
+      })
+      .filter(Boolean);
+
     const payload = {
       sku: variantSku.toUpperCase(),
       name: variantName,
@@ -231,7 +305,8 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
       price: priceNum,
       currency: variantCurrency,
       images: variantImages,
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      attributes,
     };
 
     if (editingVariantIndex !== null) {
@@ -262,7 +337,7 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
         description: values.description,
         thumbnail_url: values.thumbnail_url || undefined,
         tags: values.tags,
-        metadata: values.metadata_json ? JSON.parse(values.metadata_json) : {},
+        metadata: values.metadata ? JSON.parse(values.metadata) : {},
         status: values.status,
         variants: values.variants.map(v => ({
           sku: v.sku,
@@ -271,6 +346,15 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
           price: v.price,
           currency: v.currency,
           images: v.images,
+          // Gửi kèm attributes ngay trong variant — BE tạo product + variant +
+          // attribute values trong cùng 1 transaction (xem CreateVariantRequest.Attributes).
+          attributes: (v.attributes || []).map((it: any) => ({
+            attribute_id: it.attribute_id,
+            label: it.label,
+            value_text: it.value_text,
+            value_number: it.value_number,
+            value_boolean: it.value_boolean,
+          })),
         })),
       };
 
@@ -351,11 +435,11 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
           </div>
 
           <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="text-xs font-bold text-blue-600 hover:underline bg-transparent border-none cursor-pointer flex items-center gap-1">
-            <ChevronDown size={12} className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} /> Tuỳ chọn nâng cao (metadata_json)
+            <ChevronDown size={12} className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`} /> Tuỳ chọn nâng cao (metadata)
           </button>
           {showAdvanced && (
-            <Field label="Metadata JSON" hint="object tuỳ ý, vd seo, ghi chú nội bộ…" error={errors.metadata_json?.message as string}>
-              <textarea {...register('metadata_json')} rows={4} className={`${inputCls} font-mono bg-slate-50 resize-none`} placeholder='{"seo_title": "..."}' />
+            <Field label="Metadata JSON" hint="object tuỳ ý, vd seo, ghi chú nội bộ…" error={errors.metadata?.message as string}>
+              <textarea {...register('metadata')} rows={4} className={`${inputCls} font-mono bg-slate-50 resize-none`} placeholder='{"seo_title": "..."}' />
             </Field>
           )}
         </div>
@@ -431,6 +515,70 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
                 </Field>
               </div>
 
+              {/* Thuộc tính (Attributes) — bộ field phụ thuộc vào danh mục sản phẩm đã chọn */}
+              <div className="pt-2 border-t border-slate-200">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Thuộc tính (Attributes)</h4>
+                {!selectedCategoryId ? (
+                  <p className="text-xs text-slate-400">Vui lòng chọn danh mục sản phẩm trước để hiển thị thuộc tính tương ứng.</p>
+                ) : isLoadingAttributes ? (
+                  <p className="text-xs text-slate-400">Đang tải danh sách thuộc tính…</p>
+                ) : categoryAttributes.length === 0 ? (
+                  <p className="text-xs text-slate-400">Danh mục này chưa có thuộc tính nào được khai báo.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {categoryAttributes.map(attr => {
+                      const d = attributeDraft[attr.id] || { value_type: 'text', value_text: '', value_number: '', value_boolean: false };
+                      return (
+                        <Field key={attr.id} label={attr.label} hint={attr.code}>
+                          <div className="flex gap-2">
+                            <select
+                              value={d.value_type}
+                              onChange={e => setAttributeDraft(prev => ({
+                                ...prev,
+                                [attr.id]: { ...d, value_type: e.target.value as 'text' | 'number' | 'boolean' }
+                              }))}
+                              className={`${inputCls} w-24 cursor-pointer shrink-0`}
+                            >
+                              <option value="text">Text</option>
+                              <option value="number">Số</option>
+                              <option value="boolean">Có/Không</option>
+                            </select>
+
+                            {d.value_type === 'text' && (
+                              <input
+                                value={d.value_text}
+                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_text: e.target.value } }))}
+                                className={inputCls}
+                                placeholder={`Nhập ${attr.label.toLowerCase()}…`}
+                              />
+                            )}
+                            {d.value_type === 'number' && (
+                              <input
+                                type="number"
+                                value={d.value_number}
+                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_number: e.target.value } }))}
+                                className={inputCls}
+                                placeholder="0"
+                              />
+                            )}
+                            {d.value_type === 'boolean' && (
+                              <select
+                                value={d.value_boolean ? '1' : '0'}
+                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_boolean: e.target.value === '1' } }))}
+                                className={`${inputCls} cursor-pointer`}
+                              >
+                                <option value="0">Không</option>
+                                <option value="1">Có</option>
+                              </select>
+                            )}
+                          </div>
+                        </Field>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2 justify-end pt-2">
                 <button type="button" onClick={() => setShowVariantForm(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 bg-white hover:bg-slate-100 cursor-pointer">Hủy</button>
                 <button type="button" onClick={handleSaveVariant} className="px-4 py-2 bg-slate-800 text-white hover:bg-slate-900 rounded-xl text-sm font-semibold cursor-pointer shadow-sm border-none">
@@ -457,6 +605,11 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-sm text-slate-900">{v.name}</span>
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">{v.status}</span>
+                        {v.attributes?.length > 0 && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200">
+                            {v.attributes.length} thuộc tính
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-slate-500 font-mono mt-0.5">SKU: {v.sku} · {v.price ? v.price.toLocaleString() : 0} {v.currency}</p>
                     </div>

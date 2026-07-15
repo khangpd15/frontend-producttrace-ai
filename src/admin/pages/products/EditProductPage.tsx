@@ -15,6 +15,13 @@ import {
   useUpdateVariant, 
   useDeleteVariant 
 } from '../../../features/products/hooks/useProducts';
+import {
+  useAttributesByCategory,
+  useVariantAttributeValues,
+  useAssignVariantAttributes,
+  useUpdateAttributeValue,
+  useDeleteAttributeValue,
+} from '../../../features/attribute/hooks/useAttributes';
 import { parseApiError } from '../../../api/axios';
 
 const STATUS_OPTIONS = [
@@ -49,7 +56,7 @@ const productEditFormSchema = z.object({
   description: z.string().optional(),
   thumbnail_url: z.string().url('URL không hợp lệ').or(z.literal('')),
   tags: z.string().optional(),
-  metadata_json: z.string().refine((val) => {
+  metadata: z.string().refine((val) => {
     if (!val.trim()) return true;
     try {
       const parsed = JSON.parse(val);
@@ -104,6 +111,36 @@ export default function EditProductPage({
   const [editingVariant, setEditingVariant] = useState<any>(null);
   const [variantError, setVariantError] = useState<string | null>(null);
 
+  // Attribute definitions của category sản phẩm này (bộ field cố định cho mọi biến thể)
+  const { data: categoryAttributes = [] } = useAttributesByCategory(product?.categoryId);
+  // Attribute values đã gán sẵn cho variant đang mở trong drawer
+  const { data: existingAttributeValues = [] } = useVariantAttributeValues(editingVariant?.id);
+  const assignAttributesMutation = useAssignVariantAttributes();
+  const updateAttributeValueMutation = useUpdateAttributeValue();
+  const deleteAttributeValueMutation = useDeleteAttributeValue();
+
+  // Mỗi khi mở drawer cho 1 variant khác, nạp lại attribute values đã có của variant đó
+  useEffect(() => {
+    if (!editingVariant) return;
+    const draft: typeof attributeDraft = {};
+    categoryAttributes.forEach(attr => {
+      const existing = existingAttributeValues.find(av => av.attribute_id === attr.id);
+      draft[attr.id] = existing
+        ? {
+            attribute_value_id: existing.id,
+            value_type: existing.value_number !== null && existing.value_number !== undefined
+              ? 'number'
+              : (existing.value_boolean !== null && existing.value_boolean !== undefined ? 'boolean' : 'text'),
+            value_text: existing.value_text || '',
+            value_number: existing.value_number !== null && existing.value_number !== undefined ? String(existing.value_number) : '',
+            value_boolean: !!existing.value_boolean,
+          }
+        : { attribute_value_id: null, value_type: 'text', value_text: '', value_number: '', value_boolean: false };
+    });
+    setAttributeDraft(draft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingVariant?.id, categoryAttributes, existingAttributeValues]);
+
   // Variant fields
   const [variantSku, setVariantSku] = useState('');
   const [variantName, setVariantName] = useState('');
@@ -114,6 +151,16 @@ export default function EditProductPage({
   const [variantImages, setVariantImages] = useState<string[]>([]);
   const [imageDraft, setImageDraft] = useState('');
 
+  // Draft nhập/sửa attribute values cho biến thể đang mở trong drawer.
+  // Key = attribute_id. attribute_value_id null nghĩa là chưa gán (sẽ tạo mới khi lưu).
+  const [attributeDraft, setAttributeDraft] = useState<Record<string, {
+    attribute_value_id: string | null;
+    value_type: 'text' | 'number' | 'boolean';
+    value_text: string;
+    value_number: string;
+    value_boolean: boolean;
+  }>>({});
+
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<any>({
     resolver: zodResolver(productEditFormSchema),
     defaultValues: {
@@ -123,7 +170,7 @@ export default function EditProductPage({
       description: '',
       thumbnail_url: '',
       tags: '',
-      metadata_json: '',
+      metadata: '',
       status: 'DRAFT'
     }
   });
@@ -137,7 +184,7 @@ export default function EditProductPage({
       setValue('description', product.description || '');
       setValue('thumbnail_url', product.thumbnailUrl || '');
       setValue('tags', (product.tags || []).join(', '));
-      setValue('metadata_json', JSON.stringify((product as any).metadata || {}, null, 2));
+      setValue('metadata', JSON.stringify((product as any).metadata || {}, null, 2));
       setValue('status', product.status as any || 'DRAFT');
     }
   }, [product, setValue]);
@@ -191,7 +238,7 @@ export default function EditProductPage({
         description: values.description,
         thumbnail_url: values.thumbnail_url || undefined,
         tags: values.tags ? values.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-        metadata: values.metadata_json ? JSON.parse(values.metadata_json) : {},
+        metadata: values.metadata ? JSON.parse(values.metadata) : {},
         status: values.status,
       };
 
@@ -215,14 +262,14 @@ export default function EditProductPage({
     setVariantStatus(v.status || 'ACTIVE');
     
     let parsedImages: string[] = [];
-    if (v.images_json) {
+    if (v.images) {
       try {
-        parsedImages = JSON.parse(v.images_json);
+        parsedImages = JSON.parse(v.images);
       } catch {
         parsedImages = [];
       }
     }
-    setVariantImages(parsedImages);
+    setVariantImages(v.images || []);
     setVariantError(null);
     setIsDrawerOpen(true);
   };
@@ -249,6 +296,45 @@ export default function EditProductPage({
       };
 
       await updateVariantMutation.mutateAsync({ id: editingVariant.id, payload });
+
+      // Đồng bộ attribute values: tạo mới nếu chưa có, update nếu đã có và đổi giá trị,
+      // xoá nếu người dùng đã xoá giá trị đi.
+      const toCreate: any[] = [];
+      for (const attr of categoryAttributes) {
+        const d = attributeDraft[attr.id];
+        if (!d) continue;
+
+        const hasValue =
+          (d.value_type === 'text' && d.value_text.trim()) ||
+          (d.value_type === 'number' && d.value_number !== '') ||
+          (d.value_type === 'boolean');
+
+        if (!hasValue) {
+          // Không có giá trị nhập -> nếu trước đó đã gán thì xoá đi
+          if (d.attribute_value_id) {
+            await deleteAttributeValueMutation.mutateAsync(d.attribute_value_id);
+          }
+          continue;
+        }
+
+        const valuePayload = {
+          label: attr.label,
+          value_text: d.value_type === 'text' ? d.value_text.trim() : undefined,
+          value_number: d.value_type === 'number' ? Number(d.value_number) : undefined,
+          value_boolean: d.value_type === 'boolean' ? d.value_boolean : undefined,
+        };
+
+        if (d.attribute_value_id) {
+          await updateAttributeValueMutation.mutateAsync({ id: d.attribute_value_id, payload: valuePayload });
+        } else {
+          toCreate.push({ attribute_id: attr.id, ...valuePayload });
+        }
+      }
+
+      if (toCreate.length > 0) {
+        await assignAttributesMutation.mutateAsync({ variantId: editingVariant.id, items: toCreate });
+      }
+
       setIsDrawerOpen(false);
       refetch();
       alert('Cập nhật biến thể thành công!');
@@ -672,6 +758,63 @@ export default function EditProductPage({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Thuộc tính (Attributes) — theo danh mục của sản phẩm */}
+              <div className="pt-4 border-t border-slate-100">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Thuộc tính (Attributes)</label>
+                {categoryAttributes.length === 0 ? (
+                  <p className="text-xs text-slate-400 mt-2">Danh mục sản phẩm này chưa có thuộc tính nào được khai báo.</p>
+                ) : (
+                  <div className="mt-2 space-y-3">
+                    {categoryAttributes.map(attr => {
+                      const d = attributeDraft[attr.id] || { attribute_value_id: null, value_type: 'text', value_text: '', value_number: '', value_boolean: false };
+                      return (
+                        <div key={attr.id} className="space-y-1">
+                          <label className="text-[11px] font-semibold text-slate-500">{attr.label} <span className="text-slate-300 font-normal">({attr.code})</span></label>
+                          <div className="flex gap-2">
+                            <select
+                              value={d.value_type}
+                              onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_type: e.target.value as 'text' | 'number' | 'boolean' } }))}
+                              className="w-24 px-2 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-xs focus:outline-none cursor-pointer shrink-0"
+                            >
+                              <option value="text">Text</option>
+                              <option value="number">Số</option>
+                              <option value="boolean">Có/Không</option>
+                            </select>
+                            {d.value_type === 'text' && (
+                              <input
+                                value={d.value_text}
+                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_text: e.target.value } }))}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none"
+                                placeholder={`Nhập ${attr.label.toLowerCase()}…`}
+                              />
+                            )}
+                            {d.value_type === 'number' && (
+                              <input
+                                type="number"
+                                value={d.value_number}
+                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_number: e.target.value } }))}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none"
+                                placeholder="0"
+                              />
+                            )}
+                            {d.value_type === 'boolean' && (
+                              <select
+                                value={d.value_boolean ? '1' : '0'}
+                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_boolean: e.target.value === '1' } }))}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-xl text-sm focus:outline-none cursor-pointer"
+                              >
+                                <option value="0">Không</option>
+                                <option value="1">Có</option>
+                              </select>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
