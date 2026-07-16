@@ -19,31 +19,29 @@ export default defineConfig(() => {
       },
     },
     server: {
-      port: 3000,
+      port: 5173, // Frontend chạy ở 5173
       host: '0.0.0.0',
-      hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
+        // --- 1. Luồng Golang (8080) ---
+        // Chứa dữ liệu nghiệp vụ chính
+        '/api/auth': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
+        '/api/users': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
+        '/api/ownership': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
+        '/api/products': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
+
+        // --- 2. Luồng NestJS (3000) ---
+        // Chứa các chức năng AI Search / GeoSearch
         '/api': {
-          target: 'http://localhost:8000',
+          target: 'http://localhost:3000',
           changeOrigin: true,
           secure: false,
-          configure: (proxy, options) => {
-            proxy.on('proxyReq', (proxyReq, req, _res) => {
-              // Delete Origin header to bypass Kong CORS completely,
-              // or set it to an allowed origin
-              proxyReq.setHeader('Origin', 'http://localhost:3000');
-            });
-          },
         },
       },
     },
     build: {
-      // Increase chunk size warning threshold (some pages are legitimately large)
       chunkSizeWarningLimit: 700,
       rollupOptions: {
         output: {
-          // Split vendor libs into a separate chunk
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
             zustand: ['zustand'],
