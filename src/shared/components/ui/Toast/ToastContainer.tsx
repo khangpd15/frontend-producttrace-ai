@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
-import { useToastStore, type Toast, type ToastType } from '../../hooks/useToast';
+import { useToastStore, type Toast, type ToastType } from '../../../hooks/useToast';
 
 const CONFIG: Record<ToastType, { icon: React.ReactNode; bg: string; border: string; text: string; bar: string }> = {
   success: {

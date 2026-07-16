@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ShieldCheck, Bell, Settings, ChevronDown,
   Layers, Database, Tag, MapPin, ClipboardList, User, ChevronLeft, ChevronRight,
-  FileText, Activity, LogOut, Sparkles
+  FileText, Activity, LogOut, Sparkles, SlidersHorizontal
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/auth.store';
 
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard',       to: '/dashboard' },
   { icon: User,            label: 'Người dùng',      to: '/users' },
   { icon: Tag,             label: 'Danh mục',         to: '/categories' },
+  { icon: SlidersHorizontal, label: 'Thuộc tính',      to: '/attributes' },
   { icon: Package,         label: 'Sản phẩm',         to: '/products' },
   { icon: Database,        label: 'Lô hàng',          to: '/batches' },
   { icon: Layers,          label: 'Sở hữu',           to: '/ownership' },
