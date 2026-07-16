@@ -7,7 +7,7 @@ import { useRequestOTP, useRegisterOwnership } from '../../features/ownership/ho
 import { traceApi } from '../../features/trace/api/trace.api';
 import { parseApiError } from '../../api/axios';
 
-export function RegisterOwnership({ onBack }: { onBack: () => void }) {
+export function RegisterOwnership({ onBack, onSuccess }: { onBack: () => void; onSuccess?: () => void }) {
   const { user } = useAuthStore();
   const [view, setView] = useState<'form' | 'otp'>('form');
   const [qrCode, setQrCode] = useState(new URLSearchParams(window.location.search).get('code') || '');
@@ -95,7 +95,8 @@ export function RegisterOwnership({ onBack }: { onBack: () => void }) {
     try {
       await registerMutation.mutateAsync({ otp: otpString, product_id: productId || qrCode });
       alert('Đã đăng ký sở hữu! Yêu cầu của bạn đang chờ Admin phê duyệt.');
-      onBack();
+      if (onSuccess) onSuccess();
+      else onBack();
     } catch (err: any) {
       setErrorMsg(parseApiError(err));
     } finally {

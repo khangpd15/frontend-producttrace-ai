@@ -116,7 +116,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     let sse: EventSource;
     try {
       // Connect to SSE stream and pass token via query URL
-      sse = new EventSource(`http://localhost:8080/api/ownership/admin/stream?token=${token}`);
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      sse = new EventSource(`${baseUrl}/ownership/admin/stream?token=${token}`);
       
       sse.onmessage = (event) => {
         if (event.data === 'NEW_OWNERSHIP_REQUEST') {
