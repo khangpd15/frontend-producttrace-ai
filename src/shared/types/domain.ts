@@ -447,7 +447,7 @@ export interface AdminWarrantyListPageWarranty {
   policyName: string;
   policyDescription: string;
   durationMonths: number;
-  status: 'INACTIVE' | 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'RESOLVED' | 'REJECTED' | 'CANCELLED';
+  status: 'INACTIVE' | 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'RESOLVED' | 'REJECTED' | 'CANCELLED';
   startDate: string;
   endDate: string;
   invoiceNumber: string;

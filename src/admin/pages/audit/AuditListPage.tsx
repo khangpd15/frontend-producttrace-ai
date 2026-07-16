@@ -1,160 +1,84 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
-  Search, RotateCw, Eye, X, AlertCircle, 
-  Terminal, User, ShieldAlert, Cpu, HelpCircle, Inbox, Activity, Calendar
+  Search, X, AlertCircle, HelpCircle, Inbox, 
+  ChevronLeft, ChevronRight, RefreshCw, Database,
+  PlusCircle, Edit2, Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-
-import { AdminAuditLog as AuditLog } from '@shared/types/domain';
+import { useAuditLogs } from '../../../features/users/hooks/useAuditLogs';
+import { parseApiError } from '../../../api/axios';
 
 export default function AuditListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
-  const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
-  const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'INFO' | 'WARNING' | 'ERROR' | 'SECURITY'>('ALL');
+  const [page, setPage] = useState(1);
+  const [filterAction, setFilterAction] = useState<'CREATE' | 'UPDATE' | 'DELETE' | ''>('');
+  const [filterEntity, setFilterEntity] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
-  const [logs] = useState<AuditLog[]>([
-    {
-      id: 'log-1',
-      content: 'Nhập lô hàng mới BATCH-2026-KG01 thành công. Số lượng: 500 chiếc.',
-      type: 'INFO',
-      actorName: 'Nguyễn Kho',
-      actorEmail: 'staff.kho@producttrace.vn',
-      actorRole: 'Warehouse Staff',
-      ipAddress: '192.168.1.45',
-      createdAt: '2026-06-25 10:15:32'
-    },
-    {
-      id: 'log-2',
-      content: 'Cảnh báo đăng nhập thất bại liên tiếp 3 lần từ địa chỉ IP nước ngoài.',
-      type: 'SECURITY',
-      actorName: 'Hệ thống AI',
-      actorEmail: 'security-bot@producttrace.vn',
-      actorRole: 'System Bot',
-      ipAddress: '45.112.90.12',
-      createdAt: '2026-06-25 09:30:12'
-    },
-    {
-      id: 'log-3',
-      content: 'Cập nhật trạng thái bảo hành của sản phẩm SN-OM-771120 sang Hết Hạn (EXPIRED).',
-      type: 'INFO',
-      actorName: 'Hệ thống Cronjob',
-      actorEmail: 'cron-scheduler@producttrace.vn',
-      actorRole: 'System Bot',
-      ipAddress: '127.0.0.1',
-      createdAt: '2026-06-25 00:00:05'
-    },
-    {
-      id: 'log-4',
-      content: 'Lỗi đồng bộ dữ liệu vị trí GPS với máy chủ bản đồ API Google Maps.',
-      type: 'ERROR',
-      actorName: 'Hệ thống Maps',
-      actorEmail: 'geo-service@producttrace.vn',
-      actorRole: 'System Bot',
-      ipAddress: '192.168.1.10',
-      createdAt: '2026-06-24 16:45:18'
-    },
-    {
-      id: 'log-5',
-      content: 'Thay đổi phân quyền người dùng tranthib@hotmail.com từ Dealer sang Manager.',
-      type: 'WARNING',
-      actorName: 'Admin User',
-      actorEmail: 'admin@producttrace.vn',
-      actorRole: 'Admin',
-      ipAddress: '115.79.44.190',
-      createdAt: '2026-06-24 14:20:00'
-    },
-    {
-      id: 'log-6',
-      content: 'Khởi tạo yêu cầu bảo hành WAR-SP-400981 cho khách hàng Lê Hoàng C.',
-      type: 'INFO',
-      actorName: 'Nguyễn Dealer',
-      actorEmail: 'dealer.thanhxuan@producttrace.vn',
-      actorRole: 'Dealer',
-      ipAddress: '192.168.2.115',
-      createdAt: '2026-06-24 11:00:54'
-    }
-  ]);
+  const { data, isLoading, error, refetch } = useAuditLogs({
+    page,
+    limit: 15,
+    action: filterAction || undefined,
+    entity: filterEntity || undefined,
+    from_date: fromDate || undefined,
+    to_date: toDate || undefined,
+  });
 
-  // Filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<string>('ALL');
+  const logs = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / 15);
 
-  // Stats
-  const stats = useMemo(() => {
-    const total = logs.length + 8420;
-    const info = logs.filter(l => l.type === 'INFO').length + 7980;
-    const warning = logs.filter(l => l.type === 'WARNING').length + 290;
-    const error = logs.filter(l => l.type === 'ERROR').length + 42;
-    const security = logs.filter(l => l.type === 'SECURITY').length + 108;
-    return { total, info, warning, error, security };
-  }, [logs]);
+  const hasActiveFilters = filterAction || filterEntity || fromDate || toDate;
 
-  // Filtered logs
-  const filteredLogs = useMemo(() => {
-    return logs.filter(l => {
-      if (searchTerm.trim() !== '') {
-        const query = searchTerm.toLowerCase();
-        const matchContent = l.content.toLowerCase().includes(query);
-        const matchActor = l.actorName.toLowerCase().includes(query) || l.actorEmail.toLowerCase().includes(query);
-        const matchIp = l.ipAddress.includes(query);
-        if (!matchContent && !matchActor && !matchIp) return false;
-      }
-      if (filterType !== 'ALL' && l.type !== filterType) return false;
-      if (activeKpiFilter !== 'ALL' && l.type !== activeKpiFilter) return false;
-      return true;
-    });
-  }, [logs, searchTerm, filterType, activeKpiFilter]);
+  const clearFilters = () => {
+    setFilterAction('');
+    setFilterEntity('');
+    setFromDate('');
+    setToDate('');
+    setPage(1);
+  };
 
-  const renderTypeBadge = (type: 'INFO' | 'WARNING' | 'ERROR' | 'SECURITY') => {
+  // ─── Badges ────────────────────────────────────────────────────────────────
+
+  const ActionBadge = ({ action }: { action: 'CREATE' | 'UPDATE' | 'DELETE' }) => {
     const config = {
-      INFO: { bg: 'bg-blue-50 text-blue-700 border-blue-200', label: 'THÔNG TIN' },
-      WARNING: { bg: 'bg-amber-50 text-amber-700 border-amber-200', label: 'CẢNH BÁO' },
-      ERROR: { bg: 'bg-red-50 text-red-700 border-red-200', label: 'LỖI HỆ THỐNG' },
-      SECURITY: { bg: 'bg-purple-50 text-purple-700 border-purple-200', label: 'BẢO MẬT' }
+      CREATE: { cls: 'bg-green-50 text-green-700 border-green-200', icon: <PlusCircle size={10} />, label: 'TẠO MỚI' },
+      UPDATE: { cls: 'bg-blue-50 text-blue-700 border-blue-200',  icon: <Edit2 size={10} />,   label: 'CẬP NHẬT' },
+      DELETE: { cls: 'bg-red-50 text-red-700 border-red-200',     icon: <Trash2 size={10} />,  label: 'XÓA' },
     };
-    const c = config[type] || config.INFO;
+    const c = config[action] ?? config.UPDATE;
     return (
-      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${c.bg}`}>
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${c.cls}`}>
+        {c.icon}
         {c.label}
       </span>
     );
   };
 
+  // ─── Skeleton ──────────────────────────────────────────────────────────────
+
   const renderSkeleton = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-5 gap-4 animate-pulse">
-        {[1, 2, 3, 4, 5].map(i => (
-          <div key={i} className="bg-white p-6 rounded-xl border border-slate-100 h-24"></div>
+      <div className="grid grid-cols-3 gap-4 animate-pulse">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-white p-6 rounded-xl border border-slate-100 h-24" />
         ))}
       </div>
-      <div className="bg-white rounded-xl border border-slate-100 h-96 animate-pulse"></div>
+      <div className="bg-white rounded-xl border border-slate-100 h-96 animate-pulse" />
     </div>
   );
 
+  // ─── Stats cards ───────────────────────────────────────────────────────────
+
+  const stats = [
+    { label: 'Tổng bản ghi', value: total, color: 'text-slate-900' },
+    { label: 'Trang hiện tại', value: `${page} / ${totalPages || 1}`, color: 'text-blue-600' },
+    { label: 'Bản ghi / trang', value: logs.length, color: 'text-indigo-600' },
+  ];
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      
-      {/* Demo Controls */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Demo Controls</span>
-          <span className="text-xs text-blue-600 font-medium">Bấm để kiểm tra hiển thị:</span>
-        </div>
-        <div className="flex gap-2">
-          {['NORMAL', 'LOADING', 'EMPTY', 'ERROR'].map(st => (
-            <button
-              key={st}
-              onClick={() => setDemoState(st as any)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                demoState === st ? 'bg-blue-600 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
-              }`}
-            >
-              {st === 'NORMAL' ? 'Bình thường' : st === 'LOADING' ? 'Đang tải' : st === 'EMPTY' ? 'Trống' : 'Lỗi'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -165,93 +89,111 @@ export default function AuditListPage({ onNavigate }: { onNavigate: (tabId: stri
             </span>
           </h1>
           <p className="text-sm text-slate-500">
-            Giám sát bảo mật, lịch sử thao tác của các thành viên và tiến trình tự động của hệ thống ProductTrace-AI.
+            Giám sát lịch sử thao tác (CREATE / UPDATE / DELETE) trên toàn hệ thống ProductTrace-AI.
           </p>
         </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isLoading}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer bg-white disabled:opacity-50"
+          title="Làm mới dữ liệu"
+        >
+          <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+          Làm mới
+        </button>
       </div>
 
-      {demoState === 'ERROR' ? (
+      {error ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12">
           <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
             <AlertCircle size={24} />
           </div>
           <h3 className="text-lg font-bold text-slate-900">Không thể tải nhật ký</h3>
-          <p className="mt-2 text-sm text-slate-500 max-w-sm">Đã xảy ra lỗi kết nối cơ sở dữ liệu nhật ký hệ thống.</p>
-          <Button onClick={() => setDemoState('NORMAL')} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
+          <p className="mt-2 text-sm text-slate-500 max-w-sm">{parseApiError(error)}</p>
+          <Button onClick={() => refetch()} className="mt-6 rounded-xl px-4 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
+            Thử lại
+          </Button>
         </Card>
-      ) : demoState === 'LOADING' ? (
+      ) : isLoading ? (
         renderSkeleton()
       ) : (
         <>
-          {/* KPI Cards */}
-          <div className="grid grid-cols-5 gap-4">
-            {[
-              { id: 'ALL', label: 'Tổng số sự kiện', value: stats.total, color: 'text-slate-900' },
-              { id: 'INFO', label: 'Thông tin thường', value: stats.info, color: 'text-blue-600' },
-              { id: 'WARNING', label: 'Cảnh báo thay đổi', value: stats.warning, color: 'text-amber-500' },
-              { id: 'ERROR', label: 'Lỗi phần mềm', value: stats.error, color: 'text-red-500' },
-              { id: 'SECURITY', label: 'Sự kiện bảo mật', value: stats.security, color: 'text-purple-600' }
-            ].map(card => (
-              <div
-                key={card.id}
-                onClick={() => setActiveKpiFilter(activeKpiFilter === card.id ? 'ALL' : card.id as any)}
-                className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${
-                  activeKpiFilter === card.id ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10' : 'border-slate-200'
-                }`}
-              >
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            {stats.map(s => (
+              <div key={s.label} className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
                 <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold uppercase">
-                  <span>{card.label}</span>
+                  <span>{s.label}</span>
                   <HelpCircle size={12} className="text-slate-300" />
                 </div>
-                <div className={`text-2xl font-bold mt-2.5 ${card.color}`}>
-                  {card.value}
-                </div>
+                <div className={`text-2xl font-bold mt-2.5 ${s.color}`}>{s.value}</div>
               </div>
             ))}
           </div>
 
-          {/* Search & Filter */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex items-center gap-4 flex-1 min-w-70">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input 
-                  type="text" 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Lọc nhật ký theo nội dung, Email, IP Address..." 
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-sm focus:outline-none"
-                />
-                {searchTerm && (
-                  <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 bg-transparent border-none cursor-pointer"><X size={14} /></button>
-                )}
-              </div>
+          {/* Filters */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap gap-3 items-center">
 
-              {/* Type */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Phân loại:</span>
-                <select 
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
-                >
-                  <option value="ALL">Tất cả loại sự kiện</option>
-                  <option value="INFO">Thông tin thường (INFO)</option>
-                  <option value="WARNING">Cảnh báo (WARNING)</option>
-                  <option value="ERROR">Lỗi hệ thống (ERROR)</option>
-                  <option value="SECURITY">Cảnh báo bảo mật (SECURITY)</option>
-                </select>
+            {/* Action filter */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Hành động:</span>
+              <select
+                value={filterAction}
+                onChange={(e) => { setFilterAction(e.target.value as any); setPage(1); }}
+                className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
+              >
+                <option value="">Tất cả</option>
+                <option value="CREATE">CREATE</option>
+                <option value="UPDATE">UPDATE</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+            </div>
+
+            {/* Entity filter */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Entity:</span>
+              <div className="relative">
+                <Database size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={filterEntity}
+                  onChange={(e) => { setFilterEntity(e.target.value); setPage(1); }}
+                  placeholder="vd: User, Batch..."
+                  className="pl-7 pr-3 py-1.5 bg-white border border-slate-200 focus:bg-white rounded-lg text-xs focus:outline-none w-36"
+                />
+                {filterEntity && (
+                  <button onClick={() => { setFilterEntity(''); setPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 bg-transparent border-none cursor-pointer">
+                    <X size={11} />
+                  </button>
+                )}
               </div>
             </div>
 
-            {(searchTerm || filterType !== 'ALL' || activeKpiFilter !== 'ALL') && (
-              <button 
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterType('ALL');
-                  setActiveKpiFilter('ALL');
-                }}
-                className="text-xs font-semibold text-blue-600 hover:underline bg-transparent border-none cursor-pointer"
+            {/* Date range */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Từ:</span>
+              <input
+                type="datetime-local"
+                value={fromDate}
+                onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+                className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 px-2 cursor-pointer"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Đến:</span>
+              <input
+                type="datetime-local"
+                value={toDate}
+                onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+                className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 px-2 cursor-pointer"
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-xs font-semibold text-blue-600 hover:underline bg-transparent border-none cursor-pointer ml-auto"
               >
                 Xóa bộ lọc
               </button>
@@ -260,48 +202,107 @@ export default function AuditListPage({ onNavigate }: { onNavigate: (tabId: stri
 
           {/* Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            {demoState === 'EMPTY' || filteredLogs.length === 0 ? (
+            {logs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Không tìm thấy nhật ký</h3>
-                <p className="text-slate-500 text-sm max-w-sm mt-1">Không có sự kiện nhật ký nào phù hợp với bộ lọc tìm kiếm.</p>
+                <p className="text-slate-500 text-sm max-w-sm mt-1">
+                  {hasActiveFilters ? 'Không có sự kiện nào phù hợp với bộ lọc.' : 'Chưa có nhật ký nào trong hệ thống.'}
+                </p>
+                {hasActiveFilters && (
+                  <button onClick={clearFilters} className="mt-4 text-sm font-semibold text-blue-600 hover:underline cursor-pointer bg-transparent border-none">
+                    Xóa bộ lọc
+                  </button>
+                )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm table-fixed border-collapse">
-                  <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
-                    <tr>
-                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[18%]">Thời gian</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[14%]">Loại sự kiện</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[20%]">Người thực hiện</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[36%]">Nội dung hoạt động</th>
-                      <th className="p-3.5 pr-5 font-bold tracking-wider w-[12%] text-right">IP Address</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
-                    {filteredLogs.map(log => (
-                      <tr 
-                        key={log.id} 
-                        className="hover:bg-slate-50/50 transition-colors"
-                      >
-                        <td className="p-3.5 pl-5 font-mono text-xs text-slate-500">{log.createdAt}</td>
-                        <td className="p-3.5">{renderTypeBadge(log.type)}</td>
-                        <td className="p-3.5 truncate">
-                          <div className="font-semibold text-slate-800 text-xs truncate">{log.actorName}</div>
-                          <div className="text-[10px] text-slate-400 truncate">{log.actorEmail} ({log.actorRole})</div>
-                        </td>
-                        <td className="p-3.5 text-slate-700 text-xs font-medium leading-relaxed truncate" title={log.content}>{log.content}</td>
-                        <td className="p-3.5 pr-5 text-right font-mono text-xs text-slate-400">{log.ipAddress}</td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm table-fixed border-collapse">
+                    <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
+                      <tr>
+                        <th className="p-3.5 pl-5 font-bold tracking-wider w-[17%]">Thời gian</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[12%]">Hành động</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[14%]">Entity</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[20%]">Entity ID</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[20%]">User ID</th>
+                        <th className="p-3.5 pr-5 font-bold tracking-wider w-[17%] text-right">Dữ liệu</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {logs.map(log => (
+                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-3.5 pl-5 font-mono text-xs text-slate-500">
+                            {new Date(log.created_at).toLocaleString('vi-VN', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit', second: '2-digit'
+                            })}
+                          </td>
+                          <td className="p-3.5">
+                            <ActionBadge action={log.action} />
+                          </td>
+                          <td className="p-3.5 text-xs font-semibold text-slate-700 truncate">{log.entity}</td>
+                          <td className="p-3.5 font-mono text-[10px] text-slate-400 truncate" title={log.entity_id}>
+                            {log.entity_id}
+                          </td>
+                          <td className="p-3.5 font-mono text-[10px] text-slate-400 truncate" title={log.user_id ?? '—'}>
+                            {log.user_id ?? <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="p-3.5 pr-5 text-right">
+                            <div className="flex justify-end gap-1.5">
+                              {log.old_data && (
+                                <span
+                                  className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold border bg-slate-50 text-slate-600 border-slate-200 cursor-help"
+                                  title={JSON.stringify(log.old_data, null, 2)}
+                                >
+                                  OLD
+                                </span>
+                              )}
+                              {log.new_data && (
+                                <span
+                                  className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold border bg-indigo-50 text-indigo-600 border-indigo-200 cursor-help"
+                                  title={JSON.stringify(log.new_data, null, 2)}
+                                >
+                                  NEW
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-slate-150">
+                    <div className="text-xs text-slate-500">
+                      Trang <span className="font-semibold">{page}</span> / <span className="font-semibold">{totalPages}</span> (Tổng {total} bản ghi)
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </>
       )}
-
     </div>
   );
 }
