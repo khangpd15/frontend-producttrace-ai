@@ -90,18 +90,18 @@ export async function deleteAttribute(id: string): Promise<void> {
 
 // ===== Attribute values (gắn theo variant) =====
 
-// POST /product-variants/:variant_id/attributes
+// POST /variants/:variant_id/attributes
 export async function assignVariantAttributes(
   variantId: string,
   items: AssignAttributeValueItem[]
 ): Promise<AttributeValue[]> {
-  const res = await api.post(`/product-variants/${variantId}/attributes`, { items });
+  const res = await api.post(`/variants/${variantId}/attributes`, { items });
   return res.data.data as AttributeValue[];
 }
 
-// GET /product-variants/:id/attributes
+// GET /variants/:id/attributes
 export async function getVariantAttributeValues(variantId: string): Promise<AttributeValue[]> {
-  const res = await api.get(`/product-variants/${variantId}/attributes`);
+  const res = await api.get(`/variants/${variantId}/attributes`);
   const rawData = res.data;
   const dataField = rawData && typeof rawData === 'object' && 'data' in rawData ? rawData.data : rawData;
   if (Array.isArray(dataField)) {
