@@ -118,21 +118,28 @@ export default function ForgotPasswordPage() {
   }, []);
 
   // ─── Auto-redirect sau 3 giây khi thành công ───────────────────────────────
+  // QUAN TRỌNG: setIsLoading(false) phải được gọi TRƯỚC setIsSuccess(true)
+  // để React render SuccessToast ngay lập tức, sau đó mới bắt đầu đếm ngược.
   const startCountdownRedirect = () => {
-    setIsSuccess(true);
+    setIsLoading(false);   // ← unlock UI, cho phép SuccessToast render
+    setIsSuccess(true);    // ← hiển thị toast thành công
     setCountdown(3);
 
+    // Tick countdown mỗi giây
     let remaining = 3;
     countdownRef.current = setInterval(() => {
       remaining -= 1;
       setCountdown(remaining);
-      if (remaining <= 0) {
-        clearInterval(countdownRef.current!);
-        navigate('/login', {
-          state: { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập.' },
-        });
-      }
     }, 1000);
+
+    // Navigate sau đúng 3000ms — tách riêng khỏi interval
+    // để đảm bảo toast hiển thị đủ thời gian trước khi unmount
+    setTimeout(() => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      navigate('/login', {
+        state: { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập.' },
+      });
+    }, 3000);
   };
 
   // ─── Step 1: Gửi email lấy OTP ─────────────────────────────────────────────
@@ -158,6 +165,9 @@ export default function ForgotPasswordPage() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Chặn double-submit
+    if (isLoading || isSuccess) return;
+
     // Client-side validation
     if (form.new_password !== form.confirmPassword) {
       setAlert({ type: 'error', message: 'Mật khẩu xác nhận không khớp.' });
@@ -176,14 +186,14 @@ export default function ForgotPasswordPage() {
         otp_code: form.otp_code.trim(),
         new_password: form.new_password,
       });
-      // ✅ Thành công: bắt đầu countdown redirect
+      // ✅ API thành công:
+      // startCountdownRedirect() sẽ tự setIsLoading(false) → setIsSuccess(true)
+      // → SuccessToast xuất hiện ngay → sau 3000ms mới navigate
       startCountdownRedirect();
     } catch (err) {
       setAlert({ type: 'error', message: parseBackendError(err) });
       setIsLoading(false);
     }
-    // Không có finally setIsLoading(false) vì khi thành công
-    // muốn giữ trạng thái disabled cho đến khi redirect
   };
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -291,7 +301,16 @@ export default function ForgotPasswordPage() {
               disabled={isLoading || isSuccess}
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded-xl font-semibold text-sm transition-colors shadow-md cursor-pointer"
             >
-              {isLoading && !isSuccess ? (
+              {isSuccess ? (
+                // Trạng thái 1: Thành công — hiện tick + text xác nhận
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Đã đặt lại thành công
+                </span>
+              ) : isLoading ? (
+                // Trạng thái 2: Đang gọi API — hiện spinner
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -299,14 +318,8 @@ export default function ForgotPasswordPage() {
                   </svg>
                   Đang xử lý...
                 </span>
-              ) : isSuccess ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Đã đặt lại thành công
-                </span>
               ) : (
+                // Trạng thái 3: Idle
                 'Đặt lại mật khẩu'
               )}
             </button>
