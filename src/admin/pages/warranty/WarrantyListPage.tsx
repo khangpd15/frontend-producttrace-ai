@@ -1,137 +1,42 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
-  Search, Plus, RotateCw, Eye, Edit3, X, AlertCircle, 
-  FileText, Shield, ShieldCheck, ShieldAlert, Calendar, User, Info, HelpCircle, Inbox, Tag, AlertTriangle, Trash2
+  Search, Plus, X, AlertCircle, 
+  Shield, ShieldCheck, ShieldAlert, Calendar, User, HelpCircle, Inbox, Trash2, Eye
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-
-import { AdminWarrantyListPageWarranty as Warranty } from '@shared/types/domain';
-
-/**
- * TODO(warranty-backend): Backend is missing GET endpoints for warranty management.
- *
- * Required backend endpoints (currently unavailable):
- *   - GET /api/warranty-claims          — List all warranty claims (Admin/Staff)
- *   - GET /api/warranty-claims/:id      — Get single claim detail
- *   - PATCH /api/warranty-claims/:id    — Update claim status (Resolve/Reject)
- *   - DELETE /api/warranty-claims/:id   — Delete a claim record
- *   - GET /api/warranty-stats           — Aggregated KPI stats for dashboard
- *
- * Available endpoints (backend implemented):
- *   - POST /api/warranty-claims         — Customer submits a new claim (see WarrantyRequestForm)
- *
- * This page currently uses localStorage as a temporary substitute until the backend
- * implements the missing endpoints. Do NOT refactor to real API until those endpoints exist.
- * All CRUD actions here are purely local/demo until that point.
- */
-
+import Pagination from '../../components/ui/Pagination';
+import { 
+  useWarrantyList, 
+  useActivateWarranty, 
+  useApproveWarranty, 
+  useRejectWarranty, 
+  useVoidWarranty 
+} from '../../../features/warranty/hooks/useWarranty';
+import { parseApiError } from '../../../api/axios';
 
 export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
-  const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
-  const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'RESOLVED'>('ALL');
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  const [warranties, setWarranties] = useState<Warranty[]>(() => {
-    const saved = localStorage.getItem('admin_warranties');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // ignore
-      }
-    }
-    return [
-      {
-        id: 'w-1',
-        itemCode: 'ITEM-RO-KNG00125',
-        itemName: 'Máy lọc nước RO Kangaroo VT3',
-        serialNumber: 'SN-KG-889021',
-        ownerName: 'Nguyễn Văn A',
-        ownerEmail: 'nguyenvana@gmail.com',
-        warrantyCode: 'WAR-KG-889021',
-        policyName: 'Bảo hành chính hãng Kangaroo 24 tháng',
-        policyDescription: 'Bảo hành toàn bộ phần điện, vòi, màng lọc RO lỗi sản xuất',
-        durationMonths: 24,
-        status: 'ACTIVE',
-        startDate: '2026-02-15',
-        endDate: '2028-02-15',
-        invoiceNumber: 'INV-2026-00918',
-        note: 'Sản phẩm hoạt động bình thường',
-        createdAt: '2026-02-15',
-        updatedAt: '2026-02-15 14:30'
-      },
-      {
-        id: 'w-2',
-        itemCode: 'ITEM-SP-JA450-0988',
-        itemName: 'Tấm pin mặt trời JA Solar 450W',
-        serialNumber: 'SN-JA-321104',
-        ownerName: 'Trần Thị B',
-        ownerEmail: 'tranthib@hotmail.com',
-        warrantyCode: 'WAR-JA-321104',
-        policyName: 'Bảo hành hiệu suất 12 năm',
-        policyDescription: 'Bảo hành hiệu suất tấm pin không giảm quá 20% trong 12 năm',
-        durationMonths: 144,
-        status: 'ACTIVE',
-        startDate: '2026-03-10',
-        endDate: '2038-03-10',
-        invoiceNumber: 'INV-2026-01254',
-        note: 'Dự án hộ gia đình hòa lưới',
-        createdAt: '2026-03-10',
-        updatedAt: '2026-03-10 09:15'
-      },
-      {
-        id: 'w-3',
-        itemCode: 'ITEM-SN-SPEC-77312',
-        itemName: 'Sơn chống thấm Spec Damp-proof 5L',
-        serialNumber: 'SN-SP-400981',
-        ownerName: 'Lê Hoàng C',
-        ownerEmail: 'lehoangc@yahoo.com',
-        warrantyCode: 'WAR-SP-400981',
-        policyName: 'Bảo hành màu sơn 60 tháng',
-        policyDescription: 'Bảo hành chống bong tróc, bay màu sơn trong điều kiện thời tiết thường',
-        durationMonths: 60,
-        status: 'CLAIMED',
-        startDate: '2025-06-15',
-        endDate: '2030-06-15',
-        invoiceNumber: 'INV-2025-10492',
-        note: 'Khách báo màu sơn mặt nam bị loang lổ sau mưa bão',
-        createdAt: '2025-06-15',
-        updatedAt: '2026-06-25 09:00'
-      },
-      {
-        id: 'w-4',
-        itemCode: 'ITEM-OM-PRE-882190',
-        itemName: 'Omega-3 Premium Nordic',
-        serialNumber: 'SN-OM-771120',
-        ownerName: 'Phạm Minh D',
-        ownerEmail: 'phamminhd@gmail.com',
-        warrantyCode: 'WAR-OM-771120',
-        policyName: 'Bảo hành chính hãng đổi trả 1 tháng',
-        policyDescription: 'Bảo hành đổi trả nếu có lỗi đóng gói hoặc hỏng hóc trong vận chuyển',
-        durationMonths: 1,
-        status: 'EXPIRED',
-        startDate: '2026-01-05',
-        endDate: '2026-02-05',
-        invoiceNumber: 'INV-2026-00041',
-        note: 'Hết hạn bảo hành đổi trả',
-        createdAt: '2026-01-05',
-        updatedAt: '2026-02-05 00:00'
-      }
-    ];
-  });
-
-  React.useEffect(() => {
-    localStorage.setItem('admin_warranties', JSON.stringify(warranties));
-  }, [warranties]);
-
-  // Filters
+  const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED' | 'PENDING' | 'CANCELLED'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
 
-  // Drawer
+  // ── Pagination state (client-side — backend returns full list) ──────────────
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  // Queries & Mutations
+  const { data: warranties = [], isLoading, error, refetch } = useWarrantyList();
+  const activateMutation = useActivateWarranty();
+  const approveMutation = useApproveWarranty();
+  const rejectMutation = useRejectWarranty();
+  const voidMutation = useVoidWarranty();
+
+  // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<'CREATE' | 'EDIT' | 'VIEW' | 'PROCESS_CLAIM'>('CREATE');
-  const [selectedWarranty, setSelectedWarranty] = useState<Warranty | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'CREATE' | 'VIEW' | 'PROCESS_CLAIM'>('CREATE');
+  const [selectedWarranty, setSelectedWarranty] = useState<any | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -142,11 +47,11 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
     ownerEmail: '',
     warrantyCode: '',
     policyName: 'Bảo hành chính hãng Kangaroo 24 tháng',
-    policyDescription: '',
+    policyDescription: 'Bảo hành toàn bộ linh kiện điện tử vòi nước và linh kiện máy.',
     durationMonths: 24,
-    status: 'ACTIVE' as any,
-    startDate: '',
-    endDate: '',
+    status: 'ACTIVE',
+    startDate: new Date().toISOString().substring(0, 10),
+    endDate: new Date(Date.now() + 365 * 2 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
     invoiceNumber: '',
     note: ''
   });
@@ -159,25 +64,25 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
     actionTaken: ''
   });
 
-  // Stats
+  // Calculate statistics from real data (full list)
   const stats = useMemo(() => {
-    const total = warranties.length + 840;
-    const active = warranties.filter(w => w.status === 'ACTIVE').length + 795;
-    const expired = warranties.filter(w => w.status === 'EXPIRED').length + 38;
-    const claimed = warranties.filter(w => w.status === 'CLAIMED').length + 5;
-    const resolved = warranties.filter(w => w.status === 'RESOLVED').length + 2;
-    return { total, active, expired, claimed, resolved };
+    const total = warranties.length;
+    const active = warranties.filter(w => w.status === 'ACTIVE').length;
+    const expired = warranties.filter(w => w.status === 'EXPIRED').length;
+    const pending = warranties.filter(w => w.status === 'PENDING').length;
+    const cancelled = warranties.filter(w => w.status === 'CANCELLED').length;
+    return { total, active, expired, pending, cancelled };
   }, [warranties]);
 
-  // Filtered warranties
+  // Filtered list (full, for stats)
   const filteredWarranties = useMemo(() => {
     return warranties.filter(w => {
       if (searchTerm.trim() !== '') {
         const query = searchTerm.toLowerCase();
-        const matchCode = w.itemCode.toLowerCase().includes(query);
-        const matchSerial = w.serialNumber.toLowerCase().includes(query);
-        const matchOwner = w.ownerName.toLowerCase().includes(query);
-        const matchWarCode = w.warrantyCode.toLowerCase().includes(query);
+        const matchCode = (w.itemCode || '').toLowerCase().includes(query);
+        const matchSerial = (w.serialNumber || '').toLowerCase().includes(query);
+        const matchOwner = (w.ownerName || '').toLowerCase().includes(query);
+        const matchWarCode = (w.warrantyCode || '').toLowerCase().includes(query);
         if (!matchCode && !matchSerial && !matchOwner && !matchWarCode) return false;
       }
       if (filterStatus !== 'ALL' && w.status !== filterStatus) return false;
@@ -185,6 +90,23 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
       return true;
     });
   }, [warranties, searchTerm, filterStatus, activeKpiFilter]);
+
+  // Pagination derived values
+  const totalItems = filteredWarranties.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+  const pagedWarranties = useMemo(() => {
+    const start = (page - 1) * limit;
+    return filteredWarranties.slice(start, start + limit);
+  }, [filteredWarranties, page, limit]);
+
+  // Reset to page 1 on any filter change
+  useEffect(() => { setPage(1); }, [searchTerm, filterStatus, activeKpiFilter, limit]);
+
+  // Scroll table into view on page change
+  useEffect(() => {
+    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [page]);
+
 
   const handleOpenCreate = () => {
     setDrawerMode('CREATE');
@@ -201,7 +123,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
       durationMonths: 24,
       status: 'ACTIVE',
       startDate: new Date().toISOString().substring(0, 10),
-      endDate: new Date(Date.now() + 365*2*24*60*60*1000).toISOString().substring(0, 10), // 2 years
+      endDate: new Date(Date.now() + 365 * 2 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
       invoiceNumber: 'INV-2026-' + Math.floor(10000 + Math.random() * 90000),
       note: ''
     });
@@ -209,37 +131,13 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
     setIsDrawerOpen(true);
   };
 
-  const handleOpenEdit = (warranty: Warranty, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setDrawerMode('EDIT');
-    setSelectedWarranty(warranty);
-    setFormData({
-      itemCode: warranty.itemCode,
-      itemName: warranty.itemName,
-      serialNumber: warranty.serialNumber,
-      ownerName: warranty.ownerName,
-      ownerEmail: warranty.ownerEmail,
-      warrantyCode: warranty.warrantyCode,
-      policyName: warranty.policyName,
-      policyDescription: warranty.policyDescription,
-      durationMonths: warranty.durationMonths,
-      status: warranty.status,
-      startDate: warranty.startDate,
-      endDate: warranty.endDate,
-      invoiceNumber: warranty.invoiceNumber,
-      note: warranty.note
-    });
-    setFormError(null);
-    setIsDrawerOpen(true);
-  };
-
-  const handleOpenView = (warranty: Warranty) => {
+  const handleOpenView = (warranty: any) => {
     setDrawerMode('VIEW');
     setSelectedWarranty(warranty);
     setIsDrawerOpen(true);
   };
 
-  const handleOpenClaimProcess = (warranty: Warranty, e?: React.MouseEvent) => {
+  const handleOpenClaimProcess = (warranty: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setDrawerMode('PROCESS_CLAIM');
     setSelectedWarranty(warranty);
@@ -252,7 +150,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
     setIsDrawerOpen(true);
   };
 
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (drawerMode === 'PROCESS_CLAIM' && selectedWarranty) {
@@ -261,14 +159,30 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
         return;
       }
 
-      setWarranties(warranties.map(w => w.id === selectedWarranty.id ? {
-        ...w,
-        status: claimResolution.decision,
-        note: `Giải quyết bảo hành: ${claimResolution.reason} - Hướng xử lý: ${claimResolution.actionTaken}`,
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      } : w));
-
-      setIsDrawerOpen(false);
+      try {
+        setFormError(null);
+        if (claimResolution.decision === 'RESOLVED') {
+          await approveMutation.mutateAsync({
+            id: selectedWarranty.id,
+            payload: {
+              durationMonths: selectedWarranty.durationMonths || 24,
+              policyName: selectedWarranty.policyName || 'Bảo hành kích hoạt',
+            }
+          });
+          alert('Duyệt bảo hành thành công!');
+        } else if (claimResolution.decision === 'REJECTED') {
+          await rejectMutation.mutateAsync({
+            id: selectedWarranty.id,
+            payload: {
+              reason: claimResolution.reason
+            }
+          });
+          alert('Từ chối bảo hành thành công!');
+        }
+        setIsDrawerOpen(false);
+      } catch (err: any) {
+        setFormError(parseApiError(err));
+      }
       return;
     }
 
@@ -278,66 +192,41 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
     }
 
     if (drawerMode === 'CREATE') {
-      const isDuplicate = warranties.some(w => w.warrantyCode.toUpperCase() === formData.warrantyCode.toUpperCase());
-      if (isDuplicate) {
-        setFormError('Mã bảo hành này đã tồn tại');
-        return;
+      try {
+        setFormError(null);
+        await activateMutation.mutateAsync({
+          itemCode: formData.itemCode.toUpperCase(),
+          itemName: formData.itemName,
+          serialNumber: formData.serialNumber.toUpperCase(),
+          ownerName: formData.ownerName.trim(),
+          ownerEmail: formData.ownerEmail.trim() || undefined,
+          warrantyCode: formData.warrantyCode.toUpperCase(),
+          policyName: formData.policyName,
+          policyDescription: formData.policyDescription,
+          durationMonths: formData.durationMonths,
+          invoiceNumber: formData.invoiceNumber.toUpperCase(),
+          note: formData.note
+        });
+        alert('Kích hoạt bảo hành điện tử thành công!');
+        setIsDrawerOpen(false);
+      } catch (err: any) {
+        setFormError(parseApiError(err));
       }
-
-      const newWarranty: Warranty = {
-        id: 'w-' + Date.now(),
-        itemCode: formData.itemCode.toUpperCase(),
-        itemName: formData.itemName,
-        serialNumber: formData.serialNumber.toUpperCase(),
-        ownerName: formData.ownerName.trim(),
-        ownerEmail: formData.ownerEmail.trim(),
-        warrantyCode: formData.warrantyCode.toUpperCase(),
-        policyName: formData.policyName,
-        policyDescription: formData.policyDescription,
-        durationMonths: formData.durationMonths,
-        status: formData.status,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        invoiceNumber: formData.invoiceNumber.toUpperCase(),
-        note: formData.note,
-        createdAt: new Date().toISOString().substring(0, 10),
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      };
-
-      setWarranties([newWarranty, ...warranties]);
-    } else if (drawerMode === 'EDIT' && selectedWarranty) {
-      setWarranties(warranties.map(w => w.id === selectedWarranty.id ? {
-        ...w,
-        serialNumber: formData.serialNumber.toUpperCase(),
-        ownerName: formData.ownerName.trim(),
-        ownerEmail: formData.ownerEmail.trim(),
-        policyName: formData.policyName,
-        durationMonths: formData.durationMonths,
-        status: formData.status,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        invoiceNumber: formData.invoiceNumber.toUpperCase(),
-        note: formData.note,
-        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      } : w));
     }
-
-    setIsDrawerOpen(false);
   };
 
-  const renderStatusBadge = (status: 'INACTIVE' | 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'RESOLVED' | 'REJECTED' | 'CANCELLED') => {
-    const config = {
+  const renderStatusBadge = (status: 'INACTIVE' | 'ACTIVE' | 'EXPIRED' | 'PENDING' | 'REJECTED' | 'CANCELLED' | string) => {
+    const config: any = {
       ACTIVE: { bg: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500', label: 'Đang bảo hành' },
       INACTIVE: { bg: 'bg-slate-50 text-slate-500 border-slate-200', dot: 'bg-slate-400', label: 'Chưa kích hoạt' },
       EXPIRED: { bg: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500', label: 'Hết hạn bảo hành' },
-      CLAIMED: { bg: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: 'Chờ bảo hành' },
-      RESOLVED: { bg: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500', label: 'Đã xử lý xong' },
-      REJECTED: { bg: 'bg-red-100 text-red-800 border-red-200', dot: 'bg-red-600', label: 'Từ chối bảo hành' },
+      PENDING: { bg: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: 'Chờ duyệt' },
+      REJECTED: { bg: 'bg-red-100 text-red-800 border-red-200', dot: 'bg-red-600', label: 'Từ chối' },
       CANCELLED: { bg: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-400', label: 'Đã hủy' }
     };
-    const c = config[status] || config.ACTIVE;
+    const c = config[status] || { bg: 'bg-slate-50 text-slate-500 border-slate-200', dot: 'bg-slate-400', label: status };
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${c.bg}`}>
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${c.bg}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`}></span>
         {c.label}
       </span>
@@ -357,28 +246,6 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      
-      {/* Demo Controls */}
-      <div className="bg-blue-50/60 border border-blue-100/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md uppercase tracking-wider">Demo Controls</span>
-          <span className="text-xs text-blue-600 font-semibold">Bấm để kiểm tra hiển thị:</span>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          {['NORMAL', 'LOADING', 'EMPTY', 'ERROR'].map(st => (
-            <button
-              key={st}
-              onClick={() => setDemoState(st as any)}
-              className={`flex-1 sm:flex-initial px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 cursor-pointer ${
-                demoState === st ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 shadow-2xs'
-              }`}
-            >
-              {st === 'NORMAL' ? 'Bình thường' : st === 'LOADING' ? 'Đang tải' : st === 'EMPTY' ? 'Trống' : 'Lỗi'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -400,27 +267,27 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
         </Button>
       </div>
 
-      {demoState === 'ERROR' ? (
+      {error ? (
         <Card className="flex flex-col items-center justify-center py-16 text-center border-slate-200 max-w-xl mx-auto mt-12 rounded-2xl shadow-xs">
           <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4">
             <AlertCircle size={24} />
           </div>
           <h3 className="text-base font-bold text-slate-900">Không thể tải dữ liệu bảo hành</h3>
-          <p className="mt-2 text-xs text-slate-500 max-w-sm">Đã xảy ra lỗi kết nối khi tải danh sách hợp đồng bảo hành.</p>
-          <Button onClick={() => setDemoState('NORMAL')} className="mt-6 rounded-xl px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs transition-colors">Thử lại</Button>
+          <p className="mt-2 text-xs text-slate-500 max-w-sm">{parseApiError(error)}</p>
+          <Button onClick={() => refetch()} className="mt-6 rounded-xl px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs transition-colors">Thử lại</Button>
         </Card>
-      ) : demoState === 'LOADING' ? (
+      ) : isLoading ? (
         renderSkeleton()
       ) : (
         <>
           {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
-              { id: 'ALL', label: 'Hợp đồng bảo hành', value: stats.total, color: 'text-slate-900', bg: 'bg-slate-50/50 hover:bg-slate-50' },
+              { id: 'ALL', label: 'Tổng hợp đồng bảo hành', value: stats.total, color: 'text-slate-900', bg: 'bg-slate-50/50 hover:bg-slate-50' },
               { id: 'ACTIVE', label: 'Đang bảo hành', value: stats.active, color: 'text-green-600', bg: 'bg-green-50/20 hover:bg-green-50/40' },
-              { id: 'CLAIMED', label: 'Yêu cầu bảo hành', value: stats.claimed, color: 'text-amber-600', bg: 'bg-amber-50/20 hover:bg-amber-50/40' },
-              { id: 'RESOLVED', label: 'Đã hoàn thành', value: stats.resolved, color: 'text-blue-600', bg: 'bg-blue-50/20 hover:bg-blue-50/40' },
-              { id: 'EXPIRED', label: 'Đã hết hạn', value: stats.expired, color: 'text-slate-500', bg: 'bg-slate-50/20 hover:bg-slate-50/40' }
+              { id: 'PENDING', label: 'Yêu cầu chờ duyệt', value: stats.pending, color: 'text-amber-600', bg: 'bg-amber-50/20 hover:bg-amber-50/40' },
+              { id: 'CANCELLED', label: 'Đã hủy/vô hiệu', value: stats.cancelled, color: 'text-slate-500', bg: 'bg-slate-50/20 hover:bg-slate-50/40' },
+              { id: 'EXPIRED', label: 'Đã hết hạn', value: stats.expired, color: 'text-red-500', bg: 'bg-red-50/20 hover:bg-red-50/40' }
             ].map(card => (
               <div
                 key={card.id}
@@ -467,10 +334,9 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                 >
                   <option value="ALL">Tất cả</option>
                   <option value="ACTIVE">Đang bảo hành</option>
-                  <option value="EXPIRED">Hết hạn</option>
-                  <option value="CLAIMED">Yêu cầu bảo hành</option>
-                  <option value="RESOLVED">Xử lý xong</option>
-                  <option value="REJECTED">Từ chối bảo hành</option>
+                  <option value="PENDING">Chờ duyệt</option>
+                  <option value="CANCELLED">Đã hủy/vô hiệu</option>
+                  <option value="EXPIRED">Đã hết hạn</option>
                 </select>
               </div>
             </div>
@@ -481,6 +347,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                   setSearchTerm('');
                   setFilterStatus('ALL');
                   setActiveKpiFilter('ALL');
+                  setPage(1);
                 }}
                 className="text-xs font-bold text-blue-600 hover:underline bg-transparent border-none cursor-pointer flex-shrink-0"
               >
@@ -490,8 +357,8 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-            {demoState === 'EMPTY' || filteredWarranties.length === 0 ? (
+          <div ref={tableRef} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            {filteredWarranties.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-base font-bold text-slate-900">Không tìm thấy bản ghi bảo hành</h3>
@@ -513,7 +380,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredWarranties.map(w => (
+                    {pagedWarranties.map(w => (
                       <tr 
                         key={w.id} 
                         onClick={() => handleOpenView(w)}
@@ -527,13 +394,13 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                         </td>
                         <td className="p-4 truncate">
                           <div className="font-bold text-slate-800 text-xs flex items-center gap-1"><Shield size={12} className="text-slate-400" /> {w.policyName}</div>
-                          <div className="text-[10px] text-slate-400 font-medium">Từ {w.startDate} đến {w.endDate}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">Từ {new Date(w.startDate).toLocaleDateString('vi-VN')} đến {new Date(w.endDate).toLocaleDateString('vi-VN')}</div>
                         </td>
                         <td className="p-4 text-center text-slate-700 font-bold text-xs">{w.durationMonths} tháng</td>
                         <td className="p-4 text-center" onClick={e => e.stopPropagation()}>{renderStatusBadge(w.status)}</td>
                         <td className="p-4 pr-6 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
-                            {w.status === 'CLAIMED' && (
+                            {w.status === 'PENDING' && (
                               <button 
                                 onClick={(e) => handleOpenClaimProcess(w, e)}
                                 className="p-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-xl cursor-pointer border-none bg-transparent transition-colors"
@@ -543,31 +410,35 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                               </button>
                             )}
                             <button 
-                              onClick={() => handleOpenEdit(w)}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl cursor-pointer border-none bg-transparent transition-colors"
-                              title="Sửa bảo hành"
-                            >
-                              <Edit3 size={14} />
-                            </button>
-                            <button 
                               onClick={() => handleOpenView(w)}
                               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl cursor-pointer border-none bg-transparent transition-colors"
                               title="Xem chi tiết"
                             >
                               <Eye size={14} />
                             </button>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm(`Bạn có chắc chắn muốn xóa bản ghi bảo hành ${w.warrantyCode}?`)) {
-                                  setWarranties(warranties.filter(item => item.id !== w.id));
-                                }
-                              }}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl cursor-pointer border-none bg-transparent transition-colors"
-                              title="Xóa bảo hành"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {w.status === 'ACTIVE' && (
+                              <button 
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const reason = prompt(`Nhập lý do vô hiệu hóa hợp đồng bảo hành ${w.warrantyCode}:`);
+                                  if (reason && reason.trim()) {
+                                    try {
+                                      await voidMutation.mutateAsync({
+                                        id: w.id,
+                                        payload: { reason: reason.trim() }
+                                      });
+                                      alert('Hủy bỏ/vô hiệu hóa bảo hành thành công!');
+                                    } catch (err: any) {
+                                      alert(parseApiError(err));
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl cursor-pointer border-none bg-transparent transition-colors"
+                                title="Vô hiệu hóa bảo hành"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -576,6 +447,14 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                 </table>
               </div>
             )}
+            <Pagination
+              page={page}
+              limit={limit}
+              totalItems={totalItems}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+            />
           </div>
         </>
       )}
@@ -590,7 +469,7 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h3 className="text-base font-extrabold text-slate-900 tracking-tight">
-                  {drawerMode === 'CREATE' ? 'Kích hoạt bảo hành điện tử' : drawerMode === 'EDIT' ? 'Cập nhật bảo hành' : drawerMode === 'PROCESS_CLAIM' ? 'Xử lý yêu cầu bảo hành' : 'Chi tiết bảo hành'}
+                  {drawerMode === 'CREATE' ? 'Kích hoạt bảo hành điện tử' : drawerMode === 'PROCESS_CLAIM' ? 'Xử lý yêu cầu bảo hành' : 'Chi tiết bảo hành'}
                 </h3>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Thông tin thời hạn và chính sách bảo hành</p>
               </div>
@@ -623,29 +502,18 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                         onChange={e => setClaimResolution({ ...claimResolution, decision: e.target.value as any })}
                         className="w-full px-3 py-2.5 border border-slate-200 bg-white rounded-xl text-xs cursor-pointer focus:outline-none focus:border-blue-500 transition-colors"
                       >
-                        <option value="RESOLVED">Chấp nhận & Đã khắc phục (RESOLVED)</option>
-                        <option value="REJECTED">Từ chối bảo hành (REJECTED)</option>
-                        <option value="CANCELLED">Hủy hồ sơ (CANCELLED)</option>
+                        <option value="RESOLVED">Chấp nhận & Duyệt kích hoạt (ACTIVE)</option>
+                        <option value="REJECTED">Từ chối yêu cầu (REJECTED)</option>
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1.5">Mô tả lý do xử lý *</label>
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">Lý do xử lý *</label>
                       <textarea 
                         value={claimResolution.reason}
                         onChange={e => setClaimResolution({ ...claimResolution, reason: e.target.value })}
                         rows={3}
                         className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 transition-colors resize-none"
-                        placeholder="Nêu rõ lý do chấp nhận hoặc từ chối..."
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1.5">Biện pháp xử lý / linh kiện thay thế</label>
-                      <input 
-                        type="text" 
-                        value={claimResolution.actionTaken}
-                        onChange={e => setClaimResolution({ ...claimResolution, actionTaken: e.target.value })}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                        placeholder="Ví dụ: Thay màng lọc RO mới, sửa vòi bị rò nước..."
+                        placeholder="Nêu rõ lý do duyệt hoặc từ chối..."
                       />
                     </div>
                   </div>
@@ -663,6 +531,17 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                         disabled={drawerMode === 'VIEW'}
                         className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors"
                         placeholder="WAR-XXXXXX"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1.5">Mã sản phẩm (Item Code) *</label>
+                      <input 
+                        type="text" 
+                        value={formData.itemCode}
+                        onChange={e => setFormData({ ...formData, itemCode: e.target.value.toUpperCase() })}
+                        disabled={drawerMode === 'VIEW'}
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                        placeholder="ITEM-RO-KG12345"
                       />
                     </div>
                     <div>
@@ -739,12 +618,9 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                           className="w-full px-3 py-2.5 border border-slate-200 bg-white rounded-xl text-xs focus:outline-none focus:border-blue-500 transition-colors"
                         >
                           <option value="ACTIVE">Đang bảo hành</option>
-                          <option value="INACTIVE">Chưa kích hoạt</option>
+                          <option value="PENDING">Chờ duyệt</option>
+                          <option value="CANCELLED">Đã hủy/vô hiệu</option>
                           <option value="EXPIRED">Đã hết hạn</option>
-                          <option value="CLAIMED">Yêu cầu bảo hành</option>
-                          <option value="RESOLVED">Giải quyết xong</option>
-                          <option value="REJECTED">Từ chối bảo hành</option>
-                          <option value="CANCELLED">Đã hủy</option>
                         </select>
                       </div>
                     </div>
@@ -770,17 +646,6 @@ export default function WarrantyListPage({ onNavigate }: { onNavigate: (tabId: s
                           className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 transition-colors"
                         />
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1.5">Số Hóa Đơn mua hàng</label>
-                      <input 
-                        type="text" 
-                        value={formData.invoiceNumber}
-                        onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                        disabled={drawerMode === 'VIEW'}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-blue-500 transition-colors"
-                      />
                     </div>
 
                     <div>

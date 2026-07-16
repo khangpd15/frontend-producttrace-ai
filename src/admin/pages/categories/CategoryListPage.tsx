@@ -3,7 +3,8 @@ import {
   Search, Plus, RotateCw, ChevronRight, ChevronDown, 
   Filter, Eye, Edit3, Smartphone, Laptop, Tv, WashingMachine, 
   Info, X, Upload, Check, AlertCircle, ArrowUpRight, 
-  HelpCircle, Folder, FileText, BarChart2, Download, CheckSquare, Trash2
+  HelpCircle, Folder, FileText, BarChart2, Download, CheckSquare, Trash2,
+  Tag, PlusCircle, Save, XCircle, Loader2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -17,7 +18,23 @@ import {
   useUpdateCategory,
   useDeleteCategory,
 } from '../../../features/categories/hooks/useCategory';
+import {
+  useAttributesByCategory,
+  useCreateAttribute,
+  useUpdateAttribute,
+  useDeleteAttribute,
+} from '../../../features/attributes/hooks/useAttributes';
+import { Attribute } from '../../../features/attributes/api/attribute.api';
 import { parseApiError } from '../../../api/axios';
+import CategoryTreeSelect, { getDescendantIds } from '../../components/CategoryTreeSelect';
+
+// Thuộc tính đang "nháp" (chưa lưu xuống BE) — dùng khi tạo danh mục mới,
+// vì BE yêu cầu category_id tồn tại trước mới tạo được attribute.
+interface DraftAttribute {
+  tempId: string;
+  code: string;
+  label: string;
+}
 
 // Map icon string to React component
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
@@ -70,6 +87,36 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   const [formError, setFormError] = useState<string | null>(null);
   const [iconFile, setIconFile] = useState<string | null>(null);
 
+  // ---- Attributes management (gắn liền với danh mục) ----
+  // CREATE: thuộc tính chỉ tồn tại tạm ở client (draftAttributes), sẽ được tạo
+  // hàng loạt trên server ngay sau khi danh mục được tạo thành công.
+  // EDIT/VIEW: thuộc tính lấy trực tiếp từ server theo category_id.
+  const [draftAttributes, setDraftAttributes] = useState<DraftAttribute[]>([]);
+  const [newAttrCode, setNewAttrCode] = useState('');
+  const [newAttrLabel, setNewAttrLabel] = useState('');
+  const [attrFormError, setAttrFormError] = useState<string | null>(null);
+  const [editingAttrKey, setEditingAttrKey] = useState<string | null>(null); // id (EDIT) hoặc tempId (CREATE)
+  const [editAttrCode, setEditAttrCode] = useState('');
+  const [editAttrLabel, setEditAttrLabel] = useState('');
+
+  const isEditingExistingCategory = drawerMode !== 'CREATE' && !!selectedCategory;
+  const {
+    data: serverAttributes,
+    isLoading: isAttrsLoading,
+  } = useAttributesByCategory(isEditingExistingCategory ? selectedCategory!.id : undefined);
+  const createAttrMutation = useCreateAttribute();
+  const updateAttrMutation = useUpdateAttribute();
+  const deleteAttrMutation = useDeleteAttribute();
+
+  const attributesList: Attribute[] = serverAttributes || [];
+
+  // Danh sách id KHÔNG được chọn làm "Danh mục cha" khi đang sửa: chính category đó
+  // và toàn bộ hậu duệ của nó (con, cháu...) — tránh tạo vòng lặp trong cây danh mục.
+  const disabledParentIds = useMemo(() => {
+    if (drawerMode === 'CREATE' || !selectedCategory) return [];
+    return [selectedCategory.id, ...getDescendantIds(categories, selectedCategory.id)];
+  }, [drawerMode, selectedCategory, categories]);
+
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'ALL' | 'ROOT' | 'CHILD'>('ALL');
@@ -100,6 +147,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     });
     setIconFile(null);
     setFormError(null);
+    resetAttributeFormState();
     setIsDrawerOpen(true);
   };
 
@@ -119,6 +167,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     });
     setIconFile(category.icon !== 'Folder' ? 'custom-icon.png' : null);
     setFormError(null);
+    resetAttributeFormState();
     setIsDrawerOpen(true);
   };
 
@@ -127,7 +176,119 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     if (e) e.stopPropagation();
     setDrawerMode('VIEW');
     setSelectedCategory(category);
+    resetAttributeFormState();
     setIsDrawerOpen(true);
+  };
+
+  // Reset toàn bộ state liên quan tới phần "Thuộc tính" mỗi khi mở lại drawer
+  const resetAttributeFormState = () => {
+    setDraftAttributes([]);
+    setNewAttrCode('');
+    setNewAttrLabel('');
+    setAttrFormError(null);
+    setEditingAttrKey(null);
+    setEditAttrCode('');
+    setEditAttrLabel('');
+  };
+
+  // Thêm 1 thuộc tính: CREATE -> thêm vào draft (client-side); EDIT -> gọi API tạo ngay
+  const handleAddAttribute = async () => {
+    const code = newAttrCode.trim().toUpperCase();
+    const label = newAttrLabel.trim();
+    setAttrFormError(null);
+
+    if (!code || !label) {
+      setAttrFormError('Vui lòng nhập đủ Mã và Tên thuộc tính.');
+      return;
+    }
+
+    const existingCodes = drawerMode === 'CREATE'
+      ? draftAttributes.map(a => a.code)
+      : attributesList.map(a => a.code.toUpperCase());
+    if (existingCodes.includes(code)) {
+      setAttrFormError('Mã thuộc tính này đã tồn tại trong danh mục.');
+      return;
+    }
+
+    if (drawerMode === 'CREATE') {
+      setDraftAttributes(prev => [...prev, { tempId: `draft-${Date.now()}`, code, label }]);
+      setNewAttrCode('');
+      setNewAttrLabel('');
+      return;
+    }
+
+    if (selectedCategory) {
+      try {
+        await createAttrMutation.mutateAsync({
+          category_id: selectedCategory.id,
+          code,
+          label,
+        });
+        setNewAttrCode('');
+        setNewAttrLabel('');
+      } catch (err: any) {
+        setAttrFormError(parseApiError(err));
+      }
+    }
+  };
+
+  // Xoá 1 thuộc tính: CREATE -> bỏ khỏi draft; EDIT -> gọi API xoá
+  const handleDeleteAttribute = async (attr: Attribute | DraftAttribute, isDraft: boolean) => {
+    if (isDraft) {
+      setDraftAttributes(prev => prev.filter(a => a.tempId !== (attr as DraftAttribute).tempId));
+      return;
+    }
+    const realAttr = attr as Attribute;
+    if (!confirm(`Xoá thuộc tính "${realAttr.label}"?`)) return;
+    try {
+      await deleteAttrMutation.mutateAsync(realAttr.id);
+    } catch {
+      // Thông báo lỗi đã được xử lý trong hook (toast)
+    }
+  };
+
+  // Bắt đầu sửa 1 thuộc tính (áp dụng cho cả draft lẫn thuộc tính đã lưu)
+  const handleStartEditAttribute = (key: string, code: string, label: string) => {
+    setEditingAttrKey(key);
+    setEditAttrCode(code);
+    setEditAttrLabel(label);
+    setAttrFormError(null);
+  };
+
+  const handleCancelEditAttribute = () => {
+    setEditingAttrKey(null);
+    setEditAttrCode('');
+    setEditAttrLabel('');
+  };
+
+  // Lưu sửa thuộc tính: CREATE -> cập nhật trong draft; EDIT -> gọi API cập nhật
+  const handleSaveEditAttribute = async (isDraft: boolean) => {
+    const code = editAttrCode.trim().toUpperCase();
+    const label = editAttrLabel.trim();
+    if (!code || !label) {
+      setAttrFormError('Vui lòng nhập đủ Mã và Tên thuộc tính.');
+      return;
+    }
+
+    if (isDraft) {
+      setDraftAttributes(prev => prev.map(a =>
+        a.tempId === editingAttrKey ? { ...a, code, label } : a
+      ));
+      handleCancelEditAttribute();
+      return;
+    }
+
+    if (editingAttrKey) {
+      try {
+        await updateAttrMutation.mutateAsync({
+          id: editingAttrKey,
+          payload: { code, label },
+        });
+        handleCancelEditAttribute();
+      } catch (err: any) {
+        setAttrFormError(parseApiError(err));
+      }
+    }
   };
 
   // Handle status toggle (Kích hoạt / Vô hiệu hóa)
@@ -184,16 +345,42 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     }
 
     const parentIdValue = formData.parentId === '' ? null : formData.parentId;
+    let hasAttrCreationFailure = false;
 
     try {
       if (drawerMode === 'CREATE') {
-        await createMutation.mutateAsync({
+        const created = await createMutation.mutateAsync({
           name: formData.name.trim(),
           code: formData.code.trim().toUpperCase(),
           parent_id: parentIdValue,
           description: formData.description.trim(),
           status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE'
         });
+
+        // Danh mục đã có ID -> tạo lần lượt các thuộc tính đã nháp cho danh mục này.
+        // Tạo tuần tự (không Promise.all) để nếu 1 thuộc tính lỗi (vd trùng mã),
+        // vẫn biết chính xác thuộc tính nào thất bại và không làm rối lỗi hiển thị.
+        const newCategoryId = created?.data?.data?.id;
+        if (newCategoryId && draftAttributes.length > 0) {
+          const failedAttrs: string[] = [];
+          for (const attr of draftAttributes) {
+            try {
+              await createAttrMutation.mutateAsync({
+                category_id: newCategoryId,
+                code: attr.code,
+                label: attr.label,
+              });
+            } catch {
+              failedAttrs.push(attr.label);
+            }
+          }
+          if (failedAttrs.length > 0) {
+            hasAttrCreationFailure = true;
+            setFormError(
+              `Danh mục đã được tạo, nhưng ${failedAttrs.length} thuộc tính chưa lưu được: ${failedAttrs.join(', ')}. Hãy vào sửa danh mục để thêm lại.`
+            );
+          }
+        }
       } else if (drawerMode === 'EDIT' && selectedCategory) {
         await updateMutation.mutateAsync({
           id: selectedCategory.id,
@@ -206,8 +393,10 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
           }
         });
       }
-      setIsDrawerOpen(false);
-      setFormError(null);
+      if (!hasAttrCreationFailure) {
+        setIsDrawerOpen(false);
+        setFormError(null);
+      }
     } catch (err: any) {
       setFormError(parseApiError(err));
     }
@@ -955,24 +1144,15 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                 {/* Danh mục cha */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700">Danh mục cha</label>
-                  <select 
-                    value={formData.parentId || ''} 
-                    onChange={(e) => {
-                      if (drawerMode !== 'VIEW') setFormData({ ...formData, parentId: e.target.value });
+                  <CategoryTreeSelect
+                    categories={categories}
+                    value={formData.parentId || null}
+                    onChange={(id) => {
+                      if (drawerMode !== 'VIEW') setFormData({ ...formData, parentId: id || '' });
                     }}
+                    disabledIds={disabledParentIds}
                     disabled={drawerMode === 'VIEW'}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    <option value="">-- Không có (Danh mục gốc) --</option>
-                    {categories
-                      .filter(cat => drawerMode === 'CREATE' || cat.id !== selectedCategory?.id) // Prevent selecting itself as parent
-                      .map(cat => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name} ({cat.code})
-                        </option>
-                      ))
-                    }
-                  </select>
+                  />
                 </div>
 
                 {/* Trạng thái */}
@@ -1056,6 +1236,162 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                           </>
                         )}
                       </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ==== Thuộc tính danh mục (Attributes) ==== */}
+                {/* Mỗi danh mục có bộ thuộc tính riêng (vd: Màu sắc, Dung lượng...),
+                    dùng để mô tả biến thể (variant) của sản phẩm thuộc danh mục này. */}
+                <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between pt-3">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Tag size={13} className="text-slate-400" />
+                      Thuộc tính danh mục
+                      {drawerMode !== 'CREATE' && (
+                        <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md font-normal">
+                          {attributesList.length}
+                        </span>
+                      )}
+                      {drawerMode === 'CREATE' && draftAttributes.length > 0 && (
+                        <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-normal">
+                          {draftAttributes.length} nháp
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-400 -mt-1">
+                    {drawerMode === 'CREATE'
+                      ? 'Thuộc tính sẽ được lưu ngay sau khi danh mục được tạo thành công.'
+                      : 'Thay đổi thuộc tính có hiệu lực ngay lập tức, không cần bấm "Lưu thay đổi".'}
+                  </p>
+
+                  {attrFormError && (
+                    <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-start gap-2">
+                      <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+                      <span>{attrFormError}</span>
+                    </div>
+                  )}
+
+                  {/* Danh sách thuộc tính hiện có (server) hoặc nháp (create) */}
+                  <div className="space-y-1.5">
+                    {drawerMode !== 'CREATE' && isAttrsLoading ? (
+                      <div className="flex items-center gap-2 text-xs text-slate-400 py-3 justify-center">
+                        <Loader2 size={14} className="animate-spin" /> Đang tải thuộc tính...
+                      </div>
+                    ) : (
+                      (drawerMode === 'CREATE' ? draftAttributes : attributesList).length === 0 ? (
+                        <div className="text-xs text-slate-400 italic py-2 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                          Chưa có thuộc tính nào.
+                        </div>
+                      ) : (
+                        (drawerMode === 'CREATE' ? draftAttributes : attributesList).map((attr: any) => {
+                          const key = drawerMode === 'CREATE' ? attr.tempId : attr.id;
+                          const isDraft = drawerMode === 'CREATE';
+                          const isRowEditing = editingAttrKey === key;
+
+                          if (isRowEditing) {
+                            return (
+                              <div key={key} className="flex items-center gap-1.5 p-2 bg-blue-50/40 border border-blue-200 rounded-lg">
+                                <input
+                                  type="text"
+                                  value={editAttrCode}
+                                  onChange={(e) => setEditAttrCode(e.target.value.toUpperCase())}
+                                  placeholder="Mã (vd: COLOR)"
+                                  className="w-24 px-2 py-1.5 bg-white border border-slate-200 rounded-md text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <input
+                                  type="text"
+                                  value={editAttrLabel}
+                                  onChange={(e) => setEditAttrLabel(e.target.value)}
+                                  placeholder="Tên hiển thị (vd: Màu sắc)"
+                                  className="flex-1 px-2 py-1.5 bg-white border border-slate-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditAttribute(isDraft)}
+                                  disabled={updateAttrMutation.isPending}
+                                  className="p-1.5 rounded-md text-green-600 hover:bg-green-100 border-none bg-transparent cursor-pointer disabled:opacity-50"
+                                  title="Lưu"
+                                >
+                                  <Save size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelEditAttribute}
+                                  className="p-1.5 rounded-md text-slate-400 hover:bg-slate-100 border-none bg-transparent cursor-pointer"
+                                  title="Hủy"
+                                >
+                                  <XCircle size={14} />
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div
+                              key={key}
+                              className={`flex items-center gap-2 p-2 rounded-lg border ${isDraft ? 'bg-blue-50/30 border-blue-100' : 'bg-slate-50 border-slate-100'}`}
+                            >
+                              <span className="text-[10px] font-mono font-semibold text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-0.5">
+                                {attr.code}
+                              </span>
+                              <span className="text-xs text-slate-700 flex-1 truncate">{attr.label}</span>
+                              {drawerMode !== 'VIEW' && (
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditAttribute(key, attr.code, attr.label)}
+                                    className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 border-none bg-transparent cursor-pointer"
+                                    title="Sửa thuộc tính"
+                                  >
+                                    <Edit3 size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteAttribute(attr, isDraft)}
+                                    disabled={deleteAttrMutation.isPending}
+                                    className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 border-none bg-transparent cursor-pointer disabled:opacity-50"
+                                    title="Xóa thuộc tính"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )
+                    )}
+                  </div>
+
+                  {/* Form thêm thuộc tính mới */}
+                  {drawerMode !== 'VIEW' && (
+                    <div className="flex items-center gap-1.5 pt-1.5">
+                      <input
+                        type="text"
+                        value={newAttrCode}
+                        onChange={(e) => setNewAttrCode(e.target.value.toUpperCase())}
+                        placeholder="Mã (vd: COLOR)"
+                        className="w-24 px-2 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        value={newAttrLabel}
+                        onChange={(e) => setNewAttrLabel(e.target.value)}
+                        placeholder="Tên hiển thị (vd: Màu sắc)"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAttribute(); } }}
+                        className="flex-1 px-2 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddAttribute}
+                        disabled={createAttrMutation.isPending}
+                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 border border-blue-200 bg-white cursor-pointer disabled:opacity-50 flex-shrink-0"
+                        title="Thêm thuộc tính"
+                      >
+                        {createAttrMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <PlusCircle size={15} />}
+                      </button>
                     </div>
                   )}
                 </div>

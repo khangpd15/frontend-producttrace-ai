@@ -5,7 +5,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ShieldCheck, AlertTriangle, Upload, Check } from 'lucide-react';
 import { useOwnershipList } from '../../features/ownership/hooks/useOwnership';
-import { useCreateWarrantyClaim } from '../../features/warranty/hooks/useWarranty';
+import { useRequestWarranty } from '../../features/warranty/hooks/useWarranty';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { parseApiError } from '../../api/axios';
 
@@ -24,7 +24,7 @@ export function Warranty({ onBack }: { onBack: () => void }) {
 
   // Query and Mutation hooks
   const { data: ownershipsRes, isLoading: isListLoading } = useOwnershipList();
-  const createClaimMutation = useCreateWarrantyClaim();
+  const requestWarrantyMutation = useRequestWarranty();
 
   // Populate contact fields when user profile is ready or when selecting form view
   useEffect(() => {
@@ -65,13 +65,13 @@ export function Warranty({ onBack }: { onBack: () => void }) {
     setErrorMsg(null);
 
     try {
-      await createClaimMutation.mutateAsync({
-        product_id: selectedProduct.product_id,
-        issue_title: issueTitle.trim(),
-        issue_description: issueDescription.trim(),
-        contact_phone: contactPhone.trim(),
-        contact_email: contactEmail.trim() || undefined,
-        attachments: [], // Empty for now
+      const note = `Tiêu đề sự cố: ${issueTitle.trim()}\nMô tả: ${issueDescription.trim()}\nSĐT liên hệ: ${contactPhone.trim()}`;
+      await requestWarrantyMutation.mutateAsync({
+        serialNumber: selectedProduct.serial_number || '',
+        itemCode: selectedProduct.product_sku || '',
+        ownerName: selectedProduct.owner_name || user?.full_name || '',
+        ownerEmail: selectedProduct.owner_email || user?.email || '',
+        note: note,
       });
       setSubmitted(true);
     } catch (err: any) {
@@ -89,11 +89,6 @@ export function Warranty({ onBack }: { onBack: () => void }) {
 
   const activeOwnerships = ownershipsRes?.data || [];
 
-  // TODO(warranty-history): The backend currently only supports creating warranty claims
-  // (POST /api/warranty-claims). There is no GET endpoint to list a customer's claim history.
-  // When the backend implements GET /api/warranty-claims (e.g., filtered by user_id),
-  // replace the ownership-based list below with a dedicated useWarrantyClaimList() hook.
-  // Backend module: go-core-service/internal/modules/warranty_claim
 
 
   if (submitted) {
@@ -229,8 +224,8 @@ export function Warranty({ onBack }: { onBack: () => void }) {
               </div>
             </div>
 
-            <Button onClick={handleSubmitClaim} disabled={createClaimMutation.isPending} className="w-full">
-              {createClaimMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
+            <Button onClick={handleSubmitClaim} disabled={requestWarrantyMutation.isPending} className="w-full">
+              {requestWarrantyMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
             </Button>
           </div>
         </div>
