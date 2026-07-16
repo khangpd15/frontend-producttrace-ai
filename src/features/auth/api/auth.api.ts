@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from '../../../api/axios';
+import apiClient, { aiApiClient, ApiResponse } from '../../../api/axios';
 
 // ─── Auth Request / Response Types ───────────────────────────────────────────
 

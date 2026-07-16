@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Search, Plus, RotateCw, ChevronRight, ChevronDown, 
-  Filter, Eye, Edit3, Smartphone, Laptop, Tv, WashingMachine, 
+  Filter, Eye, Edit3, 
   Info, X, Upload, Check, AlertCircle, ArrowUpRight, 
-  HelpCircle, Folder, FileText, BarChart2, Download, CheckSquare, Trash2
+  HelpCircle, Folder, FileText, BarChart2, Download, CheckSquare, Trash2,
+  Tag, PlusCircle, Save, XCircle, Loader2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -17,17 +18,23 @@ import {
   useUpdateCategory,
   useDeleteCategory,
 } from '../../../features/categories/hooks/useCategory';
+import {
+  useAttributesByCategory,
+  useCreateAttribute,
+  useUpdateAttribute,
+  useDeleteAttribute,
+} from '../../../features/attributes/hooks/useAttributes';
+import { Attribute } from '../../../features/attributes/api/attribute.api';
 import { parseApiError } from '../../../api/axios';
+import CategoryTreeSelect, { getDescendantIds } from '../../components/CategoryTreeSelect';
 
-// Map icon string to React component
-const ICON_MAP: Record<string, React.ComponentType<any>> = {
-  Smartphone: Smartphone,
-  Laptop: Laptop,
-  Tv: Tv,
-  WashingMachine: WashingMachine,
-  Folder: Folder,
-  FileText: FileText,
-};
+// Thuộc tính đang "nháp" (chưa lưu xuống BE) — dùng khi tạo danh mục mới,
+// vì BE yêu cầu category_id tồn tại trước mới tạo được attribute.
+interface DraftAttribute {
+  tempId: string;
+  code: string;
+  label: string;
+}
 
 export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   // Real Backend Integration
@@ -70,6 +77,36 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   const [formError, setFormError] = useState<string | null>(null);
   const [iconFile, setIconFile] = useState<string | null>(null);
 
+  // ---- Attributes management (gắn liền với danh mục) ----
+  // CREATE: thuộc tính chỉ tồn tại tạm ở client (draftAttributes), sẽ được tạo
+  // hàng loạt trên server ngay sau khi danh mục được tạo thành công.
+  // EDIT/VIEW: thuộc tính lấy trực tiếp từ server theo category_id.
+  const [draftAttributes, setDraftAttributes] = useState<DraftAttribute[]>([]);
+  const [newAttrCode, setNewAttrCode] = useState('');
+  const [newAttrLabel, setNewAttrLabel] = useState('');
+  const [attrFormError, setAttrFormError] = useState<string | null>(null);
+  const [editingAttrKey, setEditingAttrKey] = useState<string | null>(null); // id (EDIT) hoặc tempId (CREATE)
+  const [editAttrCode, setEditAttrCode] = useState('');
+  const [editAttrLabel, setEditAttrLabel] = useState('');
+
+  const isEditingExistingCategory = drawerMode !== 'CREATE' && !!selectedCategory;
+  const {
+    data: serverAttributes,
+    isLoading: isAttrsLoading,
+  } = useAttributesByCategory(isEditingExistingCategory ? selectedCategory!.id : undefined);
+  const createAttrMutation = useCreateAttribute();
+  const updateAttrMutation = useUpdateAttribute();
+  const deleteAttrMutation = useDeleteAttribute();
+
+  const attributesList: Attribute[] = serverAttributes || [];
+
+  // Danh sách id KHÔNG được chọn làm "Danh mục cha" khi đang sửa: chính category đó
+  // và toàn bộ hậu duệ của nó (con, cháu...) — tránh tạo vòng lặp trong cây danh mục.
+  const disabledParentIds = useMemo(() => {
+    if (drawerMode === 'CREATE' || !selectedCategory) return [];
+    return [selectedCategory.id, ...getDescendantIds(categories, selectedCategory.id)];
+  }, [drawerMode, selectedCategory, categories]);
+
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'ALL' | 'ROOT' | 'CHILD'>('ALL');
@@ -100,6 +137,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     });
     setIconFile(null);
     setFormError(null);
+    resetAttributeFormState();
     setIsDrawerOpen(true);
   };
 
@@ -119,6 +157,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     });
     setIconFile(category.icon !== 'Folder' ? 'custom-icon.png' : null);
     setFormError(null);
+    resetAttributeFormState();
     setIsDrawerOpen(true);
   };
 
@@ -127,7 +166,119 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     if (e) e.stopPropagation();
     setDrawerMode('VIEW');
     setSelectedCategory(category);
+    resetAttributeFormState();
     setIsDrawerOpen(true);
+  };
+
+  // Reset toàn bộ state liên quan tới phần "Thuộc tính" mỗi khi mở lại drawer
+  const resetAttributeFormState = () => {
+    setDraftAttributes([]);
+    setNewAttrCode('');
+    setNewAttrLabel('');
+    setAttrFormError(null);
+    setEditingAttrKey(null);
+    setEditAttrCode('');
+    setEditAttrLabel('');
+  };
+
+  // Thêm 1 thuộc tính: CREATE -> thêm vào draft (client-side); EDIT -> gọi API tạo ngay
+  const handleAddAttribute = async () => {
+    const code = newAttrCode.trim().toUpperCase();
+    const label = newAttrLabel.trim();
+    setAttrFormError(null);
+
+    if (!code || !label) {
+      setAttrFormError('Vui lòng nhập đủ Mã và Tên thuộc tính.');
+      return;
+    }
+
+    const existingCodes = drawerMode === 'CREATE'
+      ? draftAttributes.map(a => a.code)
+      : attributesList.map(a => a.code.toUpperCase());
+    if (existingCodes.includes(code)) {
+      setAttrFormError('Mã thuộc tính này đã tồn tại trong danh mục.');
+      return;
+    }
+
+    if (drawerMode === 'CREATE') {
+      setDraftAttributes(prev => [...prev, { tempId: `draft-${Date.now()}`, code, label }]);
+      setNewAttrCode('');
+      setNewAttrLabel('');
+      return;
+    }
+
+    if (selectedCategory) {
+      try {
+        await createAttrMutation.mutateAsync({
+          category_id: selectedCategory.id,
+          code,
+          label,
+        });
+        setNewAttrCode('');
+        setNewAttrLabel('');
+      } catch (err: any) {
+        setAttrFormError(parseApiError(err));
+      }
+    }
+  };
+
+  // Xoá 1 thuộc tính: CREATE -> bỏ khỏi draft; EDIT -> gọi API xoá
+  const handleDeleteAttribute = async (attr: Attribute | DraftAttribute, isDraft: boolean) => {
+    if (isDraft) {
+      setDraftAttributes(prev => prev.filter(a => a.tempId !== (attr as DraftAttribute).tempId));
+      return;
+    }
+    const realAttr = attr as Attribute;
+    if (!confirm(`Xoá thuộc tính "${realAttr.label}"?`)) return;
+    try {
+      await deleteAttrMutation.mutateAsync(realAttr.id);
+    } catch {
+      // Thông báo lỗi đã được xử lý trong hook (toast)
+    }
+  };
+
+  // Bắt đầu sửa 1 thuộc tính (áp dụng cho cả draft lẫn thuộc tính đã lưu)
+  const handleStartEditAttribute = (key: string, code: string, label: string) => {
+    setEditingAttrKey(key);
+    setEditAttrCode(code);
+    setEditAttrLabel(label);
+    setAttrFormError(null);
+  };
+
+  const handleCancelEditAttribute = () => {
+    setEditingAttrKey(null);
+    setEditAttrCode('');
+    setEditAttrLabel('');
+  };
+
+  // Lưu sửa thuộc tính: CREATE -> cập nhật trong draft; EDIT -> gọi API cập nhật
+  const handleSaveEditAttribute = async (isDraft: boolean) => {
+    const code = editAttrCode.trim().toUpperCase();
+    const label = editAttrLabel.trim();
+    if (!code || !label) {
+      setAttrFormError('Vui lòng nhập đủ Mã và Tên thuộc tính.');
+      return;
+    }
+
+    if (isDraft) {
+      setDraftAttributes(prev => prev.map(a =>
+        a.tempId === editingAttrKey ? { ...a, code, label } : a
+      ));
+      handleCancelEditAttribute();
+      return;
+    }
+
+    if (editingAttrKey) {
+      try {
+        await updateAttrMutation.mutateAsync({
+          id: editingAttrKey,
+          payload: { code, label },
+        });
+        handleCancelEditAttribute();
+      } catch (err: any) {
+        setAttrFormError(parseApiError(err));
+      }
+    }
   };
 
   // Handle status toggle (Kích hoạt / Vô hiệu hóa)
@@ -184,16 +335,42 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     }
 
     const parentIdValue = formData.parentId === '' ? null : formData.parentId;
+    let hasAttrCreationFailure = false;
 
     try {
       if (drawerMode === 'CREATE') {
-        await createMutation.mutateAsync({
+        const created = await createMutation.mutateAsync({
           name: formData.name.trim(),
           code: formData.code.trim().toUpperCase(),
           parent_id: parentIdValue,
           description: formData.description.trim(),
           status: formData.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE'
         });
+
+        // Danh mục đã có ID -> tạo lần lượt các thuộc tính đã nháp cho danh mục này.
+        // Tạo tuần tự (không Promise.all) để nếu 1 thuộc tính lỗi (vd trùng mã),
+        // vẫn biết chính xác thuộc tính nào thất bại và không làm rối lỗi hiển thị.
+        const newCategoryId = created?.data?.data?.id;
+        if (newCategoryId && draftAttributes.length > 0) {
+          const failedAttrs: string[] = [];
+          for (const attr of draftAttributes) {
+            try {
+              await createAttrMutation.mutateAsync({
+                category_id: newCategoryId,
+                code: attr.code,
+                label: attr.label,
+              });
+            } catch {
+              failedAttrs.push(attr.label);
+            }
+          }
+          if (failedAttrs.length > 0) {
+            hasAttrCreationFailure = true;
+            setFormError(
+              `Danh mục đã được tạo, nhưng ${failedAttrs.length} thuộc tính chưa lưu được: ${failedAttrs.join(', ')}. Hãy vào sửa danh mục để thêm lại.`
+            );
+          }
+        }
       } else if (drawerMode === 'EDIT' && selectedCategory) {
         await updateMutation.mutateAsync({
           id: selectedCategory.id,
@@ -206,8 +383,10 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
           }
         });
       }
-      setIsDrawerOpen(false);
-      setFormError(null);
+      if (!hasAttrCreationFailure) {
+        setIsDrawerOpen(false);
+        setFormError(null);
+      }
     } catch (err: any) {
       setFormError(parseApiError(err));
     }
@@ -291,9 +470,9 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
             )}
           </div>
           
-          {/* Custom or mapped icon */}
+          {/* Folder icon */}
           <span className="text-slate-400">
-            {React.createElement(ICON_MAP[category.icon] || Folder, { size: 16, className: isSelected ? 'text-blue-500' : 'text-slate-400' })}
+            <Folder size={16} className={isSelected ? 'text-blue-500' : 'text-slate-400'} />
           </span>
 
           <span className="text-sm truncate flex-1 ml-1">{category.name}</span>
@@ -376,7 +555,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   const renderStatusBadge = (status: 'ACTIVE' | 'INACTIVE' | 'PENDING') => {
     if (status === 'ACTIVE') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+        <span className="inline-flex items-center justify-center gap-1 w-[110px] h-5 rounded-full text-[10px] font-medium bg-green-50 text-green-700 border border-green-200 flex-shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
           Hoạt động
         </span>
@@ -384,14 +563,14 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     }
     if (status === 'INACTIVE') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-500 border border-slate-200">
+        <span className="inline-flex items-center justify-center gap-1 w-[110px] h-5 rounded-full text-[10px] font-medium bg-slate-50 text-slate-500 border border-slate-200 flex-shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
           Ngừng hoạt động
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+      <span className="inline-flex items-center justify-center gap-1 w-[110px] h-5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 flex-shrink-0">
         <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
         Đang xử lý
       </span>
@@ -452,7 +631,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-[1600px] mx-auto px-4 md:px-6 pb-16 w-full">
       
       {/* Header section */}
       <div className="flex justify-between items-start">
@@ -656,7 +835,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
           </div>
 
           {/* Main Content Area: Tree Panel (Left) & Table List (Right) */}
-          <div className="grid grid-cols-4 gap-6 items-start">
+          <div className="grid grid-cols-4 gap-6 items-stretch">
             
             {/* Section 3: Category Tree Panel */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col min-h-[480px]">
@@ -677,7 +856,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   <p className="text-xs font-medium">Chưa có danh mục.</p>
                 </div>
               ) : (
-                <div className="space-y-1 overflow-y-auto flex-1 max-h-[500px] pr-1">
+                <div className="space-y-1 overflow-y-auto flex-1 pr-1">
                   {rootCategories.map(rootCat => renderTreeNode(rootCat, 0))}
                 </div>
               )}
@@ -722,71 +901,69 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm border-collapse table-fixed">
                       <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
-                        <tr>
-                          <th className="p-3.5 pl-5 font-bold tracking-wider w-[22%]">Danh mục</th>
-                          <th className="p-3.5 font-bold tracking-wider w-[14%]">Mã</th>
-                          <th className="p-3.5 font-bold tracking-wider w-[16%]">Slug</th>
+                        <tr className="h-10 align-middle">
+                          <th className="p-3.5 pl-5 font-bold tracking-wider w-[20%]">Danh mục</th>
+                          <th className="p-3.5 font-bold tracking-wider w-[12%]">Mã</th>
+                          <th className="p-3.5 font-bold tracking-wider w-[14%]">Slug</th>
                           <th className="p-3.5 font-bold tracking-wider w-[12%]">Cha</th>
-                          <th className="p-3.5 font-bold tracking-wider w-[14%]">Mô tả</th>
+                          <th className="p-3.5 font-bold tracking-wider w-[16%]">Mô tả</th>
                           <th className="p-3.5 font-bold tracking-wider w-[12%] text-center">Trạng thái</th>
                           <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">Cập nhật</th>
-                          <th className="p-3.5 pr-5 font-bold tracking-wider w-[10%] text-right">Thao tác</th>
+                          <th className="p-3.5 font-bold tracking-wider w-[14%] text-center">Thao tác</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {filteredCategories.map((cat) => {
-                          const IconComp = ICON_MAP[cat.icon] || Folder;
                           return (
                             <tr 
                               key={cat.id} 
-                              className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                              className="hover:bg-slate-50/50 transition-colors group cursor-pointer h-[76px] align-middle"
                               onClick={() => handleOpenView(cat)}
                             >
-                              <td className="p-3.5 pl-5 font-medium text-slate-900 truncate">
-                                <div className="flex items-center gap-2">
-                                  <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors flex-shrink-0">
-                                    <IconComp size={16} />
-                                  </div>
-                                  <span className="truncate">{cat.name}</span>
-                                </div>
+                              <td className="p-3.5 pl-5 font-medium text-slate-900 max-w-0 align-middle">
+                                <span className="truncate block">{cat.name}</span>
                               </td>
-                              <td className="p-3.5 text-xs text-slate-500 font-mono font-semibold truncate">{cat.code}</td>
-                              <td className="p-3.5 text-xs text-slate-500 truncate" title={cat.slug}>{cat.slug}</td>
-                              <td className="p-3.5 text-slate-600 truncate">
+                              <td className="p-3.5 text-xs text-slate-500 font-mono font-semibold max-w-0 truncate align-middle">{cat.code}</td>
+                              <td className="p-3.5 text-xs text-slate-500 max-w-0 truncate align-middle" title={cat.slug}>{cat.slug}</td>
+                              <td className="p-3.5 text-slate-600 max-w-0 truncate align-middle">
                                 {cat.parentId ? (
-                                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
+                                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium truncate block max-w-full" title={getParentName(cat.parentId)}>
                                     {getParentName(cat.parentId)}
                                   </span>
                                 ) : (
                                   <span className="text-xs text-slate-400 italic">Gốc</span>
                                 )}
                               </td>
-                              <td className="p-3.5 text-slate-500 text-xs truncate" title={cat.description}>
+                              <td className="p-3.5 text-slate-500 text-xs max-w-0 truncate align-middle" title={cat.description}>
                                 {cat.description || <span className="text-slate-300 italic">Không có mô tả</span>}
                               </td>
-                              <td className="p-3.5 text-center" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex flex-col items-center gap-1.5 justify-center">
-                                  {renderStatusBadge(cat.status)}
+                              <td className="p-3.5 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex flex-col items-center justify-center gap-1.5 w-full">
+                                  <div className="flex justify-center w-full">
+                                    {renderStatusBadge(cat.status)}
+                                  </div>
                                   
                                   {/* Interactive Toggle Switch */}
-                                  <label className="relative inline-flex items-center cursor-pointer scale-90">
-                                    <input 
-                                      type="checkbox" 
-                                      checked={cat.status === 'ACTIVE'}
-                                      onChange={() => handleToggleStatus(cat.id, cat.status)}
-                                      className="sr-only peer"
-                                    />
-                                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                                  </label>
+                                  <div className="flex justify-center w-full">
+                                    <label className="relative inline-flex items-center justify-center cursor-pointer mt-0.5">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={cat.status === 'ACTIVE'}
+                                        onChange={() => handleToggleStatus(cat.id, cat.status)}
+                                        className="sr-only peer"
+                                      />
+                                      <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-3.5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-green-500"></div>
+                                    </label>
+                                  </div>
                                 </div>
                               </td>
-                              <td className="p-3.5 text-center text-xs text-slate-400 font-medium">{cat.updatedAt.split(' ')[0]}</td>
-                              <td className="p-3.5 pr-5 text-right" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex justify-end items-center gap-1">
+                              <td className="p-3.5 text-center text-xs text-slate-400 font-medium align-middle">{cat.updatedAt.split(' ')[0]}</td>
+                              <td className="p-3.5 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-center items-center gap-1.5 w-full">
                                   {/* Navigate to Products */}
                                   <button 
                                     onClick={() => onNavigate('products')}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors border-none bg-transparent cursor-pointer"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center"
                                     title="Xem sản phẩm thuộc danh mục"
                                   >
                                     <ArrowUpRight size={15} />
@@ -795,7 +972,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                   {/* Edit Category */}
                                   <button 
                                     onClick={(e) => handleOpenEdit(cat, e)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center"
                                     title="Chỉnh sửa danh mục"
                                   >
                                     <Edit3 size={15} />
@@ -804,7 +981,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                   {/* View Detail */}
                                   <button 
                                     onClick={(e) => handleOpenView(cat, e)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center"
                                     title="Xem chi tiết"
                                   >
                                     <Eye size={15} />
@@ -822,7 +999,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                         }
                                       }
                                     }}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors border-none bg-transparent cursor-pointer"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center"
                                     title="Xóa danh mục"
                                   >
                                     <Trash2 size={15} />
@@ -955,24 +1132,15 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                 {/* Danh mục cha */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700">Danh mục cha</label>
-                  <select 
-                    value={formData.parentId || ''} 
-                    onChange={(e) => {
-                      if (drawerMode !== 'VIEW') setFormData({ ...formData, parentId: e.target.value });
+                  <CategoryTreeSelect
+                    categories={categories}
+                    value={formData.parentId || null}
+                    onChange={(id) => {
+                      if (drawerMode !== 'VIEW') setFormData({ ...formData, parentId: id || '' });
                     }}
+                    disabledIds={disabledParentIds}
                     disabled={drawerMode === 'VIEW'}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    <option value="">-- Không có (Danh mục gốc) --</option>
-                    {categories
-                      .filter(cat => drawerMode === 'CREATE' || cat.id !== selectedCategory?.id) // Prevent selecting itself as parent
-                      .map(cat => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name} ({cat.code})
-                        </option>
-                      ))
-                    }
-                  </select>
+                  />
                 </div>
 
                 {/* Trạng thái */}
@@ -1007,55 +1175,159 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   />
                 </div>
 
-                {/* Icon Selection & Upload */}
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700">Biểu tượng (Icon)</label>
-                  {drawerMode === 'VIEW' ? (
-                    <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 w-fit">
-                      {React.createElement(ICON_MAP[formData.icon] || Folder, { size: 18 })}
-                      <span className="text-xs font-medium">{formData.icon}</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-5 gap-2">
-                        {['Folder', 'Smartphone', 'Laptop', 'Tv', 'WashingMachine'].map(iconName => {
-                          const IconElem = ICON_MAP[iconName] || Folder;
-                          return (
-                            <button
-                              key={iconName}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, icon: iconName })}
-                              className={`p-2.5 rounded-lg border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
-                                formData.icon === iconName 
-                                  ? 'border-blue-500 bg-blue-50/50 text-blue-600 font-semibold' 
-                                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                              }`}
-                            >
-                              <IconElem size={18} />
-                              <span className="text-[10px]">{iconName}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
 
-                      {/* Mock upload area */}
-                      <div 
-                        onClick={handleSimulateUpload}
-                        className="border-2 border-dashed border-slate-200 hover:border-blue-300 rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer bg-slate-50/50 hover:bg-blue-50/10 transition-colors"
-                      >
-                        {iconFile ? (
-                          <div className="flex items-center gap-2 text-green-600 justify-center">
-                            <Check size={16} className="bg-green-100 p-0.5 rounded-full" />
-                            <span className="text-xs font-semibold">{iconFile}</span>
-                          </div>
-                        ) : (
-                          <>
-                            <Upload size={20} className="text-slate-400 mb-1 mx-auto" />
-                            <span className="text-[11px] font-semibold text-slate-700">Tải lên Icon tùy chỉnh</span>
-                            <span className="text-[10px] text-slate-400 mt-0.5">Hỗ trợ SVG, PNG (Tối đa 2MB)</span>
-                          </>
-                        )}
+                {/* ==== Thuộc tính danh mục (Attributes) ==== */}
+                {/* Mỗi danh mục có bộ thuộc tính riêng (vd: Màu sắc, Dung lượng...),
+                    dùng để mô tả biến thể (variant) của sản phẩm thuộc danh mục này. */}
+                <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between pt-3">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Tag size={13} className="text-slate-400" />
+                      Thuộc tính danh mục
+                      {drawerMode !== 'CREATE' && (
+                        <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md font-normal">
+                          {attributesList.length}
+                        </span>
+                      )}
+                      {drawerMode === 'CREATE' && draftAttributes.length > 0 && (
+                        <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md font-normal">
+                          {draftAttributes.length} nháp
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-400 -mt-1">
+                    {drawerMode === 'CREATE'
+                      ? 'Thuộc tính sẽ được lưu ngay sau khi danh mục được tạo thành công.'
+                      : 'Thay đổi thuộc tính có hiệu lực ngay lập tức, không cần bấm "Lưu thay đổi".'}
+                  </p>
+
+                  {attrFormError && (
+                    <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg flex items-start gap-2">
+                      <AlertCircle size={14} className="text-red-500 flex-shrink-0 mt-0.5" />
+                      <span>{attrFormError}</span>
+                    </div>
+                  )}
+
+                  {/* Danh sách thuộc tính hiện có (server) hoặc nháp (create) */}
+                  <div className="space-y-1.5">
+                    {drawerMode !== 'CREATE' && isAttrsLoading ? (
+                      <div className="flex items-center gap-2 text-xs text-slate-400 py-3 justify-center">
+                        <Loader2 size={14} className="animate-spin" /> Đang tải thuộc tính...
                       </div>
+                    ) : (
+                      (drawerMode === 'CREATE' ? draftAttributes : attributesList).length === 0 ? (
+                        <div className="text-xs text-slate-400 italic py-2 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                          Chưa có thuộc tính nào.
+                        </div>
+                      ) : (
+                        (drawerMode === 'CREATE' ? draftAttributes : attributesList).map((attr: any) => {
+                          const key = drawerMode === 'CREATE' ? attr.tempId : attr.id;
+                          const isDraft = drawerMode === 'CREATE';
+                          const isRowEditing = editingAttrKey === key;
+
+                          if (isRowEditing) {
+                            return (
+                              <div key={key} className="flex items-center gap-1.5 p-2 bg-blue-50/40 border border-blue-200 rounded-lg">
+                                <input
+                                  type="text"
+                                  value={editAttrCode}
+                                  onChange={(e) => setEditAttrCode(e.target.value.toUpperCase())}
+                                  placeholder="Mã (vd: COLOR)"
+                                  className="w-24 px-2 py-1.5 bg-white border border-slate-200 rounded-md text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <input
+                                  type="text"
+                                  value={editAttrLabel}
+                                  onChange={(e) => setEditAttrLabel(e.target.value)}
+                                  placeholder="Tên hiển thị (vd: Màu sắc)"
+                                  className="flex-1 px-2 py-1.5 bg-white border border-slate-200 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditAttribute(isDraft)}
+                                  disabled={updateAttrMutation.isPending}
+                                  className="p-1.5 rounded-md text-green-600 hover:bg-green-100 border-none bg-transparent cursor-pointer disabled:opacity-50"
+                                  title="Lưu"
+                                >
+                                  <Save size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleCancelEditAttribute}
+                                  className="p-1.5 rounded-md text-slate-400 hover:bg-slate-100 border-none bg-transparent cursor-pointer"
+                                  title="Hủy"
+                                >
+                                  <XCircle size={14} />
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div
+                              key={key}
+                              className={`flex items-center gap-2 p-2 rounded-lg border ${isDraft ? 'bg-blue-50/30 border-blue-100' : 'bg-slate-50 border-slate-100'}`}
+                            >
+                              <span className="text-[10px] font-mono font-semibold text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-0.5">
+                                {attr.code}
+                              </span>
+                              <span className="text-xs text-slate-700 flex-1 truncate">{attr.label}</span>
+                              {drawerMode !== 'VIEW' && (
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditAttribute(key, attr.code, attr.label)}
+                                    className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 border-none bg-transparent cursor-pointer"
+                                    title="Sửa thuộc tính"
+                                  >
+                                    <Edit3 size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteAttribute(attr, isDraft)}
+                                    disabled={deleteAttrMutation.isPending}
+                                    className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 border-none bg-transparent cursor-pointer disabled:opacity-50"
+                                    title="Xóa thuộc tính"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )
+                    )}
+                  </div>
+
+                  {/* Form thêm thuộc tính mới */}
+                  {drawerMode !== 'VIEW' && (
+                    <div className="flex items-center gap-1.5 pt-1.5">
+                      <input
+                        type="text"
+                        value={newAttrCode}
+                        onChange={(e) => setNewAttrCode(e.target.value.toUpperCase())}
+                        placeholder="Mã (vd: COLOR)"
+                        className="w-24 px-2 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        value={newAttrLabel}
+                        onChange={(e) => setNewAttrLabel(e.target.value)}
+                        placeholder="Tên hiển thị (vd: Màu sắc)"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAttribute(); } }}
+                        className="flex-1 px-2 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddAttribute}
+                        disabled={createAttrMutation.isPending}
+                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 border border-blue-200 bg-white cursor-pointer disabled:opacity-50 flex-shrink-0"
+                        title="Thêm thuộc tính"
+                      >
+                        {createAttrMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <PlusCircle size={15} />}
+                      </button>
                     </div>
                   )}
                 </div>

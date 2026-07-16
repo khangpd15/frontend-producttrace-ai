@@ -33,6 +33,7 @@ const SettingsPage = lazy(() => import('../admin/pages/settings/SettingsPage'));
 const NotificationListPage = lazy(() => import('../admin/pages/notifications/NotificationListPage'));
 const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
 const AISearchPage = lazy(() => import('../admin/pages/search/AISearchPage'));
+const AttributesPage = lazy(() => import('../admin/pages/attributes/AttributesPage'));
 
 // ─── Customer pages (lazy) ────────────────────────────────────────────────────
 const CustomerHome = lazy(() => import('../customer/views/Home'));
@@ -97,6 +98,7 @@ const AuditPage = withNav(AuditListPage as React.ComponentType<{ onNavigate: (t:
 const SettingsWrapped = withNav(SettingsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const NotificationsPage = withNav(NotificationListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const AISearchPageWrapped = withNav(AISearchPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const AttributesPageWrapped = withNav(AttributesPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 
 // ─── ProductDetail reads id from URL query string ────────────────────────────
 function ProductDetailRoute() {
@@ -169,6 +171,7 @@ export default function AppRouter() {
               <Route path="/settings" element={<SettingsWrapped />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/search" element={<AISearchPageWrapped />} />
+              <Route path="/attributes" element={<AttributesPageWrapped />} />
 
               {/* Admin-only */}
               <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
@@ -213,7 +216,7 @@ export default function AppRouter() {
                   onRegister={() => window.location.href = '/customer/ownership/register'}
                 />
               } />
-              <Route path="/customer/register-ownership" element={
+              <Route path="/customer/ownership/register" element={
                 <CustomerRegisterOwnership onBack={() => window.history.back()} />
               } />
               <Route path="/customer/warranty" element={

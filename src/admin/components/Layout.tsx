@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Package, ShieldCheck, Search, Bell, Settings, ChevronDown, 
   Layers, Database, Tag, MapPin, ClipboardList, User, ChevronLeft, ChevronRight, 
-  FileText, Activity, LogOut, Check, Sparkles, BellOff, Lock
+  FileText, Activity, LogOut, Check, Sparkles, BellOff, Lock, SlidersHorizontal
 } from 'lucide-react';
 import Breadcrumb from './ui/Breadcrumb';
 
@@ -11,6 +11,7 @@ const MENU_CONFIG = {
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: User, label: 'Users', href: '/users' },
     { icon: Tag, label: 'Categories', href: '/categories' },
+    { icon: SlidersHorizontal, label: 'Attributes', href: '/attributes' },
     { icon: Package, label: 'Products', href: '/products' },
     { icon: Database, label: 'Batches', href: '/batches' },
     { icon: Layers, label: 'Ownership', href: '/ownership' },

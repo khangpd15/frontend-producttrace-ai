@@ -137,9 +137,9 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
   const filteredOwnerships = (ownershipsRes?.data || []).filter((item) => {
     const query = searchQuery.toLowerCase();
     return (
-      item.product_name.toLowerCase().includes(query) ||
-      item.product_sku.toLowerCase().includes(query) ||
-      item.owner_name.toLowerCase().includes(query)
+      (item?.product_name || '').toLowerCase().includes(query) ||
+      (item?.product_sku || '').toLowerCase().includes(query) ||
+      (item?.owner_name || '').toLowerCase().includes(query)
     );
   });
 

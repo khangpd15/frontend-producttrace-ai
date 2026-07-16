@@ -1,29 +1,55 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Search, Plus, RotateCw, Eye, Edit3, X, AlertCircle,
-  User, Calendar, MapPin, Receipt, ArrowLeftRight, HelpCircle, Inbox, Layers, ClipboardList, Trash2
+  Search, Plus, Eye, X, AlertCircle,
+  User, Calendar, MapPin, Receipt, ArrowLeftRight, HelpCircle, Inbox, ClipboardList, Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import { ownershipApi } from '../../../api/ownership.api';
-
-import { AdminOwnership as Ownership } from '@shared/types/domain';
+import Pagination from '../../components/ui/Pagination';
+import { ownershipApi, OwnershipSummaryRes } from '../../../features/ownership/api/ownership.api';
+import { useOwnershipList } from '../../../features/ownership/hooks/useOwnership';
+import { useQueryClient } from '@tanstack/react-query';
+import { ownershipKeys } from '../../../features/ownership/hooks/useOwnership';
+import { parseApiError } from '../../../api/axios';
 
 export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
-  const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'EMPTY' | 'ERROR'>('NORMAL');
-  const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'TRANSFERRED' | 'REVOKED' | 'PENDING'>('ALL');
+  const queryClient = useQueryClient();
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  const [ownerships, setOwnerships] = useState<Ownership[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Filters
+  // ── Pagination + Filter State ─────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  const [filterType, setFilterType] = useState<string>('ALL');
+  const [activeKpiFilter, setActiveKpiFilter] = useState<'ALL' | 'ACTIVE' | 'TRANSFERRED' | 'REVOKED' | 'PENDING'>('ALL');
+
+  // Derive effective status filter (KPI card overrides dropdown)
+  const effectiveStatus = activeKpiFilter !== 'ALL' ? activeKpiFilter : filterStatus !== 'ALL' ? filterStatus : undefined;
+
+  // ── TanStack Query ────────────────────────────────────────────────────────
+  const { data: pageData, isLoading, isFetching, error, refetch } = useOwnershipList({
+    page,
+    limit,
+    owner_name: searchTerm.trim() || undefined,
+    ownership_status: effectiveStatus,
+  });
+
+  const ownerships: OwnershipSummaryRes[] = pageData?.data ?? [];
+  const totalItems = pageData?.total_items ?? 0;
+  const totalPages = pageData?.total_pages ?? 0;
+
+  // ── Derived stats from current page (reflect real totals from server) ────
+  const stats = useMemo(() => ({
+    total: totalItems,
+    active: ownerships.filter(o => o.status === 'ACTIVE').length,
+    transferred: ownerships.filter(o => o.status === 'TRANSFERRED').length,
+    pending: ownerships.filter(o => o.status === 'PENDING').length,
+    revoked: ownerships.filter(o => o.status === 'REVOKED').length,
+  }), [ownerships, totalItems]);
 
   // Drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<'CREATE' | 'EDIT' | 'VIEW' | 'TRANSFER'>('CREATE');
+  const [drawerMode, setDrawerMode] = useState<'CREATE' | 'VIEW' | 'TRANSFER'>('CREATE');
   const [selectedOwnership, setSelectedOwnership] = useState<any | null>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
   const [isTimelineLoading, setIsTimelineLoading] = useState(false);
@@ -32,14 +58,14 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
   const [formData, setFormData] = useState({
     id: '',
     itemCode: '',
-    itemName: 'Máy lọc nước RO Kangaroo VT3',
-    serialNumber: '', // will be used as the QR code search input
+    itemName: '',
+    serialNumber: '',
     ownerName: '',
     ownerEmail: '',
     ownerPhone: '',
     ownershipType: 'PRIMARY',
     purchaseDate: new Date().toISOString().substring(0, 10),
-    purchaseLocation: 'Điện Máy Xanh Cầu Giấy',
+    purchaseLocation: '',
     invoiceNumber: '',
     status: 'ACTIVE'
   });
@@ -55,106 +81,36 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     transferNote: ''
   });
 
-  const loadOwnerships = async () => {
-    try {
-      setLoading(true);
-      const res = await ownershipApi.getOwnerships();
-      // res.data is ApiResponse, res.data.data is PaginatedOwnershipsRes which contains .data and .total_items
-      
-      let rawData = [];
-      if (res.data?.data?.data && Array.isArray(res.data.data.data)) {
-        rawData = res.data.data.data;
-      } else if (Array.isArray(res.data?.data)) {
-        rawData = res.data.data;
-      }
-      
-      const mappedOwnerships = rawData.map((item: any) => ({
-        id: item.ownership_id || item.id || `temp-${Math.random()}`,
-        itemCode: item.product_id || item.itemCode || '',
-        itemName: item.product_name || item.itemName || 'Unknown Product',
-        serialNumber: item.product_sku || item.serialNumber || '',
-        ownerName: item.owner_name || item.ownerName || 'Unknown Owner',
-        ownerEmail: item.owner_email || item.ownerEmail || '',
-        status: item.status || 'ACTIVE',
-        ownershipType: item.ownership_type || item.ownershipType || 'PRIMARY',
-        ownedAt: item.registration_date || item.ownedAt || new Date().toISOString(),
-        purchaseDate: item.purchase_date || item.purchaseDate || '',
-        purchaseLocation: item.purchase_location || item.purchaseLocation || '',
-        invoiceNumber: item.invoice_number || item.invoiceNumber || '',
-        createdAt: item.created_at || item.createdAt || new Date().toISOString(),
-        updatedAt: item.updated_at || item.updatedAt || new Date().toISOString(),
-      }));
-      setOwnerships(mappedOwnerships as Ownership[]);
-      
-    } catch (err) {
-      console.error(err);
-      setOwnerships([]);
-    } finally {
-      setLoading(false);
-    }
+  // Refresh helper (invalidate query)
+  const loadOwnerships = () => {
+    queryClient.invalidateQueries({ queryKey: ownershipKeys.lists() });
   };
 
+  // Scroll to top of table when page changes
   useEffect(() => {
-    loadOwnerships();
-  }, []);
-
-  // Stats
-  const stats = useMemo(() => {
-    const total = ownerships.length;
-    const active = ownerships.filter(o => o.status === 'ACTIVE').length;
-    const transferred = ownerships.filter(o => o.status === 'TRANSFERRED').length;
-    const pending = ownerships.filter(o => o.status === 'PENDING').length;
-    const revoked = ownerships.filter(o => o.status === 'REVOKED').length;
-    return { total, active, transferred, pending, revoked };
-  }, [ownerships]);
+    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [page]);
 
   // Real-time EventSource Setup
   useEffect(() => {
-    const token = localStorage.getItem('producttrace_access_token');
+    const token = localStorage.getItem('pt_access_token');
     if (!token) return;
-
     let sse: EventSource;
     try {
-      // Connect to SSE stream and pass token via query URL
-      sse = new EventSource(`http://localhost:8080/api/ownership/admin/stream?token=${token}`);
-      
+      const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
+      sse = new EventSource(`${base}/ownership/admin/stream?token=${token}`);
       sse.onmessage = (event) => {
         if (event.data === 'NEW_OWNERSHIP_REQUEST') {
-          // Play a native sound, toast, or just reload the list
           alert('CÓ YÊU CẦU ĐĂNG KÝ SỞ HỮU MỚI TỪ KHÁCH HÀNG!');
           loadOwnerships();
         }
       };
-
-      sse.onerror = (err) => {
-        console.error('SSE Error:', err);
-        sse.close();
-      };
-    } catch (err) {
-      console.warn('Real-time updates failed to initialize.', err);
-    }
-    
-    return () => {
-      if (sse) sse.close();
-    };
+      sse.onerror = () => sse.close();
+    } catch { /* silent */ }
+    return () => { if (sse) sse.close(); };
   }, []);
 
-  // Filtered ownerships
-  const filteredOwnerships = useMemo(() => {
-    const list = ownerships || [];
-    return list.filter(o => {
-      if (searchTerm.trim() !== '') {
-        const query = searchTerm.toLowerCase();
-        const matchCode = (o.serialNumber || '').toLowerCase().includes(query);
-        const matchSerial = (o.itemCode || '').toLowerCase().includes(query);
-        const matchOwner = (o.ownerName || '').toLowerCase().includes(query) || (o.ownerEmail || '').toLowerCase().includes(query);
-        if (!matchCode && !matchSerial && !matchOwner) return false;
-      }
-      if (filterStatus !== 'ALL' && o.status !== filterStatus) return false;
-      if (activeKpiFilter !== 'ALL' && o.status !== activeKpiFilter) return false;
-      return true;
-    });
-  }, [ownerships, searchTerm, filterStatus, activeKpiFilter, filterType]);
+  // No client-side filter — backend handles search/status/pagination
 
   const handleOpenCreate = () => {
     setDrawerMode('CREATE');
@@ -192,25 +148,53 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     setIsDrawerOpen(true);
   };
 
-  const handleOpenView = (ownership: any) => {
+  const handleOpenView = async (ownership: any) => {
     setDrawerMode('VIEW');
     setSelectedOwnership(ownership);
     setTimeline([]);
     setFormData({
-      id: ownership.id,
-      itemCode: ownership.itemCode || '',
-      itemName: ownership.itemName || '',
-      serialNumber: ownership.serialNumber || '',
-      ownerName: ownership.ownerName || '',
-      ownerEmail: ownership.ownerEmail || '',
-      ownerPhone: ownership.ownerPhone || '',
+      id: ownership.ownership_id,
+      itemCode: ownership.product_sku || '',
+      itemName: ownership.product_name || '',
+      serialNumber: ownership.serial_number || '',
+      ownerName: ownership.owner_name || '',
+      ownerEmail: ownership.owner_email || '',
+      ownerPhone: ownership.owner_phone || '',
       ownershipType: ownership.ownershipType || 'PRIMARY',
-      purchaseDate: ownership.purchaseDate || '',
+      purchaseDate: ownership.registration_date
+        ? new Date(ownership.registration_date).toISOString().substring(0, 10)
+        : '',
       purchaseLocation: ownership.purchaseLocation || '',
       invoiceNumber: ownership.invoiceNumber || '',
       status: ownership.status || 'ACTIVE'
     });
     setIsDrawerOpen(true);
+
+    // Fetch full detail using product_id (= product_item_id in DB)
+    const productItemId = ownership.product_id;
+    if (!productItemId) return;
+
+    try {
+      setIsTimelineLoading(true);
+      const res = await ownershipApi.getById(productItemId);
+      if (res.data?.data?.ownership_history) {
+        const mappedHistory = res.data.data.ownership_history.map((h: any) => ({
+          title:
+            h.status === 'ACTIVE'
+              ? 'Đăng ký sở hữu thành công'
+              : h.status === 'TRANSFERRED'
+              ? 'Đã chuyển nhượng sở hữu'
+              : 'Bị thu hồi / thay đổi',
+          description: `Chủ sở hữu: ${h.owner_name} (${h.owner_email})`,
+          timestamp: h.registration_date,
+        }));
+        setTimeline(mappedHistory);
+      }
+    } catch (err) {
+      console.error('Failed to load timeline:', err);
+    } finally {
+      setIsTimelineLoading(false);
+    }
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -228,7 +212,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
       try {
         setFormError(null);
-        await ownershipApi.transferOwnership(selectedOwnership.id, {
+        await ownershipApi.transfer(selectedOwnership.ownership_id, {
           new_owner_name: transferData.newOwnerName.trim(),
           new_owner_email: transferData.newOwnerEmail.trim(),
         });
@@ -275,7 +259,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
             setFormError('Vui lòng nhập đúng 6 số OTP');
             return;
           }
-          await ownershipApi.adminVerifyAndRegister({
+          await ownershipApi.adminRegister({
             otp: adminOtp,
             product_id: resolvedProductId || formData.itemCode, // Use resolved UUID
             owner_name: formData.ownerName.trim(),
@@ -323,25 +307,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
 
-      {/* Demo Controls */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Demo Controls</span>
-          <span className="text-xs text-blue-600 font-medium">Bấm để kiểm tra hiển thị:</span>
-        </div>
-        <div className="flex gap-2">
-          {['NORMAL', 'LOADING', 'EMPTY', 'ERROR'].map(st => (
-            <button
-              key={st}
-              onClick={() => setDemoState(st as any)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${demoState === st ? 'bg-blue-600 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
-                }`}
-            >
-              {st === 'NORMAL' ? 'Bình thường' : st === 'LOADING' ? 'Đang tải' : st === 'EMPTY' ? 'Trống' : 'Lỗi'}
-            </button>
-          ))}
-        </div>
-      </div>
+
 
       {/* Header */}
       <div className="flex justify-between items-start">
@@ -364,7 +330,14 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
         </Button>
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-slate-200 shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-4"><AlertCircle size={24} /></div>
+          <h3 className="text-base font-bold text-slate-900">Không thể tải dữ liệu</h3>
+          <p className="mt-2 text-xs text-slate-500 max-w-sm">{parseApiError(error)}</p>
+          <Button onClick={() => refetch()} className="mt-6 rounded-xl px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">Thử lại</Button>
+        </div>
+      ) : isLoading ? (
         renderSkeleton()
       ) : (
         <>
@@ -402,27 +375,13 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                 <input
                   type="text"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tìm theo Serial, mã SP hoặc tên chủ sở hữu..."
+                  onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                  placeholder="Tìm theo tên chủ sở hữu, email..."
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                 />
                 {searchTerm && (
-                  <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer"><X size={14} /></button>
+                  <button onClick={() => { setSearchTerm(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 bg-transparent border-none cursor-pointer"><X size={14} /></button>
                 )}
-              </div>
-
-              {/* Ownership Type */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Loại sở hữu:</span>
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
-                >
-                  <option value="ALL">Tất cả</option>
-                  <option value="PRIMARY">Sở hữu đầu (Primary)</option>
-                  <option value="TRANSFERRED">Nhận chuyển nhượng</option>
-                </select>
               </div>
 
               {/* Status */}
@@ -430,24 +389,21 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                 <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">Trạng thái:</span>
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
                   className="bg-white border border-slate-200 rounded-lg text-xs py-1.5 pl-2 pr-6 cursor-pointer"
                 >
                   <option value="ALL">Tất cả</option>
                   <option value="ACTIVE">Đang sở hữu</option>
+                  <option value="PENDING">Chờ duyệt</option>
                   <option value="TRANSFERRED">Đã chuyển nhượng</option>
                   <option value="REVOKED">Bị thu hồi</option>
                 </select>
               </div>
             </div>
 
-            {(searchTerm || filterType !== 'ALL' || filterStatus !== 'ALL' || activeKpiFilter !== 'ALL') && (
+            {(searchTerm || filterStatus !== 'ALL' || activeKpiFilter !== 'ALL') && (
               <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterStatus('ALL');
-                  setActiveKpiFilter('ALL');
-                }}
+                onClick={() => { setSearchTerm(''); setFilterStatus('ALL'); setActiveKpiFilter('ALL'); setPage(1); }}
                 className="text-xs font-semibold text-blue-600 hover:underline bg-transparent border-none cursor-pointer"
               >
                 Xóa bộ lọc
@@ -456,8 +412,8 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            {filteredOwnerships.length === 0 ? (
+          <div ref={tableRef} className={`bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden transition-opacity duration-200 ${isFetching ? 'opacity-60' : ''}`}>
+            {ownerships.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
                 <Inbox size={48} className="text-slate-300 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Không tìm thấy bản ghi</h3>
@@ -469,7 +425,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                 <table className="w-full text-left text-sm table-fixed border-collapse">
                   <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
                     <tr>
-                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[22%]">Mã SKU / ID Sản phẩm</th>
+                      <th className="p-3.5 pl-5 font-bold tracking-wider w-[22%]">Mã SKU / Serial</th>
                       <th className="p-3.5 font-bold tracking-wider w-[22%]">Tên sản phẩm</th>
                       <th className="p-3.5 font-bold tracking-wider w-[24%]">Chủ sở hữu</th>
                       <th className="p-3.5 font-bold tracking-wider w-[14%]">Ngày Đăng ký</th>
@@ -478,102 +434,79 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredOwnerships.map(o => (
+                    {ownerships.map(o => (
                       <tr
-                        key={o.id}
+                        key={o.ownership_id}
                         onClick={() => handleOpenView(o)}
                         className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
                       >
                         <td className="p-3.5 pl-5 truncate">
-                          <div className="font-mono text-xs text-slate-500 font-semibold">{o.serialNumber}</div>
-                          <div className="font-mono text-[10px] text-slate-400 truncate">{o.itemCode}</div>
+                          <div className="font-mono text-xs text-slate-500 font-semibold">{o.serial_number}</div>
+                          <div className="font-mono text-[10px] text-slate-400 truncate">{o.product_sku}</div>
                         </td>
-                        <td className="p-3.5 font-semibold text-slate-900 truncate">{o.itemName}</td>
+                        <td className="p-3.5 font-semibold text-slate-900 truncate">{o.product_name}</td>
                         <td className="p-3.5 truncate">
                           <div className="font-semibold text-slate-800 text-xs flex items-center gap-1">
-                            <User size={12} className="text-slate-400 flex-shrink-0" /> {o.ownerName}
+                            <User size={12} className="text-slate-400 flex-shrink-0" /> {o.owner_name}
                           </div>
-                          <div className="text-[10px] text-slate-400">{o.ownerEmail} {(o as any).ownerPhone ? `| ${(o as any).ownerPhone}` : ''}</div>
+                          <div className="text-[10px] text-slate-400">{o.owner_email}{o.owner_phone ? ` | ${o.owner_phone}` : ''}</div>
                         </td>
                         <td className="p-3.5 text-slate-500 text-xs">
-                          {new Date(o.ownedAt || new Date()).toLocaleDateString('vi-VN')}
+                          {new Date(o.registration_date).toLocaleDateString('vi-VN')}
                         </td>
                         <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>{renderStatusBadge(o.status)}</td>
                         <td className="p-3.5 pr-5 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex justify-end gap-1">
-                            {/* Approve / Reject Buttons (FR-037 ext) */}
                             {o.status === 'PENDING' && (
                               <>
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
-                                      await ownershipApi.adminApproveOwnership({ ownership_id: o.id });
+                                      await ownershipApi.adminApproveOwnership({ ownership_id: o.ownership_id });
                                       loadOwnerships();
-                                    } catch (err: any) {
-                                      alert(err.response?.data?.message || 'Có lỗi duyệt');
-                                    }
+                                    } catch (err: any) { alert(err.response?.data?.message || 'Có lỗi duyệt'); }
                                   }}
                                   className="p-1 px-2 text-xs font-semibold text-green-600 hover:bg-green-50 border border-green-200 rounded-lg cursor-pointer bg-white"
-                                  title="Duyệt"
-                                >
-                                  Duyệt
-                                </button>
+                                >Duyệt</button>
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
-                                      await ownershipApi.adminRejectOwnership({ ownership_id: o.id });
+                                      await ownershipApi.adminRejectOwnership({ ownership_id: o.ownership_id });
                                       loadOwnerships();
-                                    } catch (err: any) {
-                                      alert(err.response?.data?.message || 'Có lỗi từ chối');
-                                    }
+                                    } catch (err: any) { alert(err.response?.data?.message || 'Có lỗi từ chối'); }
                                   }}
-                                  className="p-1 px-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-lg cursor-pointer bg-white gap-1 flex items-center"
-                                  title="Từ chối"
-                                >
-                                  Từ chối
-                                </button>
+                                  className="p-1 px-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-lg cursor-pointer bg-white"
+                                >Từ chối</button>
                               </>
                             )}
-
                             {o.status === 'ACTIVE' && (
                               <button
                                 onClick={(e) => handleOpenTransfer(o, e)}
                                 className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
                                 title="Chuyển nhượng quyền sở hữu"
-                              >
-                                <ArrowLeftRight size={15} />
-                              </button>
+                              ><ArrowLeftRight size={15} /></button>
                             )}
-                            {/* Delete Ownership */}
                             {o.status !== 'REVOKED' && (
                               <button
                                 onClick={async (e) => {
                                   e.stopPropagation();
-                                  if (confirm(`Bạn có chắc chắn muốn thu hồi bản ghi sở hữu ${o.itemName}?`)) {
+                                  if (confirm(`Thu hồi sở hữu ${o.product_name}?`)) {
                                     try {
-                                      await ownershipApi.deleteOwnership(o.id);
-                                      alert('Thu hồi quyền sở hữu thành công');
+                                      await ownershipApi.delete(o.ownership_id);
+                                      alert('Thu hồi thành công');
                                       loadOwnerships();
-                                    } catch (err: any) {
-                                      alert(err.response?.data?.message || 'Có lỗi xảy ra khi xóa dữ liệu');
-                                    }
+                                    } catch (err: any) { alert(err.response?.data?.message || 'Lỗi'); }
                                   }
                                 }}
                                 className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
-                                title="Thu hồi (Soft Delete) bản ghi"
-                              >
-                                <Trash2 size={15} />
-                              </button>
+                              ><Trash2 size={15} /></button>
                             )}
                             <button
                               onClick={() => handleOpenView(o)}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
-                              title="Xem chi tiết & Timeline"
-                            >
-                              <Eye size={15} />
-                            </button>
+                            ><Eye size={15} /></button>
                           </div>
                         </td>
                       </tr>
@@ -582,6 +515,15 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
                 </table>
               </div>
             )}
+            <Pagination
+              page={page}
+              limit={limit}
+              totalItems={totalItems}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+              isLoading={isFetching}
+            />
           </div>
         </>
       )}

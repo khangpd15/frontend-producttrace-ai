@@ -49,6 +49,7 @@ export interface OwnershipSummaryRes {
   owner_phone: string;
   product_name: string;
   product_sku: string;
+  serial_number: string;
 }
 
 export interface OwnershipHistoryItem {
@@ -72,6 +73,7 @@ export interface OwnershipDetailRes {
   owner_phone: string;
   product_name: string;
   product_sku: string;
+  serial_number: string;
   ownership_history: OwnershipHistoryItem[];
 }
 
