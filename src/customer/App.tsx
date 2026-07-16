@@ -23,6 +23,9 @@ export default function App() {
   const navigateTo = (view: 'home' | 'productDetail' | 'warrantyRequest' | 'warranty' | 'ownership' | 'profile' | 'notifications' | 'registerOwnership') => {
     setHistory([...history, view]);
     setCurrentView(view);
+    if (['home', 'warranty', 'ownership', 'profile'].includes(view)) {
+      setActive(view as NavItem);
+    }
   };
 
   const navigateBack = () => {
@@ -42,7 +45,7 @@ export default function App() {
       {currentView === 'warrantyRequest' && <WarrantyRequestForm onBack={navigateBack} productId="1" />}
       {currentView === 'warranty' && <Warranty onBack={navigateBack} />}
       {currentView === 'ownership' && <Ownership onBack={navigateBack} onRegister={() => navigateTo('registerOwnership')} />}
-      {currentView === 'registerOwnership' && <RegisterOwnership onBack={navigateBack} />}
+      {currentView === 'registerOwnership' && <RegisterOwnership onBack={navigateBack} onSuccess={() => navigateTo('ownership')} />}
       {currentView === 'notifications' && <Notifications onBack={navigateBack} />}
       {currentView === 'profile' && <Profile onBack={navigateBack} />}
       

@@ -565,7 +565,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   const renderStatusBadge = (status: 'ACTIVE' | 'INACTIVE' | 'PENDING') => {
     if (status === 'ACTIVE') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+        <span className="inline-flex items-center justify-center gap-1 w-[110px] h-5 rounded-full text-[10px] font-medium bg-green-50 text-green-700 border border-green-200 flex-shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
           Hoạt động
         </span>
@@ -573,14 +573,14 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
     }
     if (status === 'INACTIVE') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-500 border border-slate-200">
+        <span className="inline-flex items-center justify-center gap-1 w-[110px] h-5 rounded-full text-[10px] font-medium bg-slate-50 text-slate-500 border border-slate-200 flex-shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
           Ngừng hoạt động
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+      <span className="inline-flex items-center justify-center gap-1 w-[110px] h-5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 flex-shrink-0">
         <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
         Đang xử lý
       </span>
@@ -641,7 +641,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-[1600px] mx-auto px-4 md:px-6 pb-16 w-full">
       
       {/* Header section */}
       <div className="flex justify-between items-start">
@@ -845,7 +845,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
           </div>
 
           {/* Main Content Area: Tree Panel (Left) & Table List (Right) */}
-          <div className="grid grid-cols-4 gap-6 items-start">
+          <div className="grid grid-cols-4 gap-6 items-stretch">
             
             {/* Section 3: Category Tree Panel */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col min-h-[480px]">
@@ -866,7 +866,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   <p className="text-xs font-medium">Chưa có danh mục.</p>
                 </div>
               ) : (
-                <div className="space-y-1 overflow-y-auto flex-1 max-h-[500px] pr-1">
+                <div className="space-y-1 overflow-y-auto flex-1 pr-1">
                   {rootCategories.map(rootCat => renderTreeNode(rootCat, 0))}
                 </div>
               )}
@@ -911,15 +911,15 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm border-collapse table-fixed">
                       <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
-                        <tr>
-                          <th className="p-3.5 pl-5 font-bold tracking-wider w-[22%]">Danh mục</th>
-                          <th className="p-3.5 font-bold tracking-wider w-[14%]">Mã</th>
-                          <th className="p-3.5 font-bold tracking-wider w-[16%]">Slug</th>
+                        <tr className="h-10 align-middle">
+                          <th className="p-3.5 pl-5 font-bold tracking-wider w-[20%]">Danh mục</th>
+                          <th className="p-3.5 font-bold tracking-wider w-[12%]">Mã</th>
+                          <th className="p-3.5 font-bold tracking-wider w-[14%]">Slug</th>
                           <th className="p-3.5 font-bold tracking-wider w-[12%]">Cha</th>
-                          <th className="p-3.5 font-bold tracking-wider w-[14%]">Mô tả</th>
+                          <th className="p-3.5 font-bold tracking-wider w-[16%]">Mô tả</th>
                           <th className="p-3.5 font-bold tracking-wider w-[12%] text-center">Trạng thái</th>
                           <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">Cập nhật</th>
-                          <th className="p-3.5 pr-5 font-bold tracking-wider w-[10%] text-right">Thao tác</th>
+                          <th className="p-3.5 font-bold tracking-wider w-[14%] text-center">Thao tác</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -928,54 +928,58 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                           return (
                             <tr 
                               key={cat.id} 
-                              className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                              className="hover:bg-slate-50/50 transition-colors group cursor-pointer h-[76px] align-middle"
                               onClick={() => handleOpenView(cat)}
                             >
-                              <td className="p-3.5 pl-5 font-medium text-slate-900 truncate">
-                                <div className="flex items-center gap-2">
-                                  <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors flex-shrink-0">
+                              <td className="p-3.5 pl-5 font-medium text-slate-900 max-w-0 align-middle">
+                                <div className="flex items-center gap-2 max-w-full">
+                                  <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors flex-shrink-0 flex items-center justify-center">
                                     <IconComp size={16} />
                                   </div>
-                                  <span className="truncate">{cat.name}</span>
+                                  <span className="truncate block">{cat.name}</span>
                                 </div>
                               </td>
-                              <td className="p-3.5 text-xs text-slate-500 font-mono font-semibold truncate">{cat.code}</td>
-                              <td className="p-3.5 text-xs text-slate-500 truncate" title={cat.slug}>{cat.slug}</td>
-                              <td className="p-3.5 text-slate-600 truncate">
+                              <td className="p-3.5 text-xs text-slate-500 font-mono font-semibold max-w-0 truncate align-middle">{cat.code}</td>
+                              <td className="p-3.5 text-xs text-slate-500 max-w-0 truncate align-middle" title={cat.slug}>{cat.slug}</td>
+                              <td className="p-3.5 text-slate-600 max-w-0 truncate align-middle">
                                 {cat.parentId ? (
-                                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
+                                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium truncate block max-w-full" title={getParentName(cat.parentId)}>
                                     {getParentName(cat.parentId)}
                                   </span>
                                 ) : (
                                   <span className="text-xs text-slate-400 italic">Gốc</span>
                                 )}
                               </td>
-                              <td className="p-3.5 text-slate-500 text-xs truncate" title={cat.description}>
+                              <td className="p-3.5 text-slate-500 text-xs max-w-0 truncate align-middle" title={cat.description}>
                                 {cat.description || <span className="text-slate-300 italic">Không có mô tả</span>}
                               </td>
-                              <td className="p-3.5 text-center" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex flex-col items-center gap-1.5 justify-center">
-                                  {renderStatusBadge(cat.status)}
+                              <td className="p-3.5 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex flex-col items-center justify-center gap-1.5 w-full">
+                                  <div className="flex justify-center w-full">
+                                    {renderStatusBadge(cat.status)}
+                                  </div>
                                   
                                   {/* Interactive Toggle Switch */}
-                                  <label className="relative inline-flex items-center cursor-pointer scale-90">
-                                    <input 
-                                      type="checkbox" 
-                                      checked={cat.status === 'ACTIVE'}
-                                      onChange={() => handleToggleStatus(cat.id, cat.status)}
-                                      className="sr-only peer"
-                                    />
-                                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                                  </label>
+                                  <div className="flex justify-center w-full">
+                                    <label className="relative inline-flex items-center justify-center cursor-pointer mt-0.5">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={cat.status === 'ACTIVE'}
+                                        onChange={() => handleToggleStatus(cat.id, cat.status)}
+                                        className="sr-only peer"
+                                      />
+                                      <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-3.5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-green-500"></div>
+                                    </label>
+                                  </div>
                                 </div>
                               </td>
-                              <td className="p-3.5 text-center text-xs text-slate-400 font-medium">{cat.updatedAt.split(' ')[0]}</td>
-                              <td className="p-3.5 pr-5 text-right" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex justify-end items-center gap-1">
+                              <td className="p-3.5 text-center text-xs text-slate-400 font-medium align-middle">{cat.updatedAt.split(' ')[0]}</td>
+                              <td className="p-3.5 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-center items-center gap-1.5 w-full">
                                   {/* Navigate to Products */}
                                   <button 
                                     onClick={() => onNavigate('products')}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors border-none bg-transparent cursor-pointer"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center"
                                     title="Xem sản phẩm thuộc danh mục"
                                   >
                                     <ArrowUpRight size={15} />
@@ -984,7 +988,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                   {/* Edit Category */}
                                   <button 
                                     onClick={(e) => handleOpenEdit(cat, e)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center"
                                     title="Chỉnh sửa danh mục"
                                   >
                                     <Edit3 size={15} />
@@ -993,7 +997,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                   {/* View Detail */}
                                   <button 
                                     onClick={(e) => handleOpenView(cat, e)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center"
                                     title="Xem chi tiết"
                                   >
                                     <Eye size={15} />
@@ -1011,7 +1015,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                                         }
                                       }
                                     }}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors border-none bg-transparent cursor-pointer"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center"
                                     title="Xóa danh mục"
                                   >
                                     <Trash2 size={15} />
