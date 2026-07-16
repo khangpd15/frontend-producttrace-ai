@@ -34,6 +34,14 @@ const BATCH_STATUS_CONFIG: Record<BatchStatus, { label: string; bg: string; dot:
   EXPIRED:  { label: 'Hết hạn',       bg: 'bg-red-50 text-red-700 border-red-200',       dot: 'bg-red-500' },
   RECALLED: { label: 'Thu hồi',       bg: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
   BLOCKED:  { label: 'Bị khóa',       bg: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-400' },
+  DRAFT:    { label: 'Nháp',          bg: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-400' },
+  CREATED:  { label: 'Mới tạo',       bg: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500' },
+  IN_STOCK: { label: 'Trong kho',     bg: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500' },
+  SHIPPED:  { label: 'Đã xuất kho',   bg: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+  IN_TRANSIT:{ label: 'Đang vận chuyển', bg: 'bg-sky-50 text-sky-700 border-sky-200', dot: 'bg-sky-500' },
+  DELIVERED:{ label: 'Đã giao hàng',  bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  SOLD_OUT: { label: 'Hết hàng',      bg: 'bg-neutral-50 text-neutral-700 border-neutral-200', dot: 'bg-neutral-500' },
+  CLOSED:   { label: 'Đã đóng',       bg: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
 };
 
 const ITEM_STATUS_CONFIG: Record<ItemStatus, { label: string; bg: string }> = {
@@ -336,7 +344,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
             ) : (
               <div className="space-y-3">
                 {product.batches.map((batch) => {
-                  const batchCfg = BATCH_STATUS_CONFIG[batch.status] || { label: batch.status, bg: 'bg-slate-100 text-slate-650', dot: 'bg-slate-400' };
+                  const batchCfg = BATCH_STATUS_CONFIG[batch.status.toUpperCase() as BatchStatus] || { label: batch.status, bg: 'bg-slate-100 text-slate-650', dot: 'bg-slate-400' };
                   const isExpanded = expandedBatch === batch.id;
                   return (
                     <div key={batch.id} className="border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 transition-all">
