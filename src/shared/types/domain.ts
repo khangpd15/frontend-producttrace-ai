@@ -56,13 +56,25 @@ export interface Ownership {
 }
 
 export interface Warranty {
-  warrantyId: string;
-  productId: string;
-  activationDate: string;
-  expiryDate: string;
-  warrantyStatus: string;
-  warrantyPeriodMonths: number;
-  qrCode?: string;
+  id: string;
+  product_item_id: string;
+  owner_id?: string;
+  itemCode: string;
+  itemName: string;
+  serialNumber: string;
+  ownerName: string;
+  ownerEmail: string;
+  warrantyCode: string;
+  policyName: string;
+  policyDescription: string;
+  durationMonths: number;
+  status: string;
+  startDate: string;
+  endDate: string;
+  invoiceNumber: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Document {
@@ -438,6 +450,8 @@ export interface AdminBatchListPageBatch {
 
 export interface AdminWarrantyListPageWarranty {
   id: string;
+  product_item_id: string;
+  owner_id?: string;
   itemCode: string;
   itemName: string;
   serialNumber: string;

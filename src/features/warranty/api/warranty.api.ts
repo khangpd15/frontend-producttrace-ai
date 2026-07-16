@@ -42,6 +42,8 @@ export interface VoidWarrantyReq {
 
 export interface Warranty {
   id: string;
+  product_item_id: string;
+  owner_id?: string;
   itemCode: string;
   itemName: string;
   serialNumber: string;

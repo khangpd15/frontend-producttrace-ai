@@ -337,7 +337,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         <Card className="p-4 space-y-2">
             <h2 className='font-bold'>Sở hữu & Bảo hành</h2>
             <p className='text-sm'><span className='text-slate-500'>Chủ sở hữu:</span> {ownershipInfo?.owner_name || productData.ownership?.ownerName || 'Chưa đăng ký'}</p>
-            <p className='text-sm'><span className='text-slate-500'>Trạng thái bảo hành:</span> {ownershipInfo ? 'Còn bảo hành' : (productData.warranty?.warrantyStatus || 'Chưa có thông tin')}</p>
+            <p className='text-sm'><span className='text-slate-500'>Trạng thái bảo hành:</span> {ownershipInfo ? 'Còn bảo hành' : (productData.warranty?.status || 'Chưa có thông tin')}</p>
             {!ownershipInfo && !productData.ownership?.ownerName && <Button onClick={onRegisterOwnership} className='w-full cursor-pointer'>Đăng ký sở hữu</Button>}
             <Button onClick={onRequestWarranty} className='w-full cursor-pointer'>Yêu cầu bảo hành</Button>
         </Card>

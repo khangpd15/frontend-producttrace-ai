@@ -59,14 +59,11 @@ export function ProductList({ onBack }: { onBack?: () => void }) {
     if (!searchVal.trim()) return;
     setErrorMsg(null);
 
-    const filters: Record<string, string> = {};
-    if (categoryFilter) filters.category = categoryFilter;
-    if (manufacturerFilter.trim()) filters.manufacturer = manufacturerFilter.trim();
-    if (provinceFilter.trim()) filters.province = provinceFilter.trim();
-
     searchMutation.mutate({
       query: searchVal.trim(),
-      filters: Object.keys(filters).length > 0 ? filters : undefined,
+      category: categoryFilter || undefined,
+      manufacturer: manufacturerFilter.trim() || undefined,
+      province: provinceFilter.trim() || undefined,
       limit: 20
     });
   };
