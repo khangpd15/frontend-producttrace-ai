@@ -153,27 +153,38 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     setSelectedOwnership(ownership);
     setTimeline([]);
     setFormData({
-      id: ownership.id,
-      itemCode: ownership.itemCode || '',
-      itemName: ownership.itemName || '',
-      serialNumber: ownership.serialNumber || '',
-      ownerName: ownership.ownerName || '',
-      ownerEmail: ownership.ownerEmail || '',
-      ownerPhone: ownership.ownerPhone || '',
+      id: ownership.ownership_id,
+      itemCode: ownership.product_sku || '',
+      itemName: ownership.product_name || '',
+      serialNumber: ownership.serial_number || '',
+      ownerName: ownership.owner_name || '',
+      ownerEmail: ownership.owner_email || '',
+      ownerPhone: ownership.owner_phone || '',
       ownershipType: ownership.ownershipType || 'PRIMARY',
-      purchaseDate: ownership.purchaseDate || '',
+      purchaseDate: ownership.registration_date
+        ? new Date(ownership.registration_date).toISOString().substring(0, 10)
+        : '',
       purchaseLocation: ownership.purchaseLocation || '',
       invoiceNumber: ownership.invoiceNumber || '',
       status: ownership.status || 'ACTIVE'
     });
     setIsDrawerOpen(true);
 
+    // Fetch full detail using product_id (= product_item_id in DB)
+    const productItemId = ownership.product_id;
+    if (!productItemId) return;
+
     try {
       setIsTimelineLoading(true);
-      const res = await ownershipApi.getById(ownership.productId || ownership.id);
+      const res = await ownershipApi.getById(productItemId);
       if (res.data?.data?.ownership_history) {
         const mappedHistory = res.data.data.ownership_history.map((h: any) => ({
-          title: h.status === 'ACTIVE' ? 'Đăng ký sở hữu thành công' : h.status === 'TRANSFERRED' ? 'Đã chuyển nhượng sở hữu' : 'Bị thu hồi / thay đổi',
+          title:
+            h.status === 'ACTIVE'
+              ? 'Đăng ký sở hữu thành công'
+              : h.status === 'TRANSFERRED'
+              ? 'Đã chuyển nhượng sở hữu'
+              : 'Bị thu hồi / thay đổi',
           description: `Chủ sở hữu: ${h.owner_name} (${h.owner_email})`,
           timestamp: h.registration_date,
         }));
@@ -201,7 +212,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
       try {
         setFormError(null);
-        await ownershipApi.transfer(selectedOwnership.id, {
+        await ownershipApi.transfer(selectedOwnership.ownership_id, {
           new_owner_name: transferData.newOwnerName.trim(),
           new_owner_email: transferData.newOwnerEmail.trim(),
         });
