@@ -25,13 +25,22 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:8080',
+          target: 'http://127.0.0.1:8080', // Go Core
           changeOrigin: true,
           secure: false,
-          configure: (proxy, options) => {
-            proxy.on('proxyReq', (proxyReq, req, _res) => {
-              // Delete Origin header to bypass Kong CORS completely,
-              // or set it to an allowed origin
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
+              proxyReq.setHeader('Origin', 'http://localhost:3000');
+            });
+          },
+        },
+
+        '/ai': {
+          target: 'http://127.0.0.1:3000', // Nest AI
+          changeOrigin: true,
+          secure: false,
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
               proxyReq.setHeader('Origin', 'http://localhost:3000');
             });
           },

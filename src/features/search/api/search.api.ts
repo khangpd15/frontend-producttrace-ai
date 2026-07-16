@@ -7,10 +7,11 @@ export interface SearchFilters {
 }
 
 export interface HybridSearchRequest {
-  query: string;
-  filters?: SearchFilters;
-  limit?: number;
-  offset?: number;
+    query: string;
+    category?: string;
+    manufacturer?: string;
+    province?: string;
+    limit?: number;
 }
 
 export interface SearchResultItem {
