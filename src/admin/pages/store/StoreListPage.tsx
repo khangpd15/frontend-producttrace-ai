@@ -414,7 +414,7 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-[1600px] mx-auto px-4 md:px-6 pb-16 w-full">
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -553,14 +553,14 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                 <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm table-fixed border-collapse">
                   <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
-                    <tr>
+                    <tr className="h-10 align-middle">
                       <th className="p-3.5 pl-5 font-bold tracking-wider w-[10%]">Mã</th>
                       <th className="p-3.5 font-bold tracking-wider w-[20%]">Tên địa điểm</th>
                       <th className="p-3.5 font-bold tracking-wider w-[12%]">Loại</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[26%]">Địa chỉ</th>
-                      <th className="p-3.5 font-bold tracking-wider w-[16%]">Thông tin liên hệ</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[22%]">Địa chỉ</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[14%]">Thông tin liên hệ</th>
                       <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">Hoạt động</th>
-                      <th className="p-3.5 pr-5 font-bold tracking-wider w-[6%] text-right">Thao tác</th>
+                      <th className="p-3.5 font-bold tracking-wider w-[12%] text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -568,56 +568,55 @@ export default function StoreListPage({ onNavigate }: { onNavigate: (tabId: stri
                       <tr
                         key={loc.id}
                         onClick={() => handleOpenView(loc)}
-                        className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
+                        className="hover:bg-slate-50/50 cursor-pointer transition-colors group h-[68px] align-middle"
                       >
-                        <td className="p-3.5 pl-5 font-mono text-xs font-semibold text-slate-500 truncate">{loc.code}</td>
-                        <td className="p-3.5 font-semibold text-slate-900 truncate">{loc.name}</td>
-                        <td className="p-3.5">{renderTypeLabel(loc.type)}</td>
-                        <td className="p-3.5">
-                          <div className="font-medium text-slate-800 text-xs truncate">{loc.address}</div>
-                          <div className="text-[10px] text-slate-400 truncate">
+                        <td className="p-3.5 pl-5 font-mono text-xs font-semibold text-slate-500 max-w-0 truncate align-middle">{loc.code}</td>
+                        <td className="p-3.5 font-semibold text-slate-900 max-w-0 truncate align-middle" title={loc.name}>{loc.name}</td>
+                        <td className="p-3.5 align-middle">{renderTypeLabel(loc.type)}</td>
+                        <td className="p-3.5 max-w-0 align-middle">
+                          <div className="font-medium text-slate-800 text-xs truncate" title={loc.address}>{loc.address}</div>
+                          <div className="text-[10px] text-slate-400 truncate" title={[loc.ward, loc.district, loc.city].filter(Boolean).join(', ')}>
                             {[loc.ward, loc.district, loc.city].filter(Boolean).join(', ')}
                           </div>
                         </td>
-                        <td className="p-3.5 truncate">
-                          <div className="text-xs text-slate-700 flex items-center gap-1"><Phone size={10} className="text-slate-400 animate-pulse" /> {loc.phone}</div>
+                        <td className="p-3.5 max-w-0 align-middle">
+                          <div className="text-xs text-slate-700 flex items-center gap-1 truncate"><Phone size={10} className="text-slate-400 flex-shrink-0" /> <span className="truncate">{loc.phone}</span></div>
                           <div className="text-[10px] text-slate-400 flex items-center gap-1 truncate"><Mail size={10} className="text-slate-400 flex-shrink-0" /> <span className="truncate">{loc.email}</span></div>
                         </td>
-                        <td className="p-3.5 text-center" onClick={e => e.stopPropagation()}>
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${loc.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border border-slate-200'
-                            }`}>
+                        <td className="p-3.5 text-center align-middle" onClick={e => e.stopPropagation()}>
+                          <span className={`inline-flex items-center justify-center gap-1.5 w-[100px] h-5.5 rounded-full text-[10px] font-semibold border ${loc.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${loc.isActive ? 'bg-green-500' : 'bg-slate-400'}`}></span>
                             {loc.isActive ? 'Hoạt động' : 'Tạm ngưng'}
                           </span>
                         </td>
-                        <td className="p-3.5 pr-5 text-right" onClick={e => e.stopPropagation()}>
-                          <div className="flex justify-end gap-1">
+                        <td className="p-3.5 text-center align-middle" onClick={e => e.stopPropagation()}>
+                          <div className="flex justify-center items-center gap-1 w-full">
                             <a
                               href={`https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer flex items-center justify-center"
                               title="Xem bản đồ vệ tinh"
                             >
                               <ExternalLink size={15} />
                             </a>
                             <button
                               onClick={() => handleOpenEdit(loc)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent flex items-center justify-center"
                               title="Sửa địa điểm"
                             >
                               <Edit3 size={15} />
                             </button>
                             <button
                               onClick={() => handleOpenView(loc)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent"
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer border-none bg-transparent flex items-center justify-center"
                               title="Xem chi tiết"
                             >
                               <Eye size={15} />
                             </button>
                             <button
                               onClick={(e) => handleDelete(loc.id, loc.name, e)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent flex items-center justify-center"
                               title="Xóa địa điểm"
                             >
                               <Trash2 size={15} />

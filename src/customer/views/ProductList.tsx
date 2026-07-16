@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { 
-  Tag, 
-  Search as SearchIcon, 
-  ArrowLeft, 
-  Loader2, 
-  Sparkles, 
+import {
+  Tag,
+  Search as SearchIcon,
+  ArrowLeft,
+  Loader2,
+  Sparkles,
   SlidersHorizontal,
   X,
   AlertCircle
@@ -33,7 +33,7 @@ export function ProductList({ onBack }: { onBack?: () => void }) {
 
   const [query, setQuery] = useState(initialQuery);
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Filters State
   const [categoryFilter, setCategoryFilter] = useState('');
   const [manufacturerFilter, setManufacturerFilter] = useState('');
@@ -142,8 +142,8 @@ export function ProductList({ onBack }: { onBack?: () => void }) {
       <div className="bg-white border-b border-slate-100 sticky top-0 z-40">
         <div className="px-4 py-3 flex items-center gap-3">
           {onBack && (
-            <button 
-              onClick={onBack} 
+            <button
+              onClick={onBack}
               className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-650"
             >
               <ArrowLeft size={20} />
@@ -174,15 +174,14 @@ export function ProductList({ onBack }: { onBack?: () => void }) {
                 </button>
               )}
             </div>
-            
+
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2.5 border rounded-xl flex items-center justify-center transition-colors ${
-                showFilters || categoryFilter || manufacturerFilter || provinceFilter
+              className={`p-2.5 border rounded-xl flex items-center justify-center transition-colors ${showFilters || categoryFilter || manufacturerFilter || provinceFilter
                   ? 'bg-blue-50 border-blue-200 text-blue-600'
                   : 'bg-white border-slate-200 text-slate-650'
-              }`}
+                }`}
             >
               <SlidersHorizontal size={18} />
             </button>
@@ -318,14 +317,14 @@ export function ProductList({ onBack }: { onBack?: () => void }) {
                     <span>AI: {Math.round(p.score * 100)}%</span>
                   </div>
                 )}
-                
+
                 {/* Product Thumbnail */}
                 <div className="w-full aspect-square bg-slate-50 rounded-xl mb-2.5 flex items-center justify-center text-slate-350 overflow-hidden">
                   {p.imageUrl ? (
-                    <img 
-                      src={p.imageUrl} 
+                    <img
+                      src={p.imageUrl}
                       alt={p.name}
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover"
                       onError={(e) => {
                         e.currentTarget.src = ''; // Clear source to fallback to tag icon
                       }}
@@ -334,15 +333,15 @@ export function ProductList({ onBack }: { onBack?: () => void }) {
                     <Tag size={32} />
                   )}
                 </div>
-                
+
                 <span className="text-[10px] text-blue-600 mb-1 font-semibold uppercase tracking-wider">
                   {p.category}
                 </span>
-                
+
                 <h3 className="text-xs font-bold text-slate-800 line-clamp-2 mb-2 leading-snug min-h-[32px]">
                   {p.name}
                 </h3>
-                
+
                 {p.manufacturer && (
                   <p className="text-[10px] text-slate-500 mb-2">
                     Hãng: <span className="font-semibold text-slate-700">{p.manufacturer}</span>
