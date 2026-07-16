@@ -32,6 +32,20 @@ export interface AssignAttributeValueItem {
 }
 
 // ===== Attribute definitions (theo category) =====
+// Khớp với BE: internal/modules/product_attribute (handler/service/dto)
+// Attribute = định nghĩa thuộc tính gắn với 1 category (vd category "Điện thoại"
+// có attribute "Màu sắc", "Dung lượng"...). Mỗi category có bộ attribute riêng.
+
+export interface CreateAttributeRequest {
+  category_id: string;
+  code: string;
+  label: string;
+}
+
+export interface UpdateAttributeRequest {
+  code?: string;
+  label?: string;
+}
 
 // GET /attributes?category_id=...&limit=100
 // BE trả thẳng mảng (không kèm total/page) — xem attribute_handler.go: ListAttributes
@@ -40,6 +54,25 @@ export async function getAttributesByCategory(categoryId: string): Promise<Attri
     params: { category_id: categoryId, limit: 100, page: 1 },
   });
   return res.data.data as Attribute[];
+}
+
+// POST /attributes — tạo 1 attribute (thuộc tính) mới cho 1 category
+export async function createAttribute(payload: CreateAttributeRequest): Promise<Attribute> {
+  const res = await api.post('/attributes', payload);
+  return res.data.data as Attribute;
+}
+
+// PUT /attributes/:id — sửa code/label của 1 attribute
+export async function updateAttribute(id: string, payload: UpdateAttributeRequest): Promise<Attribute> {
+  const res = await api.put(`/attributes/${id}`, payload);
+  return res.data.data as Attribute;
+}
+
+// DELETE /attributes/:id
+// Lưu ý: BE sẽ trả lỗi 409 (Conflict) nếu attribute này đã được gán giá trị
+// (attribute_values) cho 1 variant nào đó — không cho xoá để tránh mất dữ liệu.
+export async function deleteAttribute(id: string): Promise<void> {
+  await api.delete(`/attributes/${id}`);
 }
 
 // ===== Attribute values (gắn theo variant) =====
