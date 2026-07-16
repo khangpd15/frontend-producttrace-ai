@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
-  ChevronLeft, Save, Trash2, Edit2, AlertCircle, Plus, X, ImageIcon, Tag, ChevronDown, ChevronRight, Search, Folder
+  ChevronLeft, Save, Trash2, Edit2, AlertCircle, Plus, X, ImageIcon, Tag, ChevronDown, ChevronRight, Search, Folder, Loader2
 } from 'lucide-react';
 import { useCreateProduct } from '../../../features/products/hooks/useProducts';
 import { useCategoryList } from '../../../features/categories/hooks/useCategory';
@@ -11,6 +11,7 @@ import type { CategoryResponse } from '../../../features/categories/api/category
 import { useAttributesByCategory } from '../../../features/attributes/hooks/useAttributes';
 import Button from '../../components/ui/Button';
 import { parseApiError } from '../../../api/axios';
+import axios from 'axios';
 
 // Mock reference data (fallback if needed)
 const MOCK_CATEGORIES = [
@@ -424,6 +425,65 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
     setShowVariantForm(true);
   };
 
+  const [isUploading, setIsUploading] = useState(false);
+  const [isThumbnailUploading, setIsThumbnailUploading] = useState(false);
+
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await axios.post('https://tmpfiles.org/api/v1/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data?.status === 'success' && res.data?.data?.url) {
+        const rawUrl = res.data.data.url;
+        const directUrl = rawUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+        setVariantImages(prev => [...prev, directUrl]);
+      } else {
+        alert('Tải lên thất bại. Vui lòng thử lại.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi kết nối khi tải ảnh lên cloud.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleUploadThumbnail = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsThumbnailUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await axios.post('https://tmpfiles.org/api/v1/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data?.status === 'success' && res.data?.data?.url) {
+        const rawUrl = res.data.data.url;
+        const directUrl = rawUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+        setValue('thumbnail_url', directUrl);
+      } else {
+        alert('Tải lên thất bại. Vui lòng thử lại.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi kết nối khi tải ảnh lên cloud.');
+    } finally {
+      setIsThumbnailUploading(false);
+      e.target.value = '';
+    }
+  };
+
   const handleOpenEditVariant = (index: number) => {
     const v = variants[index];
     setVariantName(v.name);
@@ -440,10 +500,10 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
     const draft = buildEmptyAttributeDraft();
     (v.attributes || []).forEach((av: any) => {
       draft[av.attribute_id] = {
-        value_type: av.value_type || 'text',
+        value_type: 'text',
         value_text: av.value_text || '',
-        value_number: av.value_number !== undefined && av.value_number !== null ? String(av.value_number) : '',
-        value_boolean: !!av.value_boolean,
+        value_number: '',
+        value_boolean: false,
       };
     });
     setAttributeDraft(draft);
@@ -464,17 +524,13 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
     const attributes = categoryAttributes
       .map(attr => {
         const d = attributeDraft[attr.id];
-        if (!d) return null;
-        if (d.value_type === 'text' && !d.value_text.trim()) return null;
-        if (d.value_type === 'number' && d.value_number === '') return null;
+        if (!d || !d.value_text.trim()) return null;
         return {
           attribute_id: attr.id,
           code: attr.code,
           label: attr.label,
-          value_type: d.value_type,
-          value_text: d.value_type === 'text' ? d.value_text.trim() : undefined,
-          value_number: d.value_type === 'number' ? Number(d.value_number) : undefined,
-          value_boolean: d.value_type === 'boolean' ? d.value_boolean : undefined,
+          value_type: 'text',
+          value_text: d.value_text.trim(),
         };
       })
       .filter(Boolean);
@@ -592,13 +648,23 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
             </Field>
 
             <Field label="Ảnh đại diện (thumbnail)" error={errors.thumbnail_url?.message as string} className="col-span-2">
-              <div className="flex gap-3 items-start">
+              <div className="flex gap-3 items-center">
                 <div className="w-16 h-16 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
                   {watch('thumbnail_url')
-                    ? <img src={watch('thumbnail_url')} className="w-full h-full object-cover" onError={e => ((e.target as HTMLImageElement).style.display = 'none')} />
+                    ? <img src={watch('thumbnail_url')} className="w-full h-full object-cover" />
                     : <ImageIcon size={18} className="text-slate-300" />}
                 </div>
-                <input {...register('thumbnail_url')} className={inputCls} placeholder="https://…" />
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <div className="flex gap-2">
+                    <input {...register('thumbnail_url')} className={inputCls} placeholder="Đường dẫn ảnh đại diện (hoặc tải lên từ máy tính)..." />
+                    <label className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs">
+                      {isThumbnailUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon size={14} />}
+                      Tải ảnh lên
+                      <input type="file" accept="image/*" className="hidden" onChange={handleUploadThumbnail} disabled={isThumbnailUploading} />
+                    </label>
+                  </div>
+                  <span className="text-[10px] text-slate-400">Chọn file ảnh từ máy tính để tải trực tiếp lên cloud storage.</span>
+                </div>
               </div>
             </Field>
 
@@ -676,8 +742,13 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
                     <div className="flex gap-2">
                       <input value={imageDraft} onChange={e => setImageDraft(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddImage(); } }}
-                        placeholder="Dán URL hình ảnh rồi nhấn Enter" className={inputCls} />
-                      <button type="button" onClick={handleAddImage} className="px-3 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 cursor-pointer bg-white"><Plus size={16} /></button>
+                        placeholder="Dán URL hình ảnh..." className={inputCls} />
+                      <button type="button" onClick={handleAddImage} className="px-3 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 cursor-pointer bg-white" title="Thêm URL"><Plus size={16} /></button>
+                      <label className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs">
+                        {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon size={14} />}
+                        Tải ảnh lên
+                        <input type="file" accept="image/*" className="hidden" onChange={handleUploadImage} disabled={isUploading} />
+                      </label>
                     </div>
                     {variantImages.length > 0 && (
                       <div className="flex flex-wrap gap-2">
@@ -696,69 +767,36 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
                 </Field>
               </div>
 
-              {/* Thuộc tính (Attributes) — bộ field phụ thuộc vào danh mục sản phẩm đã chọn */}
-              <div className="pt-2 border-t border-slate-200">
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Thuộc tính (Attributes)</h4>
-                {!selectedCategoryId ? (
-                  <p className="text-xs text-slate-400">Vui lòng chọn danh mục sản phẩm trước để hiển thị thuộc tính tương ứng.</p>
-                ) : isLoadingAttributes ? (
-                  <p className="text-xs text-slate-400">Đang tải danh sách thuộc tính…</p>
-                ) : categoryAttributes.length === 0 ? (
-                  <p className="text-xs text-slate-400">Danh mục này chưa có thuộc tính nào được khai báo.</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    {categoryAttributes.map(attr => {
-                      const d = attributeDraft[attr.id] || { value_type: 'text', value_text: '', value_number: '', value_boolean: false };
-                      return (
-                        <Field key={attr.id} label={attr.label} hint={attr.code}>
-                          <div className="flex gap-2">
-                            <select
-                              value={d.value_type}
-                              onChange={e => setAttributeDraft(prev => ({
-                                ...prev,
-                                [attr.id]: { ...d, value_type: e.target.value as 'text' | 'number' | 'boolean' }
-                              }))}
-                              className={`${inputCls} w-24 cursor-pointer shrink-0`}
-                            >
-                              <option value="text">Text</option>
-                              <option value="number">Số</option>
-                              <option value="boolean">Có/Không</option>
-                            </select>
-
-                            {d.value_type === 'text' && (
-                              <input
-                                value={d.value_text}
-                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_text: e.target.value } }))}
-                                className={inputCls}
-                                placeholder={`Nhập ${attr.label.toLowerCase()}…`}
-                              />
-                            )}
-                            {d.value_type === 'number' && (
-                              <input
-                                type="number"
-                                value={d.value_number}
-                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_number: e.target.value } }))}
-                                className={inputCls}
-                                placeholder="0"
-                              />
-                            )}
-                            {d.value_type === 'boolean' && (
-                              <select
-                                value={d.value_boolean ? '1' : '0'}
-                                onChange={e => setAttributeDraft(prev => ({ ...prev, [attr.id]: { ...d, value_boolean: e.target.value === '1' } }))}
-                                className={`${inputCls} cursor-pointer`}
-                              >
-                                <option value="0">Không</option>
-                                <option value="1">Có</option>
-                              </select>
-                            )}
-                          </div>
-                        </Field>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+            {/* Thuộc tính (Attributes) — bộ field phụ thuộc vào danh mục sản phẩm đã chọn */}
+            <div className="pt-2 border-t border-slate-200">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Thuộc tính (Attributes)</h4>
+              {!selectedCategoryId ? (
+                <p className="text-xs text-slate-400">Vui lòng chọn danh mục sản phẩm trước để hiển thị thuộc tính tương ứng.</p>
+              ) : isLoadingAttributes ? (
+                <p className="text-xs text-slate-400">Đang tải danh sách thuộc tính…</p>
+              ) : categoryAttributes.length === 0 ? (
+                <p className="text-xs text-slate-400">Danh mục này chưa có thuộc tính nào được khai báo.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {categoryAttributes.map(attr => {
+                    const d = attributeDraft[attr.id] || { value_type: 'text', value_text: '', value_number: '', value_boolean: false };
+                    return (
+                      <Field key={attr.id} label={attr.label} hint={attr.code}>
+                        <input
+                          value={d.value_text}
+                          onChange={e => setAttributeDraft(prev => ({
+                            ...prev,
+                            [attr.id]: { ...d, value_text: e.target.value }
+                          }))}
+                          className={inputCls}
+                          placeholder={`Nhập ${attr.label.toLowerCase()}…`}
+                        />
+                      </Field>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
               <div className="flex gap-2 justify-end pt-2">
                 <button type="button" onClick={() => setShowVariantForm(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 bg-white hover:bg-slate-100 cursor-pointer">Hủy</button>

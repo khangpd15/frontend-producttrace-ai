@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Search, Plus, RotateCw, ChevronRight, ChevronDown, 
-  Filter, Eye, Edit3, Smartphone, Laptop, Tv, WashingMachine, 
+  Filter, Eye, Edit3, 
   Info, X, Upload, Check, AlertCircle, ArrowUpRight, 
   HelpCircle, Folder, FileText, BarChart2, Download, CheckSquare, Trash2,
   Tag, PlusCircle, Save, XCircle, Loader2
@@ -35,16 +35,6 @@ interface DraftAttribute {
   code: string;
   label: string;
 }
-
-// Map icon string to React component
-const ICON_MAP: Record<string, React.ComponentType<any>> = {
-  Smartphone: Smartphone,
-  Laptop: Laptop,
-  Tv: Tv,
-  WashingMachine: WashingMachine,
-  Folder: Folder,
-  FileText: FileText,
-};
 
 export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
   // Real Backend Integration
@@ -480,9 +470,9 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
             )}
           </div>
           
-          {/* Custom or mapped icon */}
+          {/* Folder icon */}
           <span className="text-slate-400">
-            {React.createElement(ICON_MAP[category.icon] || Folder, { size: 16, className: isSelected ? 'text-blue-500' : 'text-slate-400' })}
+            <Folder size={16} className={isSelected ? 'text-blue-500' : 'text-slate-400'} />
           </span>
 
           <span className="text-sm truncate flex-1 ml-1">{category.name}</span>
@@ -924,7 +914,6 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {filteredCategories.map((cat) => {
-                          const IconComp = ICON_MAP[cat.icon] || Folder;
                           return (
                             <tr 
                               key={cat.id} 
@@ -932,12 +921,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                               onClick={() => handleOpenView(cat)}
                             >
                               <td className="p-3.5 pl-5 font-medium text-slate-900 max-w-0 align-middle">
-                                <div className="flex items-center gap-2 max-w-full">
-                                  <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors flex-shrink-0 flex items-center justify-center">
-                                    <IconComp size={16} />
-                                  </div>
-                                  <span className="truncate block">{cat.name}</span>
-                                </div>
+                                <span className="truncate block">{cat.name}</span>
                               </td>
                               <td className="p-3.5 text-xs text-slate-500 font-mono font-semibold max-w-0 truncate align-middle">{cat.code}</td>
                               <td className="p-3.5 text-xs text-slate-500 max-w-0 truncate align-middle" title={cat.slug}>{cat.slug}</td>
@@ -1191,58 +1175,6 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
                   />
                 </div>
 
-                {/* Icon Selection & Upload */}
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700">Biểu tượng (Icon)</label>
-                  {drawerMode === 'VIEW' ? (
-                    <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 w-fit">
-                      {React.createElement(ICON_MAP[formData.icon] || Folder, { size: 18 })}
-                      <span className="text-xs font-medium">{formData.icon}</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-5 gap-2">
-                        {['Folder', 'Smartphone', 'Laptop', 'Tv', 'WashingMachine'].map(iconName => {
-                          const IconElem = ICON_MAP[iconName] || Folder;
-                          return (
-                            <button
-                              key={iconName}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, icon: iconName })}
-                              className={`p-2.5 rounded-lg border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
-                                formData.icon === iconName 
-                                  ? 'border-blue-500 bg-blue-50/50 text-blue-600 font-semibold' 
-                                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                              }`}
-                            >
-                              <IconElem size={18} />
-                              <span className="text-[10px]">{iconName}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Mock upload area */}
-                      <div 
-                        onClick={handleSimulateUpload}
-                        className="border-2 border-dashed border-slate-200 hover:border-blue-300 rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer bg-slate-50/50 hover:bg-blue-50/10 transition-colors"
-                      >
-                        {iconFile ? (
-                          <div className="flex items-center gap-2 text-green-600 justify-center">
-                            <Check size={16} className="bg-green-100 p-0.5 rounded-full" />
-                            <span className="text-xs font-semibold">{iconFile}</span>
-                          </div>
-                        ) : (
-                          <>
-                            <Upload size={20} className="text-slate-400 mb-1 mx-auto" />
-                            <span className="text-[11px] font-semibold text-slate-700">Tải lên Icon tùy chỉnh</span>
-                            <span className="text-[10px] text-slate-400 mt-0.5">Hỗ trợ SVG, PNG (Tối đa 2MB)</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 {/* ==== Thuộc tính danh mục (Attributes) ==== */}
                 {/* Mỗi danh mục có bộ thuộc tính riêng (vd: Màu sắc, Dung lượng...),
