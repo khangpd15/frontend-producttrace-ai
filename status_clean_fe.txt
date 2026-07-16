@@ -1,0 +1,5 @@
+ M src/admin/pages/ownership/OwnershipListPage.tsx
+ M src/customer/App.tsx
+ M src/customer/views/Ownership.tsx
+ M src/customer/views/RegisterOwnership.tsx
+?? status_clean_fe.txt

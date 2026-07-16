@@ -10,12 +10,13 @@ export interface AdminRequestOTPReq {
   qr_code: string;
   owner_name: string;
   owner_email: string;
-  owner_phone: string;
+  owner_phone?: string;
 }
 
 export interface OTPResponse {
   message: string;
   email: string;
+  product_id?: string;
 }
 
 export interface CustomerRegisterReq {
@@ -41,13 +42,14 @@ export interface TransferOwnershipReq {
 export interface OwnershipSummaryRes {
   ownership_id: string;
   product_id: string;
-  status: 'ACTIVE' | 'TRANSFERRED' | 'REVOKED';
+  status: 'ACTIVE' | 'TRANSFERRED' | 'REVOKED' | 'PENDING';
   registration_date: string;
   owner_name: string;
   owner_email: string;
   owner_phone: string;
   product_name: string;
   product_sku: string;
+  serial_number: string;
 }
 
 export interface OwnershipHistoryItem {
@@ -63,7 +65,7 @@ export interface OwnershipHistoryItem {
 export interface OwnershipDetailRes {
   ownership_id: string;
   product_id: string;
-  status: 'ACTIVE' | 'TRANSFERRED' | 'REVOKED';
+  status: 'ACTIVE' | 'TRANSFERRED' | 'REVOKED' | 'PENDING';
   registration_date: string;
   owner_id: string;
   owner_name: string;
@@ -71,6 +73,7 @@ export interface OwnershipDetailRes {
   owner_phone: string;
   product_name: string;
   product_sku: string;
+  serial_number: string;
   ownership_history: OwnershipHistoryItem[];
 }
 
@@ -122,6 +125,9 @@ export const ownershipApi = {
   search: (params?: SearchOwnershipsParams) =>
     apiClient.get<ApiResponse<PaginatedOwnershipsRes>>('/ownership', { params }),
 
+  getMyOwnerships: (page = 1, limit = 10) =>
+    apiClient.get<ApiResponse<PaginatedOwnershipsRes>>(`/ownership?page=${page}&limit=${limit}`),
+
   // Get Ownership Detail
   getById: (id: string) =>
     apiClient.get<ApiResponse<OwnershipDetailRes>>(`/ownership/detail/${id}`),
@@ -129,4 +135,10 @@ export const ownershipApi = {
   // Revoke/Delete Ownership (Admin/Staff)
   delete: (id: string) =>
     apiClient.delete<ApiResponse<null>>(`/ownership/${id}`),
+
+  adminApproveOwnership: (payload: { ownership_id: string }) => 
+    apiClient.put<ApiResponse<any>>('/ownership/admin/approve', payload),
+
+  adminRejectOwnership: (payload: { ownership_id: string }) => 
+    apiClient.put<ApiResponse<any>>('/ownership/admin/reject', payload),
 };

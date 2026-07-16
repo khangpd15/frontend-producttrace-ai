@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from '../../../api/axios';
+import apiClient, { aiApiClient, ApiResponse } from '../../../api/axios';
 
 // ─── Auth Request / Response Types ───────────────────────────────────────────
 
@@ -65,6 +65,13 @@ export interface UserProfile {
   status: 'ACTIVE' | 'PENDING' | 'BANNED' | 'SUSPENDED';
 }
 
+export interface UpdateProfileRequest {
+  full_name?: string;
+  phone?: string;
+  avatar?: string;
+  status: 'ACTIVE' | 'PENDING' | 'BANNED' | 'SUSPENDED';
+}
+
 // ─── Auth API Functions ───────────────────────────────────────────────────────
 
 export const authApi = {
@@ -81,10 +88,10 @@ export const authApi = {
     apiClient.post<ApiResponse<null>>('/auth/resend-otp', payload),
 
   forgotPassword: (payload: ForgotPasswordRequest) =>
-    apiClient.post<ApiResponse<null>>('/auth/forgot-password', payload),
+    aiApiClient.post<ApiResponse<null>>('/auth/forgot-password', payload),
 
   resetPassword: (payload: ResetPasswordRequest) =>
-    apiClient.post<ApiResponse<null>>('/auth/reset-password', payload),
+    aiApiClient.post<ApiResponse<null>>('/auth/reset-password', payload),
 
   refresh: (payload: RefreshTokenRequest) =>
     apiClient.post<ApiResponse<RefreshTokenResponse>>('/auth/refresh', payload),

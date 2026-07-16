@@ -56,14 +56,16 @@ export const useAuthStore = create<AuthState>()(
           const { data } = await authApi.login(credentials);
           const { access_token, refresh_token } = data.data;
 
+
           // Persist tokens in localStorage immediately
           tokenStorage.setAccessToken(access_token);
           tokenStorage.setRefreshToken(refresh_token);
 
+
           // Fetch profile using the newly set token before updating isAuthenticated state
           // to prevent React Router race conditions / premature redirects
           const profileRes = await authApi.getProfile();
-          
+
           set({
             accessToken: access_token,
             refreshToken: refresh_token,

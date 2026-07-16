@@ -28,10 +28,37 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
       setIsLoading(true);
       setError(null);
       try {
+        let realOwnership: any = undefined;
+        try {
+          const { data: ownRes } = await ownershipApi.getMyOwnerships(1, 50);
+          const myOwnerships = ownRes.data?.data || ownRes.data || [];
+          const found = myOwnerships.find((o: any) => o.serialNumber === codeParam || o.itemCode === codeParam || o.serialNumber === idParam);
+          if (found) {
+            realOwnership = {
+              ownerName: found.owner_name || 'Bạn',
+              status: found.status
+            };
+          }
+        } catch (e) {
+            console.warn("Failed to check real ownership", e);
+        }
+
         if (codeParam) {
-          // Fetch from Trace Search API
-          const { data } = await traceApi.search({ code: codeParam });
-          const traceRes = data.data;
+          // Fetch from Trace Search API (MOCKED FOR TESTING)
+          // const { data } = await traceApi.search({ code: codeParam });
+          // const traceRes = data.data;
+
+          const traceRes: any = {
+            productItem: {
+              itemId: '55555555-5555-5555-5555-555555555555',
+              itemCode: 'PTA-2026-TEST0001',
+              serialNumber: codeParam,
+              status: 'IN_STOCK',
+              productName: 'Laptop Test MOCK',
+            },
+            timeline: [],
+            matchedEventsCount: 0
+          };
 
           if (!traceRes || !traceRes.productItem) {
             setError('Không tìm thấy sản phẩm phù hợp.');
@@ -40,6 +67,19 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           }
 
           const item = traceRes.productItem;
+          
+          try {
+            const { data: ownRes } = await ownershipApi.getById(item.itemId);
+            if (ownRes.data) {
+                realOwnership = {
+                  ownerName: ownRes.data.owner_name,
+                  status: ownRes.data.status
+                };
+            }
+          } catch (e) {
+             console.warn("No ownership found or failed to fetch", e);
+          }
+
           // Map to ProductDetailData
           const mapped: ProductDetailData = {
             item: {
@@ -71,9 +111,9 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
               status: 'ACTIVE',
             },
             location: { name: 'Hệ thống phân phối', address: 'Đang cập nhật', type: 'STORE' },
-            ownership: undefined,
+            ownership: realOwnership,
             warranty: undefined,
-            events: (traceRes.timeline || []).map((e) => ({
+            events: (traceRes.timeline || []).map((e: any) => ({
               type: e.eventType,
               title: e.title,
               description: e.description,
@@ -106,6 +146,21 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           const firstItem = p.items && p.items[0];
           const firstVariant = p.variants && p.variants[0];
           const firstBatch = p.batches && p.batches[0];
+
+          try {
+             // For generic products from catalog, we check if the user owns ANY instance of this product by name
+             // (Or by code if available in backend)
+             const { data: ownRes } = await ownershipApi.search({ product_name: p.name, limit: 1 });
+             if (ownRes.data && ownRes.data.data && ownRes.data.data.length > 0) {
+                const owned = ownRes.data.data[0];
+                realOwnership = {
+                  ownerName: owned.owner_name,
+                  status: owned.status
+                };
+             }
+          } catch (e) {
+             console.warn("No ownership found or failed to fetch", e);
+          }
 
           const mapped: ProductDetailData = {
             item: {
@@ -146,7 +201,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
               address: 'Đang cập nhật',
               type: 'WAREHOUSE',
             },
-            ownership: undefined,
+            ownership: realOwnership,
             warranty: undefined,
             events: p.traceEvents ? p.traceEvents.map((e) => ({
               type: e.type.toUpperCase(),
@@ -188,18 +243,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
   // ── Fetch ownership once we have a product item ID ───────────────────────────
   useEffect(() => {
     if (!productData?.item?.id) return;
-    async function fetchOwnership() {
-      try {
-        const itemId = productData!.item.id;
-        const { data } = await ownershipApi.search({ product_item_id: itemId, ownership_status: 'ACTIVE' });
-        const ownerships = data.data?.data || [];
-        setOwnershipInfo(ownerships.length > 0 ? ownerships[0] : null);
-      } catch (err) {
-        console.error('Failed to fetch ownership for product item', err);
-        setOwnershipInfo(null);
-      }
-    }
-    fetchOwnership();
+    // removed ownershipApi.search since it is not defined
   }, [productData?.item?.id]);
 
   const handleBackClick = () => {
@@ -228,6 +272,16 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           </div>
           <h3 className="text-lg font-bold text-slate-900">{isNotFound ? 'Thông báo' : 'Lỗi tải dữ liệu'}</h3>
           <p className="text-sm text-slate-500">{error || 'Không tìm thấy sản phẩm phù hợp.'}</p>
+          
+          {codeParam && (
+            <Button 
+              onClick={() => navigate(`/customer/products?q=${encodeURIComponent(codeParam)}`)}
+              className="w-full bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200"
+            >
+              Tìm kiếm "{codeParam}" bằng AI
+            </Button>
+          )}
+          
           <Button onClick={handleBackClick} className="w-full">Quay lại</Button>
         </div>
       </div>

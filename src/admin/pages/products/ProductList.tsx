@@ -38,9 +38,9 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
 
   const StatusBadge = ({ status }: { status: string }) => {
     const styles: Record<string, string> = {
-      ACTIVE: 'bg-green-150 text-green-700 border-green-200',
-      DRAFT: 'bg-yellow-150 text-yellow-700 border-yellow-250',
-      DISCONTINUED: 'bg-red-150 text-red-700 border-red-200'
+      ACTIVE: 'bg-green-50 text-green-700 border-green-200',
+      DRAFT: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+      DISCONTINUED: 'bg-red-50 text-red-700 border-red-200'
     };
 
     const labels: Record<string, string> = {
@@ -50,7 +50,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
     };
 
     return (
-      <span className={`inline-flex items-center justify-center min-w-[120px] h-7 px-2.5 rounded-full text-xs font-semibold border ${styles[status] || 'bg-gray-150 border-gray-200 text-gray-700'}`}>
+      <span className={`inline-flex items-center justify-center min-w-[120px] h-7 px-2.5 rounded-full text-xs font-semibold border ${styles[status] || 'bg-gray-100 border-gray-200 text-gray-700'}`}>
         {labels[status] || status}
       </span>
     );
@@ -101,7 +101,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
                 className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" 
               />
               {searchTerm && (
-                <button onClick={() => { setSearchTerm(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-450 hover:text-slate-700 bg-transparent border-none cursor-pointer"><X size={14} /></button>
+                <button onClick={() => { setSearchTerm(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 bg-transparent border-none cursor-pointer"><X size={14} /></button>
               )}
             </div>
           </div>
@@ -110,7 +110,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
           <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
             {products.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white">
-                <Inbox size={48} className="text-slate-355 mb-4 animate-bounce" />
+                <Inbox size={48} className="text-slate-300 mb-4 animate-bounce" />
                 <h3 className="text-lg font-bold text-slate-900">Không tìm thấy sản phẩm</h3>
                 <p className="text-slate-500 text-sm max-w-sm mt-1">Hệ thống chưa đăng ký sản phẩm nào phù hợp.</p>
                 <Button onClick={() => onNavigate('create-product')} className="mt-6 bg-blue-600 text-white rounded-xl px-4 py-2 font-semibold hover:bg-blue-700 cursor-pointer">Tạo sản phẩm</Button>
@@ -156,13 +156,13 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
                             </div>
                           </td>
                           <td className="p-4 text-center">
-                            <div className="inline-flex items-center justify-center gap-1 text-gray-650 font-medium">
+                            <div className="inline-flex items-center justify-center gap-1 text-gray-600 font-medium">
                               <Layers className="w-4 h-4 text-gray-400" />
                               <span>{p.variants_count ?? 0}</span>
                             </div>
                           </td>
                           <td className="p-4 text-center">
-                            <div className="inline-flex items-center justify-center gap-1 text-gray-650 font-medium">
+                            <div className="inline-flex items-center justify-center gap-1 text-gray-600 font-medium">
                               <Package className="w-4 h-4 text-gray-400" />
                               <span>{p.batches_count ?? 0}</span>
                             </div>
@@ -184,7 +184,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
                               </button>
                               <button
                                 onClick={() => handleDelete(p.id, p.name)}
-                                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-50 text-red-650 cursor-pointer border-none bg-transparent"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-50 text-red-600 cursor-pointer border-none bg-transparent"
                                 title="Xóa sản phẩm"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -199,7 +199,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
                 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="p-4 border-t border-gray-200 flex justify-between items-center text-sm text-gray-550 bg-white">
+                  <div className="p-4 border-t border-gray-200 flex justify-between items-center text-sm text-gray-500 bg-white">
                     <span>Hiển thị trang {page} / {totalPages} (Tổng số {total} sản phẩm)</span>
                     <div className="flex gap-2">
                       <button 

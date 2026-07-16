@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Package, ShieldCheck, Search, Bell, Settings, ChevronDown, 
   Layers, Database, Tag, MapPin, ClipboardList, User, ChevronLeft, ChevronRight, 
-  FileText, Activity, LogOut, Check, Sparkles, BellOff, Lock
+  FileText, Activity, LogOut, Check, Sparkles, BellOff, Lock, SlidersHorizontal
 } from 'lucide-react';
 import Breadcrumb from './ui/Breadcrumb';
 
@@ -11,6 +11,7 @@ const MENU_CONFIG = {
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: User, label: 'Users', href: '/users' },
     { icon: Tag, label: 'Categories', href: '/categories' },
+    { icon: SlidersHorizontal, label: 'Attributes', href: '/attributes' },
     { icon: Package, label: 'Products', href: '/products' },
     { icon: Database, label: 'Batches', href: '/batches' },
     { icon: Layers, label: 'Ownership', href: '/ownership' },
@@ -123,8 +124,15 @@ export default function Layout({ children, breadcrumbs = [], role = 'Admin' }: {
               <a 
                 key={item.label} 
                 href={item.href} 
-                className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative ${
+                  isActive 
+                    ? 'bg-blue-50/70 text-blue-600 font-bold shadow-3xs' 
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                }`}
               >
+                {isActive && (
+                  <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-blue-600 rounded-r-md" />
+                )}
                 <item.icon size={18} className="flex-shrink-0" />
                 {!isCollapsed && <span className="text-xs font-semibold whitespace-nowrap">{item.label}</span>}
                 {isCollapsed && (
@@ -138,7 +146,17 @@ export default function Layout({ children, breadcrumbs = [], role = 'Admin' }: {
         </nav>
         
         <div className="pt-4 border-t border-slate-100 mt-4">
-            <a href="/settings" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${activeHref === '/settings' ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
+            <a 
+              href="/settings" 
+              className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative ${
+                activeHref === '/settings' 
+                  ? 'bg-blue-50/70 text-blue-600 font-bold shadow-3xs' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              {activeHref === '/settings' && (
+                <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-blue-600 rounded-r-md" />
+              )}
               <Settings size={18} className="flex-shrink-0" />
               {!isCollapsed && <span className="text-xs font-semibold whitespace-nowrap">Settings</span>}
             </a>
@@ -147,11 +165,15 @@ export default function Layout({ children, breadcrumbs = [], role = 'Admin' }: {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 h-16 border-b border-slate-200 bg-white flex items-center justify-between px-8 relative z-40">
+        <header className="sticky top-0 h-16 border-b border-slate-200 bg-white/90 backdrop-blur-md flex items-center justify-between px-8 relative z-40">
           <div className="flex-1 max-w-xl">
              <div className="relative">
                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-               <input type="search" placeholder="Tìm kiếm nhanh thông tin..." className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-1.5 text-xs focus:outline-none focus:bg-white focus:border-blue-500 transition-colors" />
+               <input 
+                 type="search" 
+                 placeholder="Tìm kiếm nhanh thông tin..." 
+                 className="w-full bg-slate-50 border border-slate-200 hover:border-slate-350 focus:border-blue-500 rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all duration-200" 
+               />
              </div>
           </div>
           <div className="flex items-center gap-4">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TopAppBar } from '../components/layout/TopAppBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -6,16 +6,17 @@ import { Clock, ChevronRight } from 'lucide-react';
 import { useOwnershipList, useOwnershipDetail, useTransferOwnership } from '../../features/ownership/hooks/useOwnership';
 import { traceApi } from '../../features/trace/api/trace.api';
 import { parseApiError } from '../../api/axios';
+import { ownershipApi, OwnershipSummaryRes } from '../../features/ownership/api/ownership.api';
 
 export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegister: () => void }) {
   const [view, setView] = useState<'list' | 'detail' | 'transfer'>('list');
+  const [selected, setSelected] = useState<any>(null);
+  const [ownershipHistory, setOwnershipHistory] = useState<OwnershipSummaryRes[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-
-  // Search filter
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Transfer Form State
   const [newOwnerName, setNewOwnerName] = useState('');
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
   const [newOwnerPhone, setNewOwnerPhone] = useState('');
@@ -23,14 +24,71 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
   const [transferError, setTransferError] = useState<string | null>(null);
   const [isTransferring, setIsTransferring] = useState(false);
 
-  // Fetch all customer ownerships
   const { data: ownershipsRes, isLoading: isListLoading, refetch: refetchList } = useOwnershipList();
-
-  // Fetch ownership detail if selected (using selectedProductId because it represents product_item_id)
   const { data: detailData, isLoading: isDetailLoading } = useOwnershipDetail(selectedProductId || '');
-
-  // Transfer mutation
   const transferMutation = useTransferOwnership();
+
+  useEffect(() => {
+    const fetchOwnerships = async () => {
+      try {
+        setLoading(true);
+        const { data } = await ownershipApi.search({ page: 1, limit: 20 });
+        setOwnershipHistory(data.data?.data || []);
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách quyền sở hữu', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (view === 'list') {
+      fetchOwnerships();
+    }
+  }, [view]);
+
+  useEffect(() => {
+    // Real-time EventSource Setup for Customer
+    const token = localStorage.getItem('producttrace_access_token');
+    if (!token) return;
+    
+    let sse: EventSource;
+    try {
+      sse = new EventSource(`http://localhost:8080/api/ownership/stream?token=${token}`);
+      
+      sse.onmessage = (event) => {
+        if (event.data === 'OWNERSHIP_VERDICT') {
+          // Báo cho UI của customer là đăng ký đã đổi trạng thái (Approve hoặc Reject)
+          alert('TRẠNG THÁI ĐĂNG KÝ VỪA MỚI ĐƯỢC ADMIN CẬP NHẬT!');
+          if (view === 'list') {
+            // refresh data
+            const fetchOwnerships = async () => {
+              try {
+                setLoading(true);
+                const { data } = await ownershipApi.search({ page: 1, limit: 20 });
+                setOwnershipHistory(data.data?.data || []);
+              } catch (err) {} finally {
+                setLoading(false);
+              }
+            };
+            fetchOwnerships();
+          } else {
+             // force back to list to refresh smoothly
+             setView('list');
+          }
+        }
+      };
+
+      sse.onerror = (err) => {
+        console.error('SSE Error:', err);
+        sse.close();
+      };
+    } catch (err) {
+      console.warn('Real-time updates failed to initialize.', err);
+    }
+    
+    return () => {
+      if (sse) sse.close();
+    };
+  }, [view]);
 
   const handleSelect = (item: any) => {
     setSelectedId(item.ownership_id);
@@ -79,9 +137,9 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
   const filteredOwnerships = (ownershipsRes?.data || []).filter((item) => {
     const query = searchQuery.toLowerCase();
     return (
-      item.product_name.toLowerCase().includes(query) ||
-      item.product_sku.toLowerCase().includes(query) ||
-      item.owner_name.toLowerCase().includes(query)
+      (item?.product_name || '').toLowerCase().includes(query) ||
+      (item?.product_sku || '').toLowerCase().includes(query) ||
+      (item?.owner_name || '').toLowerCase().includes(query)
     );
   });
 
@@ -206,7 +264,7 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
                 <div className="border-t pt-4 space-y-2">
                   <h3 className="font-semibold text-sm text-slate-800">Lịch sử sở hữu</h3>
                   <div className="space-y-3">
-                    {detailData.ownership_history.map((hist, index) => (
+                    {detailData.ownership_history.map((hist: any, index: number) => (
                       <div key={index} className="text-xs bg-slate-50 p-2 rounded border border-slate-100 space-y-1">
                         <p className="font-semibold text-slate-700">{hist.owner_name}</p>
                         <p className="text-slate-500">{hist.owner_email} | {hist.owner_phone}</p>
@@ -249,7 +307,6 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
             className="w-full pl-4 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-
         {isListLoading ? (
           <div className="text-center py-12 text-slate-500">Đang tải danh sách sở hữu...</div>
         ) : filteredOwnerships.length === 0 ? (
@@ -258,7 +315,7 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredOwnerships.map((item) => (
+            {filteredOwnerships.map((item: any) => (
               <Card
                 key={item.ownership_id}
                 className="p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow"

@@ -7,17 +7,16 @@ import { useRequestOTP, useRegisterOwnership } from '../../features/ownership/ho
 import { traceApi } from '../../features/trace/api/trace.api';
 import { parseApiError } from '../../api/axios';
 
-export function RegisterOwnership({ onBack }: { onBack: () => void }) {
+export function RegisterOwnership({ onBack, onSuccess }: { onBack: () => void; onSuccess?: () => void }) {
   const { user } = useAuthStore();
   const [view, setView] = useState<'form' | 'otp'>('form');
-  const [qrCode, setQrCode] = useState('');
+  const [qrCode, setQrCode] = useState(new URLSearchParams(window.location.search).get('code') || '');
   const [productId, setProductId] = useState('');
   const [targetEmail, setTargetEmail] = useState('');
   
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Pre-fill owner details from current user store
@@ -74,7 +73,7 @@ export function RegisterOwnership({ onBack }: { onBack: () => void }) {
 
       // Step 2: Request OTP via backend
       const otpRes = await requestOTPMutation.mutateAsync({ qr_code: qrCode.trim() });
-      setTargetEmail(otpRes.data.data?.email || user?.email || '');
+      setTargetEmail((otpRes.data.data as any)?.email || user?.email || '');
       setView('otp');
     } catch (err: any) {
       setErrorMsg(parseApiError(err));
@@ -94,13 +93,10 @@ export function RegisterOwnership({ onBack }: { onBack: () => void }) {
     setIsLoading(true);
 
     try {
-      await registerMutation.mutateAsync({
-        otp: otpString,
-        product_id: productId,
-      });
-
-      alert('Đăng ký quyền sở hữu thành công!');
-      onBack();
+      await registerMutation.mutateAsync({ otp: otpString, product_id: productId || qrCode });
+      alert('Đã đăng ký sở hữu! Yêu cầu của bạn đang chờ Admin phê duyệt.');
+      if (onSuccess) onSuccess();
+      else onBack();
     } catch (err: any) {
       setErrorMsg(parseApiError(err));
     } finally {

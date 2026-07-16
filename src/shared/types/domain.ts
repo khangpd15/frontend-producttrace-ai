@@ -294,7 +294,7 @@ export interface AdminOwnership {
   serialNumber: string;
   ownerName: string;
   ownerEmail: string;
-  status: 'ACTIVE' | 'TRANSFERRED' | 'REVOKED';
+  status: 'ACTIVE' | 'TRANSFERRED' | 'REVOKED' | 'PENDING';
   ownershipType: 'PRIMARY' | 'TRANSFERRED';
   ownedAt: string;
   purchaseDate: string;

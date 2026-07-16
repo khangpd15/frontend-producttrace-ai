@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, Shield, Building, Settings, HelpCircle, Save, Bell, 
   Globe, AlertCircle, RefreshCw, CheckCircle, Info, Lock
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import { useAuthStore } from '../../../features/auth/store/auth.store';
+import { authApi } from '../../../features/auth/api/auth.api';
+import { parseApiError } from '../../../api/axios';
 
 // TODO(settings-backend): This page is currently fully static (all data is hardcoded).
 // The backend does not expose any settings-related API endpoints yet.
@@ -30,18 +33,34 @@ import Card from '../../components/ui/Card';
 //     Backend module to create: go-core-service/internal/modules/user_settings
 
 export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: string) => void }) {
+  const { user, fetchProfile } = useAuthStore();
   const [demoState, setDemoState] = useState<'NORMAL' | 'LOADING' | 'ERROR'>('NORMAL');
   const [activeTab, setActiveTab] = useState<'PROFILE' | 'SECURITY' | 'ORGANIZATION' | 'SYSTEM'>('PROFILE');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Profile Form States
   const [profile, setProfile] = useState({
-    fullName: 'Admin User',
-    email: 'admin@producttrace.vn',
-    phone: '0988.123.456',
-    role: 'ADMIN',
-    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=128&h=128'
+    fullName: user?.full_name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    role: user?.role || '',
+    avatarUrl: user?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=128&h=128'
   });
+
+  // Sync profile state when user profile is updated/loaded
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        fullName: user.full_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        role: user.role || '',
+        avatarUrl: user.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=128&h=128'
+      });
+    }
+  }, [user]);
 
   // Security States
   const [passwords, setPasswords] = useState({
@@ -66,10 +85,48 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
     auditRetentionDays: 90
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  // Load fallback settings on mount
+  useEffect(() => {
+    const savedSys = localStorage.getItem('sys_settings');
+    if (savedSys) {
+      try { setSys(JSON.parse(savedSys)); } catch {}
+    }
+    const savedOrg = localStorage.getItem('org_settings');
+    if (savedOrg) {
+      try { setOrg(JSON.parse(savedOrg)); } catch {}
+    }
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccessMessage('Đã lưu các thiết lập cấu hình thành công!');
-    setTimeout(() => setSuccessMessage(null), 3000);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    setIsSaving(true);
+
+    try {
+      if (activeTab === 'PROFILE' && user) {
+        await authApi.updateProfile(user.id, {
+          full_name: profile.fullName,
+          phone: profile.phone,
+          avatar: profile.avatarUrl,
+        });
+        await fetchProfile();
+        setSuccessMessage('Đã cập nhật hồ sơ cá nhân thành công!');
+      } else if (activeTab === 'SYSTEM') {
+        localStorage.setItem('sys_settings', JSON.stringify(sys));
+        setSuccessMessage('Đã lưu thiết lập hệ thống thành công!');
+      } else if (activeTab === 'ORGANIZATION') {
+        localStorage.setItem('org_settings', JSON.stringify(org));
+        setSuccessMessage('Đã lưu cấu hình doanh nghiệp thành công!');
+      } else if (activeTab === 'SECURITY') {
+        // Change password API endpoint missing on backend
+        setErrorMessage('Không thể đổi mật khẩu: Tính năng này chưa được API Backend hỗ trợ.');
+      }
+    } catch (err: any) {
+      setErrorMessage(parseApiError(err));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderSkeleton = () => (
@@ -81,27 +138,6 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
       
-      {/* Demo Controls */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Demo Controls</span>
-          <span className="text-xs text-blue-600 font-medium">Bấm để kiểm tra hiển thị:</span>
-        </div>
-        <div className="flex gap-2">
-          {['NORMAL', 'LOADING', 'ERROR'].map(st => (
-            <button
-              key={st}
-              onClick={() => setDemoState(st as any)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                demoState === st ? 'bg-blue-600 text-white' : 'bg-white border border-blue-200 text-blue-600 hover:bg-blue-50'
-              }`}
-            >
-              {st === 'NORMAL' ? 'Bình thường' : st === 'LOADING' ? 'Đang tải' : 'Lỗi'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">System Settings</h1>
@@ -112,6 +148,13 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
         <div className="p-4 bg-green-50 border border-green-200 text-green-800 text-sm rounded-xl flex items-center gap-2.5 animate-fade-in shadow-xs">
           <CheckCircle size={18} className="text-green-500" />
           <span className="font-semibold">{successMessage}</span>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 text-sm rounded-xl flex items-center gap-2.5 animate-fade-in shadow-xs">
+          <AlertCircle size={18} className="text-red-500" />
+          <span className="font-semibold">{errorMessage}</span>
         </div>
       )}
 
@@ -139,7 +182,8 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                type="button"
+                onClick={() => { setActiveTab(tab.id as any); setSuccessMessage(null); setErrorMessage(null); }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer border-none bg-transparent ${
                   activeTab === tab.id 
                     ? 'bg-blue-50 text-blue-600' 
@@ -170,7 +214,12 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
                       <div className="text-xs font-bold text-slate-700">Ảnh đại diện</div>
                       <button 
                         type="button"
-                        onClick={() => alert('Chức năng tải lên ảnh đang mở rộng!')}
+                        onClick={() => {
+                          const url = prompt('Nhập URL ảnh đại diện mới:', profile.avatarUrl);
+                          if (url && url.trim()) {
+                            setProfile(prev => ({ ...prev, avatarUrl: url.trim() }));
+                          }
+                        }}
                         className="px-3 py-1.5 border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer bg-white"
                       >
                         Thay đổi ảnh
@@ -202,8 +251,8 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
                       <input 
                         type="email" 
                         value={profile.email}
-                        onChange={e => setProfile({ ...profile, email: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                        disabled
+                        className="w-full px-3 py-2 border border-slate-200 bg-slate-50 text-slate-400 rounded-lg text-sm"
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -392,9 +441,11 @@ export default function SettingsPage({ onNavigate }: { onNavigate: (tabId: strin
               <div className="border-t border-slate-100 mt-6 pt-5 flex justify-end">
                 <Button 
                   type="submit"
-                  className="rounded-xl px-4 py-2 text-xs flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
+                  disabled={isSaving}
+                  className="rounded-xl px-4 py-2 text-xs flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer disabled:opacity-50"
                 >
-                  <Save size={14} /> Lưu thiết lập
+                  {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />} 
+                  {isSaving ? 'Đang lưu...' : 'Lưu thiết lập'}
                 </Button>
               </div>
             </form>

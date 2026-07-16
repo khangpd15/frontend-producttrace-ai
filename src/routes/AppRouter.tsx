@@ -32,15 +32,17 @@ const AuditListPage = lazy(() => import('../admin/pages/audit/AuditListPage'));
 const SettingsPage = lazy(() => import('../admin/pages/settings/SettingsPage'));
 const NotificationListPage = lazy(() => import('../admin/pages/notifications/NotificationListPage'));
 const VerifyPage = lazy(() => import('../features/verify/pages/VerifyPage'));
+const AISearchPage = lazy(() => import('../admin/pages/search/AISearchPage'));
+const AttributesPage = lazy(() => import('../admin/pages/attributes/AttributesPage'));
 
 // ─── Customer pages (lazy) ────────────────────────────────────────────────────
 const CustomerHome = lazy(() => import('../customer/views/Home'));
 const CustomerProductDetail = lazy(() => import('../customer/views/ProductDetail'));
+const CustomerProductList = lazy(() => import('../customer/views/ProductList'));
 const CustomerOwnership = lazy(() => import('../customer/views/Ownership'));
+const CustomerRegisterOwnership = lazy(() => import('../customer/views/RegisterOwnership'));
 const CustomerWarranty = lazy(() => import('../customer/views/Warranty'));
 const CustomerProfile = lazy(() => import('../customer/views/Profile'));
-const CustomerRegisterOwnership = lazy(() => import('../customer/views/RegisterOwnership'));
-
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -95,6 +97,8 @@ const StorePage = withNav(StoreListPage as React.ComponentType<{ onNavigate: (t:
 const AuditPage = withNav(AuditListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const SettingsWrapped = withNav(SettingsPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 const NotificationsPage = withNav(NotificationListPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const AISearchPageWrapped = withNav(AISearchPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
+const AttributesPageWrapped = withNav(AttributesPage as React.ComponentType<{ onNavigate: (t: string, id?: string) => void }>);
 
 // ─── ProductDetail reads id from URL query string ────────────────────────────
 function ProductDetailRoute() {
@@ -166,6 +170,8 @@ export default function AppRouter() {
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/settings" element={<SettingsWrapped />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/search" element={<AISearchPageWrapped />} />
+              <Route path="/attributes" element={<AttributesPageWrapped />} />
 
               {/* Admin-only */}
               <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
@@ -197,6 +203,11 @@ export default function AppRouter() {
                   onBack={() => window.history.back()}
                   onRequestWarranty={() => window.location.href = '/customer/warranty'}
                   onRegisterOwnership={() => window.location.href = '/customer/ownership/register'}
+                />
+              } />
+              <Route path="/customer/products" element={
+                <CustomerProductList
+                  onBack={() => window.history.back()}
                 />
               } />
               <Route path="/customer/ownership" element={

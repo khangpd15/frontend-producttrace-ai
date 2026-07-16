@@ -39,6 +39,19 @@ export const apiClient: AxiosInstance = axios.create({
 
 // ─── Request Interceptor: attach Authorization header ─────────────────────────
 
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+}
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Exclude public auth endpoints from getting the Authorization header
@@ -62,6 +75,17 @@ apiClient.interceptors.request.use(
 
     if (isValidToken && !isPublicAuthRoute && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
+      
+      // The backend Ownership API specifically requires these headers 
+      // instead of reading directly from the JWT context middleware
+      const payload = parseJwt(token);
+      if (payload) {
+        if (payload.user_id) config.headers['X-User-Id'] = payload.user_id;
+        else if (payload.userId) config.headers['X-User-Id'] = payload.userId;
+        else if (payload.sub) config.headers['X-User-Id'] = payload.sub;
+        
+        if (payload.role) config.headers['X-User-Role'] = payload.role;
+      }
     }
     return config;
   },
@@ -251,5 +275,93 @@ export function parseApiError(error: any): string {
 
   return 'Yêu cầu không hợp lệ. Vui lòng thử lại.';
 }
+
+export const aiApiClient: AxiosInstance = axios.create({
+  baseURL: baseURL.endsWith('/api') ? baseURL.slice(0, -4) + '/ai' : '/ai',
+  timeout: 15_000,
+  headers: { 
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
+  },
+  withCredentials: true,
+});
+
+aiApiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = tokenStorage.getAccessToken();
+    const isValidToken = token && 
+      token !== 'null' && 
+      token !== 'undefined' && 
+      token !== '""' && 
+      token.trim() !== '';
+
+    if (isValidToken && config.headers) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error: AxiosError) => Promise.reject(error),
+);
+
+aiApiClient.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
+    const status = error.response?.status;
+    if (status !== 401 || originalRequest?._retry) {
+      return Promise.reject(error);
+    }
+    const refreshToken = tokenStorage.getRefreshToken();
+    if (!refreshToken) {
+      tokenStorage.clearTokens();
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+    if (isRefreshing) {
+      return new Promise<AxiosResponse>((resolve, reject) => {
+        subscribeToRefresh((newToken) => {
+          if (originalRequest.headers) {
+            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+          }
+          resolve(aiApiClient(originalRequest));
+          void reject;
+        });
+      });
+    }
+    isRefreshing = true;
+    originalRequest._retry = true;
+    try {
+      const { data } = await axios.post<ApiResponse<{ access_token: string; refresh_token: string }>>(
+        `${baseURL}/auth/refresh`,
+        { refresh_token: refreshToken },
+        { 
+          headers: { 
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          },
+          withCredentials: true,
+        },
+      );
+      const { access_token, refresh_token } = data.data;
+      tokenStorage.setAccessToken(access_token);
+      tokenStorage.setRefreshToken(refresh_token);
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      aiApiClient.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      onRefreshed(access_token);
+      if (originalRequest.headers) {
+        originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+      }
+      return aiApiClient(originalRequest);
+    } catch (refreshError) {
+      tokenStorage.clearTokens();
+      window.location.href = '/login';
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
+  }
+);
 
 export default apiClient;

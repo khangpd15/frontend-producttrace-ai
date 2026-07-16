@@ -19,6 +19,7 @@ import SettingsPage from './pages/settings/SettingsPage';
 import NotificationListPage from './pages/notifications/NotificationListPage';
 import ProductDetailPage from './pages/products/ProductDetailPage';
 import EditProductPage from './pages/products/EditProductPage';
+import AttributesPage from './pages/attributes/AttributesPage';
 
 export default function App() {
   const [path, setPath] = useState(window.location.pathname);
@@ -82,6 +83,8 @@ export default function App() {
         return <AuditListPage onNavigate={handleNavigate} />;
       case '/settings':
         return <SettingsPage onNavigate={handleNavigate} />;
+      case '/attributes':
+        return <AttributesPage onNavigate={handleNavigate} />;
       case '/notifications':
         return <NotificationListPage onNavigate={handleNavigate} />;
       case '/':
@@ -133,6 +136,9 @@ export default function App() {
     }
     if (path === '/settings') {
       return [{ label: 'Dashboard', href: '/' }, { label: 'Cấu hình cài đặt' }];
+    }
+    if (path === '/attributes') {
+      return [{ label: 'Dashboard', href: '/' }, { label: 'Quản lý Thuộc tính' }];
     }
     if (path === '/notifications') {
       return [{ label: 'Dashboard', href: '/' }, { label: 'Thông báo' }];
