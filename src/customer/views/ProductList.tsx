@@ -66,7 +66,9 @@ export function ProductList({ onBack }: { onBack?: () => void }) {
 
     searchMutation.mutate({
       query: searchVal.trim(),
-      filters: Object.keys(filters).length > 0 ? filters : undefined,
+      category: categoryFilter || undefined,
+      manufacturer: manufacturerFilter.trim() || undefined,
+      province: provinceFilter.trim() || undefined,
       limit: 20
     });
   };

@@ -48,12 +48,25 @@ export interface UpdateAttributeRequest {
 }
 
 // GET /attributes?category_id=...&limit=100
-// BE trả thẳng mảng (không kèm total/page) — xem attribute_handler.go: ListAttributes
+// BE có thể trả thẳng mảng hoặc bọc trong đối tượng phân trang (data.data hoặc data.items)
 export async function getAttributesByCategory(categoryId: string): Promise<Attribute[]> {
   const res = await api.get('/attributes', {
     params: { category_id: categoryId, limit: 100, page: 1 },
   });
-  return res.data.data as Attribute[];
+  const rawData = res.data;
+  const dataField = rawData && typeof rawData === 'object' && 'data' in rawData ? rawData.data : rawData;
+  if (Array.isArray(dataField)) {
+    return dataField as Attribute[];
+  }
+  if (dataField && typeof dataField === 'object') {
+    if (Array.isArray(dataField.items)) {
+      return dataField.items as Attribute[];
+    }
+    if (Array.isArray(dataField.data)) {
+      return dataField.data as Attribute[];
+    }
+  }
+  return [];
 }
 
 // POST /attributes — tạo 1 attribute (thuộc tính) mới cho 1 category
@@ -89,7 +102,20 @@ export async function assignVariantAttributes(
 // GET /product-variants/:id/attributes
 export async function getVariantAttributeValues(variantId: string): Promise<AttributeValue[]> {
   const res = await api.get(`/product-variants/${variantId}/attributes`);
-  return res.data.data as AttributeValue[];
+  const rawData = res.data;
+  const dataField = rawData && typeof rawData === 'object' && 'data' in rawData ? rawData.data : rawData;
+  if (Array.isArray(dataField)) {
+    return dataField as AttributeValue[];
+  }
+  if (dataField && typeof dataField === 'object') {
+    if (Array.isArray(dataField.items)) {
+      return dataField.items as AttributeValue[];
+    }
+    if (Array.isArray(dataField.data)) {
+      return dataField.data as AttributeValue[];
+    }
+  }
+  return [];
 }
 
 // PUT /attribute-values/:id

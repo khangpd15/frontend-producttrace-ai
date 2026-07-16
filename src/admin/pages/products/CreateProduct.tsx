@@ -3,10 +3,11 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
-  ChevronLeft, Save, Trash2, Edit2, AlertCircle, Plus, X, ImageIcon, Tag, ChevronDown, Search
+  ChevronLeft, Save, Trash2, Edit2, AlertCircle, Plus, X, ImageIcon, Tag, ChevronDown, ChevronRight, Search, Folder
 } from 'lucide-react';
 import { useCreateProduct } from '../../../features/products/hooks/useProducts';
 import { useCategoryList } from '../../../features/categories/hooks/useCategory';
+import type { CategoryResponse } from '../../../features/categories/api/category.api';
 import { useAttributesByCategory } from '../../../features/attributes/hooks/useAttributes';
 import Button from '../../components/ui/Button';
 import { parseApiError } from '../../../api/axios';
@@ -97,22 +98,183 @@ const Field: React.FC<{ label: string; required?: boolean; hint?: string; error?
 
 const inputCls = "w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-shadow placeholder:text-slate-400";
 
+// ---- Category tree helpers (giống hệt logic dựng cây ở admin/pages/categories/CategoryListPage.tsx) ----
+
+type CategoryTreeItem = Omit<CategoryResponse, 'children'> & { children: CategoryTreeItem[] };
+type CategoryFlatOption = CategoryResponse & { depth: number };
+
+// Dựng cây phân cấp đệ quy: cha luôn đứng ngay trước danh sách con của nó,
+// hỗ trợ nhiều cấp (cha -> con -> cháu -> ...), sắp xếp theo tên trong từng cấp.
+function buildCategoryTree(categories: CategoryResponse[]): CategoryTreeItem[] {
+  const byId = new Map(categories.map(c => [c.id, c]));
+  const childrenMap = new Map<string, CategoryResponse[]>();
+  const roots: CategoryResponse[] = [];
+
+  for (const c of categories) {
+    const parentOk = c.parent_id && byId.has(c.parent_id) && c.parent_id !== c.id;
+    if (parentOk) {
+      const key = c.parent_id as string;
+      if (!childrenMap.has(key)) childrenMap.set(key, []);
+      childrenMap.get(key)!.push(c);
+    } else {
+      roots.push(c);
+    }
+  }
+
+  const collator = new Intl.Collator('vi');
+  const sortByName = (list: CategoryResponse[]) => [...list].sort((a, b) => collator.compare(a.name, b.name));
+
+  const visited = new Set<string>();
+  const build = (nodes: CategoryResponse[]): CategoryTreeItem[] =>
+    sortByName(nodes)
+      .filter(n => {
+        if (visited.has(n.id)) return false; // chặn vòng lặp vô hạn nếu data bị lỗi
+        visited.add(n.id);
+        return true;
+      })
+      .map(n => ({ ...n, children: build(childrenMap.get(n.id) || []) }));
+
+  return build(roots);
+}
+
+// Danh sách phẳng (kèm depth) dùng khi người dùng gõ tìm kiếm.
+function buildCategoryOptionsTree(categories: CategoryResponse[]): CategoryFlatOption[] {
+  const byId = new Map(categories.map(c => [c.id, c]));
+  const childrenMap = new Map<string, CategoryResponse[]>();
+  const roots: CategoryResponse[] = [];
+
+  for (const c of categories) {
+    const parentOk = c.parent_id && byId.has(c.parent_id) && c.parent_id !== c.id;
+    if (parentOk) {
+      const key = c.parent_id as string;
+      if (!childrenMap.has(key)) childrenMap.set(key, []);
+      childrenMap.get(key)!.push(c);
+    } else {
+      roots.push(c);
+    }
+  }
+
+  const collator = new Intl.Collator('vi');
+  const sortByName = (list: CategoryResponse[]) => [...list].sort((a, b) => collator.compare(a.name, b.name));
+
+  const result: CategoryFlatOption[] = [];
+  const visited = new Set<string>();
+  const visit = (nodes: CategoryResponse[], depth: number) => {
+    for (const node of sortByName(nodes)) {
+      if (visited.has(node.id)) continue;
+      visited.add(node.id);
+      result.push({ ...node, depth });
+      const children = childrenMap.get(node.id);
+      if (children?.length) visit(children, depth + 1);
+    }
+  };
+  visit(roots, 0);
+  return result;
+}
+
+// Tìm đường đi từ 1 node lên tới gốc, dùng để tự expand cây tới danh mục đang chọn
+function getAncestorIds(categories: CategoryResponse[], id: string): string[] {
+  const byId = new Map(categories.map(c => [c.id, c]));
+  const result: string[] = [];
+  let current = byId.get(id);
+  while (current?.parent_id) {
+    result.push(current.parent_id);
+    current = byId.get(current.parent_id);
+  }
+  return result;
+}
+
+// Dropdown "Danh mục sản phẩm" dạng cây (đồng bộ giao diện/hành vi với dropdown
+// "Danh mục cha" ở trang quản lý Category): hỗ trợ mở rộng/thu gọn theo cấp,
+// tìm kiếm phẳng có thụt lề, tự động mở tới danh mục đang chọn.
 const CategorySelect: React.FC<{ value: string; onChange: (id: string) => void }> = ({ value, onChange }) => {
   const { data: categoryListResp } = useCategoryList({ limit: 100 });
   const categories = categoryListResp?.data || [];
 
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const selected = categories.find(c => c.id === value);
-  const filtered = categories.filter(c => c.name.toLowerCase().includes(q.toLowerCase()));
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
+  const tree = useMemo(() => buildCategoryTree(categories), [categories]);
+  const flatOptions = useMemo(() => buildCategoryOptionsTree(categories), [categories]);
+
+  const selected = flatOptions.find(c => c.id === value);
+  const query = q.trim().toLowerCase();
+  const flatVisible = query ? flatOptions.filter(c => c.name.toLowerCase().includes(query)) : [];
+
+  const handleOpen = () => {
+    // Tự động mở rộng cây tới danh mục đang được chọn để dễ nhìn thấy vị trí hiện tại
+    if (value) {
+      const ancestorIds = getAncestorIds(categories, value);
+      if (ancestorIds.length) {
+        setExpandedNodes(prev => {
+          const next = { ...prev };
+          ancestorIds.forEach(id => { next[id] = true; });
+          return next;
+        });
+      }
+    }
+    setOpen(o => !o);
+  };
+
+  const toggleExpand = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const renderNode = (node: CategoryTreeItem, depth: number) => {
+    const hasChildren = node.children.length > 0;
+    const isExpanded = !!expandedNodes[node.id];
+    const isSelected = node.id === value;
+
+    return (
+      <div key={node.id}>
+        <div
+          onClick={() => { onChange(node.id); setOpen(false); setQ(''); }}
+          style={{ paddingLeft: `${depth * 16 + 12}px` }}
+          className={`w-full flex items-center gap-1.5 py-2 pr-3 text-sm hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 text-blue-700 font-semibold' : depth === 0 ? 'text-slate-800 font-semibold' : 'text-slate-600'
+            }`}
+        >
+          <span className="w-4 h-4 flex items-center justify-center shrink-0">
+            {hasChildren ? (
+              <button
+                type="button"
+                onClick={(e) => toggleExpand(node.id, e)}
+                className="p-0.5 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer flex items-center justify-center"
+              >
+                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+            ) : (
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+            )}
+          </span>
+          <Folder size={13} className={isSelected ? 'text-blue-500' : 'text-slate-400'} />
+          <span className="truncate">
+            {node.name}
+            {node.code && <span className="text-slate-400 font-normal"> ({node.code})</span>}
+          </span>
+          {hasChildren && (
+            <span className="ml-auto text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md font-normal shrink-0">
+              {node.children.length}
+            </span>
+          )}
+        </div>
+        {hasChildren && isExpanded && node.children.map(child => renderNode(child, depth + 1))}
+      </div>
+    );
+  };
 
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen(!open)}
+      <button type="button" onClick={handleOpen}
         className={`${inputCls} flex items-center justify-between text-left cursor-pointer ${!selected ? 'text-slate-400' : ''}`}>
-        {selected ? selected.name : 'Chọn danh mục sản phẩm…'}
+        <span className="truncate flex items-center gap-1.5">
+          {selected && <Folder size={14} className="text-slate-400 shrink-0" />}
+          {selected ? `${selected.name}${selected.code ? ` (${selected.code})` : ''}` : 'Chọn danh mục sản phẩm…'}
+        </span>
         <ChevronDown size={14} className="text-slate-400 shrink-0" />
       </button>
+
       {open && (
         <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
           <div className="p-2 border-b border-slate-100 flex items-center gap-2">
@@ -120,15 +282,34 @@ const CategorySelect: React.FC<{ value: string; onChange: (id: string) => void }
             <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm danh mục…"
               className="w-full text-sm outline-none border-none bg-transparent focus:ring-0" />
           </div>
-          <div className="max-h-56 overflow-y-auto py-1">
-            {filtered.length === 0 && <div className="px-3 py-2 text-xs text-slate-400">Không tìm thấy danh mục</div>}
-            {filtered.map(c => (
-              <button key={c.id} type="button"
-                onClick={() => { onChange(c.id); setOpen(false); setQ(''); }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-none bg-transparent ${c.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700'}`}>
-                {c.parent_id && <span className="text-slate-400">↳ </span>}{c.name}
-              </button>
-            ))}
+          <div className="max-h-60 overflow-y-auto py-1">
+            {query ? (
+              // Đang tìm kiếm: hiển thị list phẳng, thụt lề theo depth (không cần expand/collapse)
+              flatVisible.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-slate-400">Không tìm thấy danh mục</div>
+              ) : (
+                flatVisible.map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => { onChange(cat.id); setOpen(false); setQ(''); }}
+                    style={{ paddingLeft: `${cat.depth * 16 + 12}px` }}
+                    className={`w-full text-left py-2 pr-3 text-sm hover:bg-blue-50 cursor-pointer border-none bg-transparent flex items-center gap-1.5 ${cat.id === value ? 'bg-blue-50 text-blue-700 font-semibold' : cat.depth === 0 ? 'text-slate-800 font-semibold' : 'text-slate-600'}`}
+                  >
+                    {cat.depth > 0 && <span className="text-slate-300">└</span>}
+                    <Folder size={13} className={cat.id === value ? 'text-blue-500' : 'text-slate-400'} />
+                    <span className="truncate">
+                      {cat.name}
+                      {cat.code && <span className="text-slate-400 font-normal"> ({cat.code})</span>}
+                    </span>
+                  </button>
+                ))
+              )
+            ) : tree.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-400">Chưa có danh mục</div>
+            ) : (
+              tree.map(node => renderNode(node, 0))
+            )}
           </div>
         </div>
       )}
@@ -193,7 +374,7 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
       thumbnail_url: '',
       tags: [],
       metadata: '',
-      status: 'DRAFT',
+      status: 'ACTIVE',
       variants: [],
     }
   });
@@ -427,9 +608,9 @@ export default function CreateProduct({ onNavigate }: { onNavigate: (tabId: stri
 
             <Field label="Trạng thái" required error={errors.status?.message as string}>
               <select {...register('status')} className={`${inputCls} cursor-pointer`}>
+                <option value="ACTIVE">ACTIVE — Đang hoạt động</option>
                 <option value="DRAFT">DRAFT — Bản nháp</option>
-                <option value="ACTIVE">ACTIVE — Đang bán</option>
-                <option value="DISCONTINUED">DISCONTINUED — Ngừng kinh doanh</option>
+                <option value="DISCONTINUED">DISCONTINUED — Ngừng hoạt động</option>
               </select>
             </Field>
           </div>
