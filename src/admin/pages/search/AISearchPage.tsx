@@ -23,13 +23,10 @@ export default function AISearchPage() {
 
     searchMutation.mutate({
       query: query.trim(),
-      filters: {
         ...(category ? { category } : {}),
         ...(manufacturer ? { manufacturer } : {}),
         ...(province ? { province } : {}),
-      },
       limit: 20,
-      offset: 0,
     });
   };
 
