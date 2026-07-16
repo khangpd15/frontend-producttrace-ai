@@ -75,6 +75,9 @@ export interface ListLocationsResponse {
 
 // ─── Location API ─────────────────────────────────────────────────────────────
 
+// Bật cờ này thành true để dùng dữ liệu giả (Mock) khi không có server
+const USE_MOCK = true; 
+
 export const locationApi = {
   list: (params?: ListLocationsParams) =>
     apiClient.get<ApiResponse<ListLocationsResponse>>('/locations', { params }),
@@ -90,4 +93,31 @@ export const locationApi = {
 
   delete: (id: string) =>
     apiClient.delete<ApiResponse<null>>(`/locations/${id}`),
+
+  // Tìm kiếm địa điểm gần người dùng
+  getNearby: (params: { lat: number; lng: number; radius?: number }) => {
+    if (USE_MOCK) {
+      return Promise.resolve({
+        data: {
+          data: {
+            data: [
+              { 
+                id: 'mock-1', 
+                name: 'Cửa hàng giả lập (Mock)', 
+                address: '123 Đường Test, Quận 1', 
+                phone: '0909000000', 
+                latitude: params.lat, 
+                longitude: params.lng 
+              } as LocationResponse
+            ],
+            total: 1, page: 1, limit: 10, totalPages: 1
+          }
+        }
+      } as any);
+    }
+
+    return apiClient.get<ApiResponse<ListLocationsResponse>>('/locations/nearby', { 
+      params 
+    });
+  },
 };

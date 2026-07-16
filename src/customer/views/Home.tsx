@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { productApi } from '../../features/products/api/product.api';
 import { ownershipApi, OwnershipSummaryRes } from '../../features/ownership/api/ownership.api';
+import { GeoSearchMap } from '@/features/locations/components/GeoSearchMap';
 
 type Status = 'ACTIVE' | 'DRAFT' | 'DISCONTINUED';
 
@@ -237,22 +238,10 @@ export function Home({ onScan, onNavigate, onBellClick }: { onScan?: () => void;
             </div>
           )}
         </section>
-
+        
         {/* Nearby Stores Section */}
         <section>
-          <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-slate-800">Gần bạn</h2>
-              <button className="text-sm text-blue-600 font-semibold bg-transparent border-none cursor-pointer">Xem bản đồ</button>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
-            <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center">
-               <MapPin className="text-blue-500" />
-            </div>
-            <div>
-              <p className="font-medium text-sm">Cửa hàng ủy quyền A</p>
-              <p className="text-xs text-slate-500">123 Nguyễn Huệ - 500m</p>
-            </div>
-          </div>
+          <GeoSearchMap />
         </section>
       </div>
     </div>
