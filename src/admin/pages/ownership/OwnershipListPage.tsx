@@ -116,16 +116,16 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
     setDrawerMode('CREATE');
     setFormData({
       id: '',
-      itemCode: 'ITEM-RO-KG' + Math.floor(100000 + Math.random() * 900000),
-      itemName: 'Máy lọc nước RO Kangaroo VT3',
+      itemCode: '',
+      itemName: '',
       serialNumber: '',
       ownerName: '',
       ownerEmail: '',
       ownerPhone: '',
       ownershipType: 'PRIMARY',
       purchaseDate: new Date().toISOString().substring(0, 10),
-      purchaseLocation: 'Điện Máy Xanh Cầu Giấy',
-      invoiceNumber: 'INV-2026-' + Math.floor(10000 + Math.random() * 90000),
+      purchaseLocation: '',
+      invoiceNumber: '',
       status: 'ACTIVE'
     });
     setFormError(null);
@@ -170,7 +170,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
     try {
       setIsTimelineLoading(true);
-      const res = await ownershipApi.getById(ownership.productId || ownership.id);
+      const res = await ownershipApi.getById(ownership.product_id || ownership.ownership_id);
       if (res.data?.data?.ownership_history) {
         const mappedHistory = res.data.data.ownership_history.map((h: any) => ({
           title: h.status === 'ACTIVE' ? 'Đăng ký sở hữu thành công' : h.status === 'TRANSFERRED' ? 'Đã chuyển nhượng sở hữu' : 'Bị thu hồi / thay đổi',
@@ -201,7 +201,7 @@ export default function OwnershipListPage({ onNavigate }: { onNavigate: (tabId: 
 
       try {
         setFormError(null);
-        await ownershipApi.transfer(selectedOwnership.id, {
+        await ownershipApi.transfer(selectedOwnership.ownership_id, {
           new_owner_name: transferData.newOwnerName.trim(),
           new_owner_email: transferData.newOwnerEmail.trim(),
         });

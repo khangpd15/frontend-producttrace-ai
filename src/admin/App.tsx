@@ -13,6 +13,7 @@ import CategoryListPage from './pages/categories/CategoryListPage';
 import BatchListPage from './pages/batches/BatchListPage';
 import OwnershipListPage from './pages/ownership/OwnershipListPage';
 import WarrantyListPage from './pages/warranty/WarrantyListPage';
+import WarrantyClaimListPage from './pages/warranty/WarrantyClaimListPage';
 import StoreListPage from './pages/store/StoreListPage';
 import AuditListPage from './pages/audit/AuditListPage';
 import SettingsPage from './pages/settings/SettingsPage';
@@ -77,6 +78,8 @@ export default function App() {
         return <OwnershipListPage onNavigate={handleNavigate} />;
       case '/warranty':
         return <WarrantyListPage onNavigate={handleNavigate} />;
+      case '/warranty-claims':
+        return <WarrantyClaimListPage onNavigate={handleNavigate} />;
       case '/store':
         return <StoreListPage onNavigate={handleNavigate} />;
       case '/audit':
@@ -127,6 +130,9 @@ export default function App() {
     }
     if (path === '/warranty') {
       return [{ label: 'Dashboard', href: '/' }, { label: 'Bảo hành điện tử' }];
+    }
+    if (path === '/warranty-claims') {
+      return [{ label: 'Dashboard', href: '/' }, { label: 'Yêu cầu bảo hành' }];
     }
     if (path === '/store') {
       return [{ label: 'Dashboard', href: '/' }, { label: 'Đại lý & Cửa hàng' }];

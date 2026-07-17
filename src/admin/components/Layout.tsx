@@ -16,6 +16,7 @@ const MENU_CONFIG = {
     { icon: Database, label: 'Batches', href: '/batches' },
     { icon: Layers, label: 'Ownership', href: '/ownership' },
     { icon: ShieldCheck, label: 'Warranty', href: '/warranty' },
+    { icon: ClipboardList, label: 'Warranty Claims', href: '/warranty-claims' },
     { icon: MapPin, label: 'Store', href: '/store' },
     { icon: Bell, label: 'Notifications', href: '/notifications' },
     { icon: Activity, label: 'Audit Logs', href: '/audit' },

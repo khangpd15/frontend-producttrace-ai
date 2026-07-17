@@ -7,10 +7,10 @@ import { useRequestOTP, useRegisterOwnership } from '../../features/ownership/ho
 import { traceApi } from '../../features/trace/api/trace.api';
 import { parseApiError } from '../../api/axios';
 
-export function RegisterOwnership({ onBack, onSuccess }: { onBack: () => void; onSuccess?: () => void }) {
+export function RegisterOwnership({ onBack, onSuccess, initialCode }: { onBack: () => void; onSuccess?: () => void; initialCode?: string }) {
   const { user } = useAuthStore();
   const [view, setView] = useState<'form' | 'otp'>('form');
-  const [qrCode, setQrCode] = useState(new URLSearchParams(window.location.search).get('code') || '');
+  const [qrCode, setQrCode] = useState(initialCode || new URLSearchParams(window.location.search).get('code') || '');
   const [productId, setProductId] = useState('');
   const [targetEmail, setTargetEmail] = useState('');
   
@@ -18,6 +18,12 @@ export function RegisterOwnership({ onBack, onSuccess }: { onBack: () => void; o
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    if (initialCode) {
+      setQrCode(initialCode);
+    }
+  }, [initialCode]);
 
   // Pre-fill owner details from current user store
   const [ownerDetails, setOwnerDetails] = useState({
