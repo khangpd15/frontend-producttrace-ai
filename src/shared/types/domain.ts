@@ -307,7 +307,7 @@ export interface AdminOwnership {
 // Page-specific Admin Types
 export type AdminProductDetailProductStatus = 'ACTIVE' | 'DRAFT' | 'DISCONTINUED';
 export type AdminProductDetailVariantStatus = 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED';
-export type AdminProductDetailBatchStatus = 'ACTIVE' | 'EXPIRED' | 'RECALLED' | 'BLOCKED';
+export type AdminProductDetailBatchStatus = 'ACTIVE' | 'EXPIRED' | 'RECALLED' | 'BLOCKED' | 'DRAFT' | 'CREATED' | 'IN_STOCK' | 'SHIPPED' | 'IN_TRANSIT' | 'DELIVERED' | 'SOLD_OUT' | 'CLOSED';
 export type AdminProductDetailItemStatus = 'IN_STOCK' | 'IN_TRANSIT' | 'AT_DEALER' | 'SOLD' | 'REGISTERED' | 'WARRANTY_ACTIVE' | 'RETURNED' | 'RECALLED' | 'LOST' | 'DAMAGED';
 
 export interface AdminProductDetailAttributeValue {

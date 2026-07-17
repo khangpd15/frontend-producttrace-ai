@@ -11,7 +11,7 @@ import { productApi } from '../../features/products/api/product.api';
 import { ownershipApi, OwnershipSummaryRes } from '../../features/ownership/api/ownership.api';
 import { parseApiError } from '../../api/axios';
 
-export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }: { onBack: () => void; onRequestWarranty: () => void; onRegisterOwnership: () => void }) {
+export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }: { onBack: () => void; onRequestWarranty: () => void; onRegisterOwnership: (code?: string) => void }) {
   const navigate = useNavigate();
   const [productData, setProductData] = useState<ProductDetailData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +32,10 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         try {
           const { data: ownRes } = await ownershipApi.getMyOwnerships(1, 50);
           const myOwnerships = ownRes.data?.data || ownRes.data || [];
-          const found = myOwnerships.find((o: any) => o.serialNumber === codeParam || o.itemCode === codeParam || o.serialNumber === idParam);
+          const found = myOwnerships.find((o: any) => 
+            (o.serialNumber === codeParam || o.itemCode === codeParam || o.serialNumber === idParam || o.product_id === idParam) &&
+            o.status === 'ACTIVE'
+          );
           if (found) {
             realOwnership = {
               ownerName: found.owner_name || 'Bạn',
@@ -44,21 +47,8 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         }
 
         if (codeParam) {
-          // Fetch from Trace Search API (MOCKED FOR TESTING)
-          // const { data } = await traceApi.search({ code: codeParam });
-          // const traceRes = data.data;
-
-          const traceRes: any = {
-            productItem: {
-              itemId: '55555555-5555-5555-5555-555555555555',
-              itemCode: 'PTA-2026-TEST0001',
-              serialNumber: codeParam,
-              status: 'IN_STOCK',
-              productName: 'Laptop Test MOCK',
-            },
-            timeline: [],
-            matchedEventsCount: 0
-          };
+          const { data } = await traceApi.search({ code: codeParam });
+          const traceRes = data.data;
 
           if (!traceRes || !traceRes.productItem) {
             setError('Không tìm thấy sản phẩm phù hợp.');
@@ -70,7 +60,7 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
           
           try {
             const { data: ownRes } = await ownershipApi.getById(item.itemId);
-            if (ownRes.data) {
+            if (ownRes.data && ownRes.data.status === 'ACTIVE') {
                 realOwnership = {
                   ownerName: ownRes.data.owner_name,
                   status: ownRes.data.status
@@ -151,11 +141,11 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
              // For generic products from catalog, we check if the user owns ANY instance of this product by name
              // (Or by code if available in backend)
              const { data: ownRes } = await ownershipApi.search({ product_name: p.name, limit: 1 });
-             if (ownRes.data && ownRes.data.data && ownRes.data.data.length > 0) {
-                const owned = ownRes.data.data[0];
+             const activeOwned = ownRes.data?.data?.find((o: any) => o.status === 'ACTIVE');
+             if (activeOwned) {
                 realOwnership = {
-                  ownerName: owned.owner_name,
-                  status: owned.status
+                  ownerName: activeOwned.owner_name,
+                  status: activeOwned.status
                 };
              }
           } catch (e) {
@@ -337,8 +327,13 @@ export function ProductDetail({ onBack, onRequestWarranty, onRegisterOwnership }
         <Card className="p-4 space-y-2">
             <h2 className='font-bold'>Sở hữu & Bảo hành</h2>
             <p className='text-sm'><span className='text-slate-500'>Chủ sở hữu:</span> {ownershipInfo?.owner_name || productData.ownership?.ownerName || 'Chưa đăng ký'}</p>
-            <p className='text-sm'><span className='text-slate-500'>Trạng thái bảo hành:</span> {ownershipInfo ? 'Còn bảo hành' : (productData.warranty?.warrantyStatus || 'Chưa có thông tin')}</p>
-            {!ownershipInfo && !productData.ownership?.ownerName && <Button onClick={onRegisterOwnership} className='w-full cursor-pointer'>Đăng ký sở hữu</Button>}
+            <p className='text-sm'><span className='text-slate-500'>Trạng thái bảo hành:</span> {(ownershipInfo || productData.ownership?.status === 'ACTIVE') ? 'Còn bảo hành' : (productData.warranty?.warrantyStatus || 'Chưa có thông tin')}</p>
+            {!ownershipInfo && (!productData.ownership || productData.ownership.status !== 'ACTIVE') && <Button onClick={() => {
+                const codeToPass = (productData.item.serialNumber && productData.item.serialNumber !== 'N/A') 
+                                    ? productData.item.serialNumber 
+                                    : '';
+                navigate(`/customer/ownership/register${codeToPass ? `?code=${encodeURIComponent(codeToPass)}` : ''}`);
+            }} className='w-full cursor-pointer'>Đăng ký sở hữu</Button>}
             <Button onClick={onRequestWarranty} className='w-full cursor-pointer'>Yêu cầu bảo hành</Button>
         </Card>
 

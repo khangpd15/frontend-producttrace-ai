@@ -120,7 +120,7 @@ export function Ownership({ onBack, onRegister }: { onBack: () => void; onRegist
           new_owner_address: newOwnerAddress.trim() || undefined,
         },
       });
-      alert('Chuyển quyền sở hữu thành công!');
+      alert('Đã yêu cầu chuyển nhượng, vui lòng đợi hệ thống duyệt!');
       setNewOwnerName('');
       setNewOwnerEmail('');
       setNewOwnerPhone('');
