@@ -8,10 +8,14 @@ import { parseApiError } from '../../api/axios';
 
 interface Props {
   onBack: () => void;
-  productId: string;
+  /** productId is kept for backward compat but should NOT be used as serialNumber/itemCode */
+  productId?: string;
 }
 
-export function WarrantyRequestForm({ onBack, productId }: Props) {
+export function WarrantyRequestForm({ onBack }: Props) {
+  const [ownerName, setOwnerName] = useState('');
+  const [serialNumber, setSerialNumber] = useState('');
+  const [itemCode, setItemCode] = useState('');
   const [issueTitle, setIssueTitle] = useState('');
   const [description, setDescription] = useState('');
   const [contactPhone, setContactPhone] = useState('');
@@ -24,6 +28,18 @@ export function WarrantyRequestForm({ onBack, productId }: Props) {
     e.preventDefault();
     setError(null);
 
+    if (!ownerName.trim()) {
+      setError('Vui lòng nhập họ tên của bạn.');
+      return;
+    }
+    if (!serialNumber.trim()) {
+      setError('Vui lòng nhập số Serial của sản phẩm.');
+      return;
+    }
+    if (!itemCode.trim()) {
+      setError('Vui lòng nhập mã sản phẩm (Item Code).');
+      return;
+    }
     if (!issueTitle.trim()) {
       setError('Vui lòng nhập tiêu đề sự cố.');
       return;
@@ -41,9 +57,9 @@ export function WarrantyRequestForm({ onBack, productId }: Props) {
     try {
       const note = `Tiêu đề sự cố: ${issueTitle.trim()}\nMô tả: ${description.trim()}\nSĐT liên hệ: ${contactPhone.trim()}`;
       await warrantyApi.requestWarranty({
-        serialNumber: productId || 'SN-UNKNOWN',
-        itemCode: productId || 'ITEM-UNKNOWN',
-        ownerName: 'Customer',
+        serialNumber: serialNumber.trim().toUpperCase(),
+        itemCode: itemCode.trim().toUpperCase(),
+        ownerName: ownerName.trim(),
         ownerEmail: contactEmail.trim() || undefined,
         note: note,
       });
@@ -81,14 +97,45 @@ export function WarrantyRequestForm({ onBack, productId }: Props) {
       <TopAppBar title="Yêu cầu bảo hành" showBack={true} onBackClick={onBack} />
       <div className="pt-20 p-4">
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Thông tin sản phẩm */}
           <Card className="p-4 space-y-4">
-            <h2 className="font-bold text-slate-900">Thông tin sự cố</h2>
+            <h2 className="font-bold text-slate-900">Thông tin sản phẩm</h2>
 
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
                 {error}
               </div>
             )}
+
+            <Input
+              label="Họ và tên chủ sở hữu *"
+              value={ownerName}
+              onChange={e => setOwnerName(e.target.value)}
+              placeholder="Nguyễn Văn A"
+              required
+            />
+
+            <Input
+              label="Số Serial sản phẩm *"
+              value={serialNumber}
+              onChange={e => setSerialNumber(e.target.value)}
+              placeholder="Ví dụ: SN-KG-123456"
+              required
+            />
+
+            <Input
+              label="Mã sản phẩm (Item Code) *"
+              value={itemCode}
+              onChange={e => setItemCode(e.target.value)}
+              placeholder="Ví dụ: ITEM-RO-KG001"
+              required
+            />
+          </Card>
+
+          {/* Thông tin sự cố */}
+          <Card className="p-4 space-y-4">
+            <h2 className="font-bold text-slate-900">Thông tin sự cố</h2>
 
             <Input
               label="Tiêu đề sự cố *"
@@ -113,6 +160,7 @@ export function WarrantyRequestForm({ onBack, productId }: Props) {
             </div>
           </Card>
 
+          {/* Thông tin liên hệ */}
           <Card className="p-4 space-y-4">
             <h2 className="font-bold text-slate-900">Thông tin liên hệ</h2>
 

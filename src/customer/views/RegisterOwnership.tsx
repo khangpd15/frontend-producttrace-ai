@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { TopAppBar } from '../components/layout/TopAppBar';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -9,6 +10,9 @@ import { parseApiError } from '../../api/axios';
 
 export function RegisterOwnership({ onBack, onSuccess, initialCode }: { onBack: () => void; onSuccess?: () => void; initialCode?: string }) {
   const { user } = useAuthStore();
+  const location = useLocation();
+  const stateData = location.state?.productItem;
+
   const [view, setView] = useState<'form' | 'otp'>('form');
   const [qrCode, setQrCode] = useState(initialCode || new URLSearchParams(window.location.search).get('code') || '');
   const [productId, setProductId] = useState('');
@@ -65,17 +69,22 @@ export function RegisterOwnership({ onBack, onSuccess, initialCode }: { onBack: 
     setIsLoading(true);
 
     try {
-      // Step 1: Trace search to get product item details & product_id (itemId)
-      const traceRes = await traceApi.search({ code: qrCode.trim() });
-      const productItem = traceRes.data.data?.productItem;
+      let resolvedProductId = productId;
 
-      if (!productItem || !productItem.itemId) {
-        setErrorMsg('Không tìm thấy sản phẩm hợp lệ với mã/serial này.');
-        setIsLoading(false);
-        return;
+      if (!resolvedProductId) {
+        // Step 1: Trace search to get product item details & product_id (itemId)
+        const traceRes = await traceApi.search({ code: qrCode.trim() });
+        const productItem = traceRes.data.data?.productItem;
+
+        if (!productItem || !productItem.itemId) {
+          setErrorMsg('Không tìm thấy sản phẩm hợp lệ với mã/serial này.');
+          setIsLoading(false);
+          return;
+        }
+
+        resolvedProductId = productItem.itemId;
+        setProductId(resolvedProductId);
       }
-
-      setProductId(productItem.itemId);
 
       // Step 2: Request OTP via backend
       const otpRes = await requestOTPMutation.mutateAsync({ qr_code: qrCode.trim() });
@@ -129,8 +138,8 @@ export function RegisterOwnership({ onBack, onSuccess, initialCode }: { onBack: 
                 placeholder="Nhập mã hoặc Serial"
                 value={qrCode}
                 onChange={(e) => setQrCode(e.target.value)}
-                disabled={view === 'otp'}
-                className="w-full p-3 border rounded-lg"
+                disabled={view === 'otp' || !!stateData}
+                className="w-full p-3 border rounded-lg disabled:bg-slate-100 disabled:opacity-75 disabled:cursor-not-allowed"
               />
             </div>
             <div className="space-y-1">

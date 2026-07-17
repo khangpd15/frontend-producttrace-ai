@@ -277,7 +277,12 @@ export interface ExportBatchesResponse {
  * Status values được dùng trong FE.
  * NOTE: BE chưa document rõ enum — cần xác nhận BE hỗ trợ RECALLED/BLOCKED.
  */
-export type BatchStatus = 'ACTIVE' | 'EXPIRED' | 'RECALLED' | 'BLOCKED' | 'DRAFT';
+export type BatchStatus = 'ACTIVE' | 'EXPIRED' | 'RECALLED' | 'BLOCKED' | 'DRAFT' | 'IN_STOCK' | 'IN_TRANSIT' | 'CREATED' | 'SHIPPED' | 'DELIVERED' | 'SOLD_OUT' | 'CLOSED';
+
+export interface ImportBatchesRequest {
+  batch_ids: string[];
+  note?: string;
+}
 
 // ─── Query Params ────────────────────────────────────────────────────────────
 

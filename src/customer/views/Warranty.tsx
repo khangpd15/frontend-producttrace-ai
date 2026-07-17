@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { TopAppBar } from '../components/layout/TopAppBar';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -11,6 +12,10 @@ import { parseApiError } from '../../api/axios';
 
 export function Warranty({ onBack }: { onBack: () => void }) {
   const { user } = useAuthStore();
+  const location = useLocation();
+  const stateData = location.state?.productItem;
+  const itemCodeParam = new URLSearchParams(window.location.search).get('itemCode');
+
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [view, setView] = useState<'list' | 'detail' | 'form'>('list');
   const [submitted, setSubmitted] = useState(false);
@@ -26,6 +31,8 @@ export function Warranty({ onBack }: { onBack: () => void }) {
   const { data: ownershipsRes, isLoading: isListLoading } = useOwnershipList();
   const createClaimMutation = useCreateWarrantyClaim();
 
+  const activeOwnerships = ownershipsRes?.data || [];
+
   // Populate contact fields when user profile is ready or when selecting form view
   useEffect(() => {
     if (user) {
@@ -33,6 +40,36 @@ export function Warranty({ onBack }: { onBack: () => void }) {
       setContactEmail(user.email || '');
     }
   }, [user]);
+
+  // Pre-fill from react-router state if navigated from Verify page
+  useEffect(() => {
+    if (stateData) {
+      const mappedProduct = {
+        product_name: stateData.product.productName,
+        product_sku: stateData.product.variantSku || stateData.itemCode,
+        product_id: stateData.productItemId,
+        serial_number: stateData.serialNumber,
+        owner_name: stateData.ownership?.ownerName || user?.full_name || '',
+        owner_email: user?.email || '',
+        registration_date: stateData.ownership?.registeredAt || new Date().toISOString(),
+      };
+      setSelectedProduct(mappedProduct);
+      setView('form');
+    }
+  }, [stateData, user]);
+
+  // Fallback: If refresh or stateData is missing, try to find the product in ownership list using url param
+  useEffect(() => {
+    if (!stateData && itemCodeParam && activeOwnerships.length > 0) {
+      const match = activeOwnerships.find(
+        (p: any) => p.product_sku === itemCodeParam || p.serial_number === itemCodeParam
+      );
+      if (match) {
+        setSelectedProduct(match);
+        setView('form');
+      }
+    }
+  }, [stateData, itemCodeParam, activeOwnerships]);
 
   const handleCreateClaim = (product: any) => {
     setSelectedProduct(product);
@@ -86,7 +123,7 @@ export function Warranty({ onBack }: { onBack: () => void }) {
     return regDate.toLocaleDateString('vi-VN');
   };
 
-  const activeOwnerships = ownershipsRes?.data || [];
+
 
 
 
@@ -157,7 +194,13 @@ export function Warranty({ onBack }: { onBack: () => void }) {
   if (view === 'form') {
     return (
       <div className="min-h-screen bg-slate-50 pt-20 pb-4">
-        <TopAppBar title="Tạo yêu cầu bảo hành" showBack={true} onBackClick={() => setView('list')} />
+        <TopAppBar title="Tạo yêu cầu bảo hành" showBack={true} onBackClick={() => {
+          if (stateData) {
+            onBack();
+          } else {
+            setView('list');
+          }
+        }} />
         <div className="p-4 space-y-4">
           <Card className="p-4">
             <h3 className="font-bold">{selectedProduct?.product_name}</h3>

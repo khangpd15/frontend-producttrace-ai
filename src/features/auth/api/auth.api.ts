@@ -88,10 +88,10 @@ export const authApi = {
     apiClient.post<ApiResponse<null>>('/auth/resend-otp', payload),
 
   forgotPassword: (payload: ForgotPasswordRequest) =>
-    aiApiClient.post<ApiResponse<null>>('/auth/forgot-password', payload),
+    apiClient.post<ApiResponse<null>>('/auth/forgot-password', payload),
 
   resetPassword: (payload: ResetPasswordRequest) =>
-    aiApiClient.post<ApiResponse<null>>('/auth/reset-password', payload),
+    apiClient.post<ApiResponse<null>>('/auth/reset-password', payload),
 
   refresh: (payload: RefreshTokenRequest) =>
     apiClient.post<ApiResponse<RefreshTokenResponse>>('/auth/refresh', payload),
