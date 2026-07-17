@@ -12,7 +12,7 @@ import { useCategoryList } from '../../../features/categories/hooks/useCategory'
 import { parseApiError } from '../../../api/axios';
 
 export default function AttributesPage({ onNavigate }: { onNavigate?: (tabId: string) => void }) {
-  const { data: categoryListResp, isLoading: isCatLoading, isError: isCatError, refetch: refetchCats } = useCategoryList({ limit: 200 });
+  const { data: categoryListResp, isLoading: isCatLoading, isError: isCatError, refetch: refetchCats } = useCategoryList({ limit: 100 });
 
   const categories = useMemo(() => {
     if (!categoryListResp?.data) return [];

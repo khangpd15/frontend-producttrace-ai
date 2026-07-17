@@ -152,7 +152,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
                           </td>
                           <td className="p-4">
                             <div className="text-gray-600 line-clamp-2">
-                              {p.category || 'N/A'}
+                              {p.category_name || 'N/A'}
                             </div>
                           </td>
                           <td className="p-4 text-center">
@@ -171,7 +171,7 @@ const ProductList: React.FC<{ onNavigate: (tabId: string, id?: string) => void }
                             <StatusBadge status={p.status} />
                           </td>
                           <td className="p-4 text-center text-gray-500">
-                            {new Date(p.createdAt).toLocaleDateString('vi-VN')}
+                            {new Date(p.created_at).toLocaleDateString('vi-VN')}
                           </td>
                           <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
                             <div className="flex justify-end items-center gap-1">

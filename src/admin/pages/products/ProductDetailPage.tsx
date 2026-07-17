@@ -130,7 +130,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
             <p className="text-sm text-slate-500 mt-0.5">
               ID: <span className="font-mono font-semibold">PRD-{product.id.substring(0, 8)}</span>
               <span className="mx-2 text-slate-300">·</span>
-              Cập nhật lần cuối: <span className="font-medium">{new Date(product.updatedAt).toLocaleString('vi-VN')}</span>
+              Cập nhật lần cuối: <span className="font-medium">{new Date(product.updated_at).toLocaleString('vi-VN')}</span>
             </p>
           </div>
         </div>
@@ -196,13 +196,13 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
             <div className="col-span-1 space-y-5">
               {/* Product Thumbnail */}
               <div className={`w-full aspect-square rounded-2xl bg-slate-100 flex items-center justify-center shadow-md overflow-hidden border border-slate-200`}>
-                {product.thumbnailUrl ? (
-                  <img src={product.thumbnailUrl} alt={product.name} className="w-full h-full object-cover" />
+                {product.thumbnail_url ? (
+                  <img src={product.thumbnail_url} alt={product.name} className="w-full h-full object-cover" />
                 ) : (
                   <Package size={72} className="text-slate-300" />
                 )}
               </div>
-
+              
               {/* Tags */}
               {product.tags && product.tags.length > 0 && (
                 <div>
@@ -231,9 +231,9 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
                     { label: 'Tên sản phẩm', value: product.name },
                     { label: 'Slug / Mã định danh', value: product.slug },
                     { label: 'Danh mục', value: product.category || 'N/A' },
-                    { label: 'Mã danh mục', value: product.categoryId || 'N/A' },
-                    { label: 'Ngày tạo', value: new Date(product.createdAt).toLocaleString('vi-VN') },
-                    { label: 'Cập nhật lần cuối', value: new Date(product.updatedAt).toLocaleString('vi-VN') },
+                    { label: 'Mã danh mục', value: product.category_id || 'N/A' },
+                    { label: 'Ngày tạo', value: new Date(product.created_at).toLocaleString('vi-VN') },
+                    { label: 'Cập nhật lần cuối', value: new Date(product.updated_at).toLocaleString('vi-VN') },
                   ].map(item => (
                     <div key={item.label} className="flex flex-col gap-0.5">
                       <dt className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{item.label}</dt>

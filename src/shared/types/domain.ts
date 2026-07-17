@@ -203,6 +203,7 @@ export interface AdminProduct {
   name: string;
   slug: string;
   category: string;
+  category_name: string;
   category_id: string;
   description: string;
   thumbnail_url: string;
@@ -211,7 +212,9 @@ export interface AdminProduct {
   batches_count: number;
   items_count: number;
   createdAt: string;
+  created_at: string;
   updatedAt: string;
+  updated_at: string;
 }
 
 export interface AdminBatch {
@@ -381,12 +384,16 @@ export interface AdminProductDetailProduct {
   name: string;
   slug: string;
   category: string;
-  categoryId: string;
+  categoryId?: string;
+  category_id: string;
   description: string;
-  thumbnailUrl: string;
+  thumbnailUrl?: string;
+  thumbnail_url?: string;
   status: AdminProductDetailProductStatus;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  created_at: string;
+  updatedAt?: string;
+  updated_at: string;
   tags: string[];
   totalVariants: number;
   totalBatches: number;
