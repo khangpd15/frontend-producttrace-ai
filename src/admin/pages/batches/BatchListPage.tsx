@@ -45,15 +45,15 @@ const STATUS_CONFIG: Record<string, { bg: string; dot: string; label: string }> 
   CLOSED: { bg: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500', label: 'Đã đóng' },
 };
 
-function renderStatusBadge(status: string) {
-  const c = STATUS_CONFIG[status.toUpperCase()] ?? STATUS_CONFIG['ACTIVE'];
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${c.bg}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-      {c.label}
-    </span>
-  );
-}
+// function renderStatusBadge(status: string) {
+//   const c = STATUS_CONFIG[status.toUpperCase()] ?? STATUS_CONFIG['ACTIVE'];
+//   return (
+//     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${c.bg}`}>
+//       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+//       {c.label}
+//     </span>
+//   );
+// }
 
 function formatDate(val: string | null | undefined): string {
   if (!val) return '—';
@@ -116,7 +116,7 @@ function DrawerDetailPanel({ batchCode }: { batchCode: string }) {
     { label: 'Sản phẩm', value: detail.product.product_name },
     { label: 'Biến thể', value: `${detail.variant.name} (${detail.variant.sku})` },
     { label: 'Số lượng', value: detail.quantity.toLocaleString() + ' sản phẩm' },
-    { label: 'Trạng thái', value: renderStatusBadge(detail.status) },
+    // { label: 'Trạng thái', value: renderStatusBadge(detail.status) },
     { label: 'Ngày sản xuất', value: formatDate(detail.manufacture_date) },
     { label: 'Hạn sử dụng', value: formatDate(detail.expiry_date) },
     { label: 'Ngày nhập kho', value: formatDateTime(detail.imported_at) },
@@ -253,7 +253,7 @@ function DrawerProductsPanel({ batchId, batchCode }: { batchId: string; batchCod
               </p>
             )}
           </div>
-          {renderStatusBadge(item.status)}
+          {/* {renderStatusBadge(item.status)} */}
         </div>
       ))}
 
@@ -502,7 +502,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
           </p>
         </div>
         <div className="flex gap-3">
-          <Button 
+          <Button
             variant="secondary"
             onClick={() => {
               if (selectedBatchIds.size === 0) {
@@ -515,21 +515,21 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                 return;
               }
               setActiveModal('EXPORT');
-            }} 
+            }}
             className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold shadow-xs cursor-pointer"
           >
             <ArrowUpRight size={16} /> Xuất Lô Hàng {selectedBatchIds.size > 0 ? `(${selectedBatchIds.size})` : ''}
           </Button>
-          <Button 
+          <Button
             variant="secondary"
-            onClick={() => setActiveModal('IMPORT')} 
+            onClick={() => setActiveModal('IMPORT')}
             className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold shadow-xs cursor-pointer"
           >
             <ArrowDownRight size={16} /> Nhập Lô Hàng
           </Button>
           {(role === 'ADMIN' || (role as string) === 'MANUFACTURER') && (
-            <Button 
-              onClick={() => setActiveModal('CREATE')} 
+            <Button
+              onClick={() => setActiveModal('CREATE')}
               className="rounded-xl px-4 py-2 text-sm flex items-center gap-1.5 font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
             >
               <Plus size={16} /> Tạo Lô Hàng
@@ -559,7 +559,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
       {!isLoading && !error && (
         <>
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
               { id: 'ALL' as const, label: 'Tổng số lô hàng', value: displayStats.total, color: 'text-slate-900' },
               { id: 'ACTIVE' as const, label: 'Đang lưu hành', value: displayStats.active, color: 'text-green-600' },
@@ -569,11 +569,10 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
               <div
                 key={card.id}
                 onClick={() => handleKpiClick(card.id)}
-                className={`p-5 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${
-                  activeKpiFilter === card.id
-                    ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10'
-                    : 'border-slate-200'
-                }`}
+                className={`p-5 bg-white border rounded-xl shadow-xs cursor-pointer hover:border-slate-300 transition-all ${activeKpiFilter === card.id
+                  ? 'border-blue-400 ring-2 ring-blue-50 bg-blue-50/10'
+                  : 'border-slate-200'
+                  }`}
               >
                 <div className="flex justify-between items-center text-xs text-slate-500 font-semibold uppercase">
                   <span>{card.label}</span>
@@ -584,15 +583,15 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                 </div>
               </div>
             ))}
-          </div>
+          </div> */}
 
           {/* Filter Bar */}
           <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex-1 relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Tìm mã lô hàng, sản phẩm, xuất xứ..." 
+              <input
+                type="text"
+                placeholder="Tìm mã lô hàng, sản phẩm, xuất xứ..."
                 className="w-full pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                 value={searchInput}
                 onChange={e => handleSearchChange(e.target.value)}
@@ -603,11 +602,11 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                 </button>
               )}
             </div>
-            
+
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500 font-semibold">Lọc trạng thái:</span>
-                <select 
+                <select
                   value={filterStatus}
                   onChange={e => {
                     setFilterStatus(e.target.value);
@@ -685,8 +684,8 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                     <thead className="text-[11px] text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                       <tr>
                         <th className="p-4 w-12 text-center">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             className="rounded border-slate-300 cursor-pointer w-4 h-4"
                             onChange={handleSelectAll}
                             checked={isAllSelected}
@@ -708,8 +707,8 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                       {items.map(batch => (
                         <tr key={batch.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedBatchIds.has(batch.id) ? 'bg-purple-50/20' : ''}`}>
                           <td className="p-4 text-center">
-                            <input 
-                              type="checkbox" 
+                            <input
+                              type="checkbox"
                               className="rounded border-slate-300 cursor-pointer w-4 h-4"
                               checked={selectedBatchIds.has(batch.id)}
                               onChange={() => handleSelectRow(batch.id)}
@@ -735,9 +734,9 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                           <td className="p-4 text-center text-slate-500 text-xs" onClick={() => openView(batch)}>
                             {formatDate(batch.expiry_date)}
                           </td>
-                          <td className="p-4 text-center" onClick={() => openView(batch)}>
+                          {/* <td className="p-4 text-center" onClick={() => openView(batch)}>
                             {renderStatusBadge(batch.status)}
-                          </td>
+                          </td> */}
                           <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
                             <div className="flex justify-end gap-1.5">
                               <button
@@ -782,7 +781,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                       Hiển thị trang <strong>{page}</strong> trên <strong>{meta.total_pages}</strong> ({meta.total_items} lô hàng)
                     </div>
                     <div className="flex gap-1 items-center">
-                      <button 
+                      <button
                         onClick={() => setPage(p => Math.max(1, p - 1))}
                         disabled={page <= 1}
                         className="px-3 py-1 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 cursor-pointer text-xs"
@@ -790,7 +789,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                         Trước
                       </button>
                       <span className="px-3 py-1 bg-blue-600 text-white rounded font-bold text-xs">{page}</span>
-                      <button 
+                      <button
                         onClick={() => setPage(p => Math.min(meta.total_pages, p + 1))}
                         disabled={page >= meta.total_pages}
                         className="px-3 py-1 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 cursor-pointer text-xs"
@@ -808,25 +807,25 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
 
       {/* Render Modals */}
       {activeModal === 'CREATE' && (
-        <CreateBatchModal 
-          onClose={() => setActiveModal('NONE')} 
-          onSuccess={() => { refetch(); }} 
+        <CreateBatchModal
+          onClose={() => setActiveModal('NONE')}
+          onSuccess={() => { refetch(); }}
         />
       )}
       {activeModal === 'EXPORT' && (
-        <ExportBatchModal 
-          selectedBatches={selectedBatchObjects} 
-          onClose={() => setActiveModal('NONE')} 
+        <ExportBatchModal
+          selectedBatches={selectedBatchObjects}
+          onClose={() => setActiveModal('NONE')}
           onSuccess={() => {
             setSelectedBatchIds(new Set());
             refetch();
-          }} 
+          }}
         />
       )}
       {activeModal === 'IMPORT' && (
-        <ImportBatchModal 
-          onClose={() => setActiveModal('NONE')} 
-          onSuccess={() => { refetch(); }} 
+        <ImportBatchModal
+          onClose={() => setActiveModal('NONE')}
+          onSuccess={() => { refetch(); }}
         />
       )}
 
@@ -927,7 +926,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                   Xuất QR Code (PDF)
                 </Button>
               )}
-              
+
               <Button variant="secondary" onClick={() => setIsDrawerOpen(false)} className="rounded-xl px-4 text-xs font-semibold cursor-pointer border-slate-300">
                 {drawerMode === 'VIEW' || drawerMode === 'HISTORY' || drawerMode === 'TRACE' ? 'Đóng' : 'Hủy'}
               </Button>
