@@ -18,7 +18,7 @@ interface Product {
   isHot?: boolean;
 }
 
-// Hàm tính khoảng cách địa lý 
+// Hàm tính khoảng cách địa lý (Haversine)
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -146,7 +146,6 @@ export function Home({ onScan, onBellClick }: { onScan?: () => void; onBellClick
     if (query) navigate(`/customer/product?code=${encodeURIComponent(query)}`);
     else navigate('/customer/products');
   };
-  
 
   const handleScanMock = () => {
     if (onScan) onScan();
