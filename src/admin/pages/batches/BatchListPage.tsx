@@ -57,16 +57,21 @@ const STATUS_CONFIG: Record<string, { bg: string; dot: string; label: string }> 
   BLOCKED: { bg: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-400', label: 'Bị khóa' },
   DRAFT: { bg: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-400', label: 'Nháp' },
 };
-
-function renderStatusBadge(status: string) {
-  const c = STATUS_CONFIG[status] ?? STATUS_CONFIG['ACTIVE'];
+function renderStatusBadge(status: string | undefined | null) {
+  if (!status) return null;
+  const c = STATUS_CONFIG[status.toUpperCase()] ?? {
+    bg: 'bg-slate-50 text-slate-700 border-slate-200',
+    dot: 'bg-slate-500',
+    label: status,
+  };
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${c.bg}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${c.bg}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
       {c.label}
     </span>
   );
 }
+
 
 function formatDate(val: string | null | undefined): string {
   if (!val) return '—';

@@ -12,7 +12,7 @@ import { useCategoryList } from '../../../features/categories/hooks/useCategory'
 import { parseApiError } from '../../../api/axios';
 
 export default function AttributesPage({ onNavigate }: { onNavigate?: (tabId: string) => void }) {
-  const { data: categoryListResp, isLoading: isCatLoading, isError: isCatError, refetch: refetchCats } = useCategoryList({ limit: 200 });
+  const { data: categoryListResp, isLoading: isCatLoading, isError: isCatError, refetch: refetchCats } = useCategoryList({ limit: 100 });
 
   const categories = useMemo(() => {
     if (!categoryListResp?.data) return [];
@@ -82,7 +82,7 @@ export default function AttributesPage({ onNavigate }: { onNavigate?: (tabId: st
 
   const renderSkeleton = () => (
     <div className="divide-y divide-slate-100">
-      {[1,2,3,4].map(n => (
+      {[1, 2, 3, 4].map(n => (
         <div key={n} className="grid grid-cols-[2fr_3fr_auto] gap-3 items-center px-4 py-3.5 animate-pulse">
           <div className="h-3.5 bg-slate-100 rounded w-2/3" />
           <div className="h-4 bg-slate-200 rounded w-3/4" />
@@ -212,8 +212,8 @@ export default function AttributesPage({ onNavigate }: { onNavigate?: (tabId: st
                       if (isRowEditing) {
                         return (
                           <div key={attr.id} className="grid grid-cols-[2fr_3fr_auto] gap-3 items-center px-4 py-3 bg-blue-50/40 border-l-2 border-blue-400">
-                            <input type="text" value={editCode} autoFocus onChange={e => setEditCode(e.target.value.toLowerCase().replace(/\s+/g,'_'))} onKeyDown={e => { if(e.key==='Enter') handleSaveEdit(); if(e.key==='Escape') handleCancelEdit(); }} className="px-2.5 py-1.5 bg-white border border-blue-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                            <input type="text" value={editLabel} onChange={e => setEditLabel(e.target.value)} onKeyDown={e => { if(e.key==='Enter') handleSaveEdit(); if(e.key==='Escape') handleCancelEdit(); }} className="px-2.5 py-1.5 bg-white border border-blue-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <input type="text" value={editCode} autoFocus onChange={e => setEditCode(e.target.value.toLowerCase().replace(/\s+/g, '_'))} onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }} className="px-2.5 py-1.5 bg-white border border-blue-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <input type="text" value={editLabel} onChange={e => setEditLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }} className="px-2.5 py-1.5 bg-white border border-blue-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             <div className="flex items-center gap-1 justify-end">
                               <button onClick={handleSaveEdit} disabled={updateAttrMutation.isPending} className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 border-none bg-transparent cursor-pointer disabled:opacity-50 transition-colors" title="Lưu (Enter)">{updateAttrMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}</button>
                               <button onClick={handleCancelEdit} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 border-none bg-transparent cursor-pointer transition-colors" title="Hủy (Esc)"><XCircle size={15} /></button>
@@ -238,8 +238,8 @@ export default function AttributesPage({ onNavigate }: { onNavigate?: (tabId: st
                 {!isAttrsLoading && (
                   <div className="border-t border-dashed border-slate-200 bg-slate-50/40">
                     <div className="grid grid-cols-[2fr_3fr_auto] gap-3 items-center px-4 py-3">
-                      <input type="text" value={newAttrCode} onChange={e => { setAddFormError(null); setNewAttrCode(e.target.value.toLowerCase().replace(/\s+/g,'_')); }} onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();handleAddAttribute();} }} disabled={!selectedCategoryId} placeholder="vd: brand" className="px-3 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-50" />
-                      <input type="text" value={newAttrLabel} onChange={e => { setAddFormError(null); setNewAttrLabel(e.target.value); }} onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();handleAddAttribute();} }} disabled={!selectedCategoryId} placeholder="vd: Thương hiệu" className="px-3 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-50" />
+                      <input type="text" value={newAttrCode} onChange={e => { setAddFormError(null); setNewAttrCode(e.target.value.toLowerCase().replace(/\s+/g, '_')); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddAttribute(); } }} disabled={!selectedCategoryId} placeholder="vd: brand" className="px-3 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-50" />
+                      <input type="text" value={newAttrLabel} onChange={e => { setAddFormError(null); setNewAttrLabel(e.target.value); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddAttribute(); } }} disabled={!selectedCategoryId} placeholder="vd: Thương hiệu" className="px-3 py-2 bg-white border border-slate-200 focus:border-blue-500 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-50" />
                       <button onClick={handleAddAttribute} disabled={!selectedCategoryId || createAttrMutation.isPending} className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shadow-sm whitespace-nowrap">
                         {createAttrMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
                         Thêm
