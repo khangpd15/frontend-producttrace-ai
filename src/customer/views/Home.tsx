@@ -18,7 +18,7 @@ interface Product {
   isHot?: boolean;
 }
 
-// Hàm tính khoảng cách địa lý (Haversine)
+// Hàm tính khoảng cách địa lý 
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -125,7 +125,7 @@ export function Home({ onScan, onBellClick }: { onScan?: () => void; onBellClick
         }
         
         const uniqueList = Array.from(new Map(filtered.map((item: any) => [item.id, item])).values());
-        setNearbyStores(uniqueList.slice(0, 3));
+        setNearbyStores(uniqueList.slice(0, 10));
       } catch (err) { console.error(err); }
     }
     fetchNearby();
@@ -146,6 +146,7 @@ export function Home({ onScan, onBellClick }: { onScan?: () => void; onBellClick
     if (query) navigate(`/customer/product?code=${encodeURIComponent(query)}`);
     else navigate('/customer/products');
   };
+  
 
   const handleScanMock = () => {
     if (onScan) onScan();
