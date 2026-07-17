@@ -44,6 +44,7 @@ const STATUS_CONFIG: Record<string, { bg: string; dot: string; label: string }> 
   SOLD_OUT: { bg: 'bg-neutral-50 text-neutral-700 border-neutral-200', dot: 'bg-neutral-500', label: 'Hết hàng' },
   CLOSED: { bg: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500', label: 'Đã đóng' },
 };
+
 function renderStatusBadge(status: string | undefined | null) {
   if (!status) return null;
   const c = STATUS_CONFIG[status.toUpperCase()] ?? {
@@ -58,7 +59,6 @@ function renderStatusBadge(status: string | undefined | null) {
     </span>
   );
 }
-
 
 function formatDate(val: string | null | undefined): string {
   if (!val) return '—';
@@ -121,7 +121,7 @@ function DrawerDetailPanel({ batchCode }: { batchCode: string }) {
     { label: 'Sản phẩm', value: detail.product.product_name },
     { label: 'Biến thể', value: `${detail.variant.name} (${detail.variant.sku})` },
     { label: 'Số lượng', value: detail.quantity.toLocaleString() + ' sản phẩm' },
-    // { label: 'Trạng thái', value: renderStatusBadge(detail.status) },
+    { label: 'Trạng thái', value: renderStatusBadge(detail.status) },
     { label: 'Ngày sản xuất', value: formatDate(detail.manufacture_date) },
     { label: 'Hạn sử dụng', value: formatDate(detail.expiry_date) },
     { label: 'Ngày nhập kho', value: formatDateTime(detail.imported_at) },
@@ -258,7 +258,7 @@ function DrawerProductsPanel({ batchId, batchCode }: { batchId: string; batchCod
               </p>
             )}
           </div>
-          {/* {renderStatusBadge(item.status)} */}
+          {renderStatusBadge(item.status)}
         </div>
       ))}
 
@@ -739,9 +739,9 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                           <td className="p-4 text-center text-slate-500 text-xs" onClick={() => openView(batch)}>
                             {formatDate(batch.expiry_date)}
                           </td>
-                          {/* <td className="p-4 text-center" onClick={() => openView(batch)}>
+                          <td className="p-4 text-center" onClick={() => openView(batch)}>
                             {renderStatusBadge(batch.status)}
-                          </td> */}
+                          </td>
                           <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
                             <div className="flex justify-end gap-1.5">
                               <button
