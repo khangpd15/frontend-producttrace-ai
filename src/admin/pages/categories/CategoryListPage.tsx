@@ -350,7 +350,7 @@ export default function CategoryListPage({ onNavigate }: { onNavigate: (tabId: s
         // Danh mục đã có ID -> tạo lần lượt các thuộc tính đã nháp cho danh mục này.
         // Tạo tuần tự (không Promise.all) để nếu 1 thuộc tính lỗi (vd trùng mã),
         // vẫn biết chính xác thuộc tính nào thất bại và không làm rối lỗi hiển thị.
-        const newCategoryId = created?.data?.data?.id;
+        const newCategoryId = created?.data?.data?.id || (created as any)?.data?.id || (created as any)?.id;
         if (newCategoryId && draftAttributes.length > 0) {
           const failedAttrs: string[] = [];
           for (const attr of draftAttributes) {
