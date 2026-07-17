@@ -53,10 +53,16 @@ export interface VerifyQREvent {
 }
 
 export interface VerifyQRResponse {
+  productItemId: string;
+  productId: string | null;
+  variantId: string | null;
+  batchId: string | null;
   itemCode: string;
   serialNumber: string;
   itemStatus: string;
   scannedAt: string;
+  ownershipStatus?: string;
+  warrantyStatus?: string;
   product: VerifyQRProductInfo;
   batch: VerifyQRBatchInfo;
   ownership: VerifyQROwnership | null;

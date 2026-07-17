@@ -202,7 +202,13 @@ export default function AppRouter() {
                 <CustomerProductDetail
                   onBack={() => window.history.back()}
                   onRequestWarranty={() => window.location.href = '/customer/warranty'}
-                  onRegisterOwnership={() => window.location.href = '/customer/ownership/register'}
+                  onRegisterOwnership={(code) => {
+                    if (code) {
+                      window.location.href = `/customer/ownership/register?code=${encodeURIComponent(code)}`;
+                    } else {
+                      window.location.href = '/customer/ownership/register';
+                    }
+                  }}
                 />
               } />
               <Route path="/customer/products" element={

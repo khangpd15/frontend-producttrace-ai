@@ -11,6 +11,7 @@
 import apiClient, { ApiResponse } from '../../../api/axios';
 import {
   BatchListResponse,
+  BatchListItem,
   BatchDetailResponse,
   BatchEventDTO,
   BatchHistoryResponse,
@@ -26,6 +27,7 @@ import {
   SearchBatchParams,
   GetBatchHistoryParams,
   GetBatchProductsParams,
+  ImportBatchesRequest,
 } from './batch.types';
 
 export const batchApi = {
@@ -125,4 +127,10 @@ export const batchApi = {
    */
   exportQR: (batchId: string) =>
     apiClient.get<Blob>(`/batches/export-qr/${batchId}`, { responseType: 'blob' }),
+
+  getIncomingBatches: () =>
+    apiClient.get<ApiResponse<BatchListItem[]>>('/batches/incoming'),
+
+  importBatches: (payload: ImportBatchesRequest) =>
+    apiClient.post<ApiResponse<null>>('/batches/import', payload),
 };
