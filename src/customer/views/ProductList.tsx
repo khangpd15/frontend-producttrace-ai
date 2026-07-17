@@ -59,11 +59,6 @@ export function ProductList({ onBack }: { onBack?: () => void }) {
     if (!searchVal.trim()) return;
     setErrorMsg(null);
 
-    const filters: Record<string, string> = {};
-    if (categoryFilter) filters.category = categoryFilter;
-    if (manufacturerFilter.trim()) filters.manufacturer = manufacturerFilter.trim();
-    if (provinceFilter.trim()) filters.province = provinceFilter.trim();
-
     searchMutation.mutate({
       query: searchVal.trim(),
       category: categoryFilter || undefined,

@@ -113,7 +113,7 @@ export default function EditProductPage({
   const [variantError, setVariantError] = useState<string | null>(null);
 
   // Attribute definitions của category sản phẩm này (bộ field cố định cho mọi biến thể)
-  const { data: categoryAttributes = [] } = useAttributesByCategory(product?.categoryId);
+  const { data: categoryAttributes = [] } = useAttributesByCategory(product?.category_id);
   // Attribute values đã gán sẵn cho variant đang mở trong drawer
   const { data: existingAttributeValues = [] } = useVariantAttributeValues(editingVariant?.id);
   const assignAttributesMutation = useAssignVariantAttributes();
@@ -174,14 +174,13 @@ export default function EditProductPage({
     }
   });
 
-  // Populate data when loaded
   useEffect(() => {
     if (product) {
       setValue('name', product.name || '');
       setValue('slug', product.slug || '');
-      setValue('category_id', product.categoryId || '');
+      setValue('category_id', product.category_id || '');
       setValue('description', product.description || '');
-      setValue('thumbnail_url', product.thumbnailUrl || '');
+      setValue('thumbnail_url', product.thumbnail_url || '');
       setValue('tags', (product.tags || []).join(', '));
       setValue('metadata', JSON.stringify((product as any).metadata || {}, null, 2));
       setValue('status', product.status as any || 'DRAFT');

@@ -56,13 +56,25 @@ export interface Ownership {
 }
 
 export interface Warranty {
-  warrantyId: string;
-  productId: string;
-  activationDate: string;
-  expiryDate: string;
-  warrantyStatus: string;
-  warrantyPeriodMonths: number;
-  qrCode?: string;
+  id: string;
+  product_item_id: string;
+  owner_id?: string;
+  itemCode: string;
+  itemName: string;
+  serialNumber: string;
+  ownerName: string;
+  ownerEmail: string;
+  warrantyCode: string;
+  policyName: string;
+  policyDescription: string;
+  durationMonths: number;
+  status: string;
+  startDate: string;
+  endDate: string;
+  invoiceNumber: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Document {
@@ -191,6 +203,7 @@ export interface AdminProduct {
   name: string;
   slug: string;
   category: string;
+  category_name: string;
   category_id: string;
   description: string;
   thumbnail_url: string;
@@ -199,7 +212,9 @@ export interface AdminProduct {
   batches_count: number;
   items_count: number;
   createdAt: string;
+  created_at: string;
   updatedAt: string;
+  updated_at: string;
 }
 
 export interface AdminBatch {
@@ -369,12 +384,16 @@ export interface AdminProductDetailProduct {
   name: string;
   slug: string;
   category: string;
-  categoryId: string;
+  categoryId?: string;
+  category_id: string;
   description: string;
-  thumbnailUrl: string;
+  thumbnailUrl?: string;
+  thumbnail_url?: string;
   status: AdminProductDetailProductStatus;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  created_at: string;
+  updatedAt?: string;
+  updated_at: string;
   tags: string[];
   totalVariants: number;
   totalBatches: number;
@@ -438,6 +457,8 @@ export interface AdminBatchListPageBatch {
 
 export interface AdminWarrantyListPageWarranty {
   id: string;
+  product_item_id: string;
+  owner_id?: string;
   itemCode: string;
   itemName: string;
   serialNumber: string;
@@ -447,7 +468,7 @@ export interface AdminWarrantyListPageWarranty {
   policyName: string;
   policyDescription: string;
   durationMonths: number;
-  status: 'INACTIVE' | 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'RESOLVED' | 'REJECTED' | 'CANCELLED';
+  status: 'INACTIVE' | 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CLAIMED' | 'RESOLVED' | 'REJECTED' | 'CANCELLED';
   startDate: string;
   endDate: string;
   invoiceNumber: string;

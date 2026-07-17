@@ -174,7 +174,7 @@ export default function ProductDetailPage({ productId, onNavigate }: { productId
                   <Package size={72} className="text-slate-300" />
                 )}
               </div>
-
+              
               {/* Tags */}
               {product.tags && product.tags.length > 0 && (
                 <div>

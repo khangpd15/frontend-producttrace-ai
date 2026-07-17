@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { 
-  Users, Shield, Settings, User, Search, 
-  Trash2, Download, UserPlus, X, Eye, AlertCircle, Inbox, ChevronLeft, ChevronRight
+  Search, Trash2, UserPlus, X, Eye, AlertCircle, Inbox, 
+  ChevronLeft, ChevronRight, Lock, LockOpen
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import { useUserList, useDeleteUser } from '../../../features/users/hooks/useUsers';
+import { useUserList, useDeleteUser, useLockAccount, useUnlockAccount } from '../../../features/users/hooks/useUsers';
 import { parseApiError } from '../../../api/axios';
 
 interface UserListProps {
@@ -18,6 +18,8 @@ const UserList: React.FC<UserListProps> = ({ onNavigate }) => {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [page, setPage] = useState(1);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [lockUserId, setLockUserId] = useState<string | null>(null);
+  const [unlockUserId, setUnlockUserId] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useUserList({
     page,
@@ -28,12 +30,31 @@ const UserList: React.FC<UserListProps> = ({ onNavigate }) => {
   });
 
   const deleteMutation = useDeleteUser();
+  const lockMutation = useLockAccount();
+  const unlockMutation = useUnlockAccount();
 
   const handleDelete = async (id: string) => {
     try {
       await deleteMutation.mutateAsync(id);
       setDeleteUserId(null);
-      alert('Đã xóa người dùng thành công!');
+    } catch (err: any) {
+      alert(parseApiError(err));
+    }
+  };
+
+  const handleLock = async (id: string) => {
+    try {
+      await lockMutation.mutateAsync(id);
+      setLockUserId(null);
+    } catch (err: any) {
+      alert(parseApiError(err));
+    }
+  };
+
+  const handleUnlock = async (id: string) => {
+    try {
+      await unlockMutation.mutateAsync(id);
+      setUnlockUserId(null);
     } catch (err: any) {
       alert(parseApiError(err));
     }
@@ -211,11 +232,11 @@ const UserList: React.FC<UserListProps> = ({ onNavigate }) => {
                     <thead className="text-[11px] text-slate-400 uppercase bg-slate-50/75 border-b border-slate-200">
                       <tr>
                         <th className="p-3.5 pl-5 font-bold tracking-wider w-[20%]">Họ tên</th>
-                        <th className="p-3.5 font-bold tracking-wider w-[24%]">Email</th>
-                        <th className="p-3.5 font-bold tracking-wider w-[14%]">SĐT</th>
-                        <th className="p-3.5 font-bold tracking-wider w-[12%]">Vai trò</th>
-                        <th className="p-3.5 font-bold tracking-wider w-[15%] text-center">Trạng thái</th>
-                        <th className="p-3.5 font-bold tracking-wider w-[15%] text-center">Ngày tạo</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[22%]">Email</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[13%]">SĐT</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[11%]">Vai trò</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[14%] text-center">Trạng thái</th>
+                        <th className="p-3.5 font-bold tracking-wider w-[10%] text-center">Ngày tạo</th>
                         <th className="p-3.5 pr-5 font-bold tracking-wider w-[10%] text-right">Thao tác</th>
                       </tr>
                     </thead>
@@ -243,6 +264,24 @@ const UserList: React.FC<UserListProps> = ({ onNavigate }) => {
                               >
                                 <Eye size={15} />
                               </button>
+                              {/* Lock / Unlock */}
+                              {u.status === 'ACTIVE' || u.status === 'PENDING' ? (
+                                <button 
+                                  onClick={() => setLockUserId(u.id)}
+                                  className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg cursor-pointer border-none bg-transparent"
+                                  title="Khóa tài khoản"
+                                >
+                                  <Lock size={15} />
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={() => setUnlockUserId(u.id)}
+                                  className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg cursor-pointer border-none bg-transparent"
+                                  title="Mở khóa tài khoản"
+                                >
+                                  <LockOpen size={15} />
+                                </button>
+                              )}
                               <button 
                                 onClick={() => setDeleteUserId(u.id)}
                                 className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer border-none bg-transparent"
@@ -258,7 +297,7 @@ const UserList: React.FC<UserListProps> = ({ onNavigate }) => {
                   </table>
                 </div>
 
-                {/* Pagination Controls */}
+                {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-slate-150">
                     <div className="text-xs text-slate-500">
@@ -286,6 +325,56 @@ const UserList: React.FC<UserListProps> = ({ onNavigate }) => {
             )}
           </div>
         </>
+      )}
+
+      {/* Lock Confirmation Modal */}
+      {lockUserId && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xl max-w-sm w-full space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                <Lock size={18} className="text-amber-600" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base">Xác nhận khóa tài khoản</h3>
+            </div>
+            <p className="text-xs text-slate-500">Tài khoản sẽ bị tạm ngưng (SUSPENDED). Người dùng sẽ không thể đăng nhập cho đến khi được mở khóa.</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setLockUserId(null)} className="rounded-lg px-4 text-xs font-semibold cursor-pointer">Hủy</Button>
+              <Button 
+                onClick={() => handleLock(lockUserId)} 
+                disabled={lockMutation.isPending}
+                className="rounded-lg px-4 text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-55"
+              >
+                {lockMutation.isPending ? 'Đang khóa...' : 'Xác nhận khóa'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unlock Confirmation Modal */}
+      {unlockUserId && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xl max-w-sm w-full space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
+                <LockOpen size={18} className="text-green-600" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base">Xác nhận mở khóa tài khoản</h3>
+            </div>
+            <p className="text-xs text-slate-500">Tài khoản sẽ được kích hoạt trở lại (ACTIVE). Người dùng có thể đăng nhập ngay sau khi mở khóa.</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setUnlockUserId(null)} className="rounded-lg px-4 text-xs font-semibold cursor-pointer">Hủy</Button>
+              <Button 
+                onClick={() => handleUnlock(unlockUserId)} 
+                disabled={unlockMutation.isPending}
+                className="rounded-lg px-4 text-xs font-semibold bg-green-600 text-white hover:bg-green-700 cursor-pointer disabled:opacity-55"
+              >
+                {unlockMutation.isPending ? 'Đang mở khóa...' : 'Xác nhận mở khóa'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Modal */}
