@@ -19,8 +19,12 @@ export default function App() {
   const [active, setActive] = useState<NavItem>('home');
   const [currentView, setCurrentView] = useState<'home' | 'productDetail' | 'warrantyRequest' | 'warranty' | 'ownership' | 'profile' | 'notifications' | 'registerOwnership'>('home');
   const [history, setHistory] = useState<string[]>(['home']);
+  const [registerPayload, setRegisterPayload] = useState<string>('');
 
-  const navigateTo = (view: 'home' | 'productDetail' | 'warrantyRequest' | 'warranty' | 'ownership' | 'profile' | 'notifications' | 'registerOwnership') => {
+  const navigateTo = (view: 'home' | 'productDetail' | 'warrantyRequest' | 'warranty' | 'ownership' | 'profile' | 'notifications' | 'registerOwnership', payload?: string) => {
+    if (payload) {
+      setRegisterPayload(payload);
+    }
     setHistory([...history, view]);
     setCurrentView(view);
     if (['home', 'warranty', 'ownership', 'profile'].includes(view)) {
@@ -41,11 +45,11 @@ export default function App() {
       {currentView === 'home' && <Home onScan={() => navigateTo('productDetail')} onBellClick={() => navigateTo('notifications')} onNavigate={(tab, id) => {
           if (tab === 'product-detail') navigateTo('productDetail');
       }} />}
-      {currentView === 'productDetail' && <ProductDetail onBack={navigateBack} onRequestWarranty={() => navigateTo('warrantyRequest')} onRegisterOwnership={() => navigateTo('registerOwnership')} />}
+      {currentView === 'productDetail' && <ProductDetail onBack={navigateBack} onRequestWarranty={() => navigateTo('warrantyRequest')} onRegisterOwnership={(code) => navigateTo('registerOwnership', code)} />}
       {currentView === 'warrantyRequest' && <WarrantyRequestForm onBack={navigateBack} productId="1" />}
       {currentView === 'warranty' && <Warranty onBack={navigateBack} />}
       {currentView === 'ownership' && <Ownership onBack={navigateBack} onRegister={() => navigateTo('registerOwnership')} />}
-      {currentView === 'registerOwnership' && <RegisterOwnership onBack={navigateBack} onSuccess={() => navigateTo('ownership')} />}
+      {currentView === 'registerOwnership' && <RegisterOwnership onBack={navigateBack} onSuccess={() => navigateTo('ownership')} initialCode={registerPayload} />}
       {currentView === 'notifications' && <Notifications onBack={navigateBack} />}
       {currentView === 'profile' && <Profile onBack={navigateBack} />}
       

@@ -6,7 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { ShieldCheck, AlertTriangle, Upload, Check } from 'lucide-react';
 import { useOwnershipList } from '../../features/ownership/hooks/useOwnership';
-import { useRequestWarranty } from '../../features/warranty/hooks/useWarranty';
+import { useCreateWarrantyClaim } from '../../features/warranty/hooks/useWarrantyClaim';
 import { useAuthStore } from '../../features/auth/store/auth.store';
 import { parseApiError } from '../../api/axios';
 
@@ -29,7 +29,7 @@ export function Warranty({ onBack }: { onBack: () => void }) {
 
   // Query and Mutation hooks
   const { data: ownershipsRes, isLoading: isListLoading } = useOwnershipList();
-  const requestWarrantyMutation = useRequestWarranty();
+  const createClaimMutation = useCreateWarrantyClaim();
 
   const activeOwnerships = ownershipsRes?.data || [];
 
@@ -102,13 +102,12 @@ export function Warranty({ onBack }: { onBack: () => void }) {
     setErrorMsg(null);
 
     try {
-      const note = `Tiêu đề sự cố: ${issueTitle.trim()}\nMô tả: ${issueDescription.trim()}\nSĐT liên hệ: ${contactPhone.trim()}`;
-      await requestWarrantyMutation.mutateAsync({
+      await createClaimMutation.mutateAsync({
         serialNumber: selectedProduct.serial_number || '',
-        itemCode: selectedProduct.product_sku || '',
-        ownerName: selectedProduct.owner_name || user?.full_name || '',
-        ownerEmail: selectedProduct.owner_email || user?.email || '',
-        note: note,
+        issueTitle: issueTitle.trim(),
+        issueDescription: issueDescription.trim(),
+        contactPhone: contactPhone.trim(),
+        contactEmail: contactEmail.trim(),
       });
       setSubmitted(true);
     } catch (err: any) {
@@ -267,8 +266,8 @@ export function Warranty({ onBack }: { onBack: () => void }) {
               </div>
             </div>
 
-            <Button onClick={handleSubmitClaim} disabled={requestWarrantyMutation.isPending} className="w-full">
-              {requestWarrantyMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
+            <Button onClick={handleSubmitClaim} disabled={createClaimMutation.isPending} className="w-full">
+              {createClaimMutation.isPending ? 'Đang gửi...' : 'Gửi yêu cầu'}
             </Button>
           </div>
         </div>
