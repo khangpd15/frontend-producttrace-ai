@@ -26,7 +26,7 @@ import ExportBatchModal from './ExportBatchModal';
 import ImportBatchModal from './ImportBatchModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type DrawerMode = 'VIEW' | 'EDIT_STATUS' | 'TRACE' | 'PRODUCTS' | 'HISTORY';
+type DrawerMode = 'VIEW' | 'EDIT_STATUS' | 'TRACE' | 'HISTORY';
 type ModalMode = 'NONE' | 'CREATE' | 'EXPORT' | 'IMPORT';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -483,7 +483,6 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
     VIEW: 'Chi tiết lô hàng',
     EDIT_STATUS: 'Cập nhật trạng thái',
     TRACE: 'Truy xuất nguồn gốc',
-    PRODUCTS: 'Danh sách sản phẩm',
     HISTORY: 'Lịch sử thay đổi',
   };
 
@@ -758,18 +757,7 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                               >
                                 <Edit3 size={15} />
                               </button>
-                              <button
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  setSelectedBatch(batch);
-                                  setDrawerMode('PRODUCTS');
-                                  setIsDrawerOpen(true);
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors border-none bg-transparent"
-                                title="Danh sách sản phẩm"
-                              >
-                                <Eye size={15} />
-                              </button>
+
                               {(role === 'ADMIN' || (role as string) === 'MANUFACTURER') && (
                                 <button
                                   onClick={e => handleDelete(batch, e)}
@@ -908,10 +896,6 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                 <DrawerHistoryPanel batchId={selectedBatch.id} />
               )}
 
-              {/* ── PRODUCTS: Danh sách sản phẩm ────────────────────────── */}
-              {drawerMode === 'PRODUCTS' && selectedBatch && (
-                <DrawerProductsPanel batchId={selectedBatch.id} batchCode={selectedBatch.batch_code} />
-              )}
 
               {/* ── TRACE: Truy xuất nguồn gốc ───────────────────────────── */}
               {drawerMode === 'TRACE' && selectedBatch && (
@@ -944,23 +928,8 @@ export default function BatchListPage({ onNavigate }: { onNavigate?: (tabId: str
                 </Button>
               )}
               
-              {drawerMode === 'PRODUCTS' && selectedBatch && (
-                <Button
-                  onClick={() => {
-                    setIsDrawerOpen(false);
-                    setSelectedBatch(selectedBatch);
-                    setDrawerMode('HISTORY');
-                    setIsDrawerOpen(true);
-                  }}
-                  variant="secondary"
-                  className="rounded-xl px-4 text-xs font-semibold border-slate-300 cursor-pointer"
-                >
-                  Xem lịch sử đổi
-                </Button>
-              )}
-
               <Button variant="secondary" onClick={() => setIsDrawerOpen(false)} className="rounded-xl px-4 text-xs font-semibold cursor-pointer border-slate-300">
-                {drawerMode === 'VIEW' || drawerMode === 'HISTORY' || drawerMode === 'PRODUCTS' || drawerMode === 'TRACE' ? 'Đóng' : 'Hủy'}
+                {drawerMode === 'VIEW' || drawerMode === 'HISTORY' || drawerMode === 'TRACE' ? 'Đóng' : 'Hủy'}
               </Button>
 
               {drawerMode === 'EDIT_STATUS' && (

@@ -286,14 +286,14 @@ export default function VerifyPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
-                onClick={() => navigate(`/customer/ownership/register?itemCode=${data.itemCode}`)}
+                onClick={() => navigate(`/customer/ownership/register?itemCode=${data.itemCode}`, { state: { productItem: data } })}
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold rounded-xl transition-all text-sm shadow-sm shadow-blue-200"
               >
                 <ClipboardList size={15} />
                 Đăng ký sở hữu
               </button>
               <button
-                onClick={() => navigate(`/customer/warranty?itemCode=${data.itemCode}`)}
+                onClick={() => navigate(`/customer/warranty?itemCode=${data.itemCode}`, { state: { productItem: data } })}
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-semibold rounded-xl transition-all text-sm shadow-sm shadow-emerald-200"
               >
                 <ShieldPlus size={15} />
